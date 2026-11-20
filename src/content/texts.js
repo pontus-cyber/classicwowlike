@@ -8,25 +8,28 @@
 // Newcomer check 2026-11-15 (draft): the progress group, the talent window's rule lines.
 export const TEXTS = {
   // Display names of the enemy family ids (zones.js regions, enemies.js family), used in contract texts.
+  // content-2026-11-20 (blind Legacy v2 s0293, s0415; draft): `done` is the line a completed Cull or Bounty contract on
+  // that family shows in its reward window, so no two contracts end on the same words. Not wired yet: the UI reads
+  // families[contract.family].done (docs/handoffs/content-2026-11-20.md section 3).
   families: {
-    outlaw: { singular: 'outlaw', plural: 'outlaws' },
-    wild: { singular: 'wild beast', plural: 'wild beasts' },
-    blight: { singular: 'blightborn', plural: 'blightborn' },
-    fenbeast: { singular: 'fen beast', plural: 'fen beasts' },
-    reedfolk: { singular: 'reedfolk', plural: 'reedfolk' },
-    witchkin: { singular: 'witchkin', plural: 'witchkin' },
-    crag: { singular: 'crag beast', plural: 'crag beasts' },
-    reiver: { singular: 'reiver', plural: 'reivers' },
-    stormward: { singular: 'stormward', plural: 'stormwards' },
-    tomb: { singular: 'tomb guardian', plural: 'tomb guardians' },
-    dune: { singular: 'dune stalker', plural: 'dune stalkers' },
-    sunbound: { singular: 'sunbound', plural: 'sunbound' },
-    rootkin: { singular: 'rootkin', plural: 'rootkin' },
-    grave: { singular: 'grave walker', plural: 'grave walkers' },
-    veil: { singular: 'veilwraith', plural: 'veilwraiths' },
-    cinder: { singular: 'cinder beast', plural: 'cinder beasts' },
-    forgeborn: { singular: 'forgeborn', plural: 'forgeborn' },
-    pyrecult: { singular: 'pyre cultist', plural: 'pyre cultists' },
+    outlaw: { singular: 'outlaw', plural: 'outlaws', done: 'Fewer outlaws on the roads. The carters will sleep easier.' },
+    wild: { singular: 'wild beast', plural: 'wild beasts', done: 'The wild beasts keep their distance now. The herders thank you.' },
+    blight: { singular: 'blightborn', plural: 'blightborn', done: 'The blightborn are burnt back. The fields can breathe.' },
+    fenbeast: { singular: 'fen beast', plural: 'fen beasts', done: 'The fen beasts have gone quiet in the reeds. Good riddance.' },
+    reedfolk: { singular: 'reedfolk', plural: 'reedfolk', done: 'The reedfolk have pulled back into the marsh. The boats can go out again.' },
+    witchkin: { singular: 'witchkin', plural: 'witchkin', done: 'The witchkin\'s hexes are broken, and the wells taste clean.' },
+    crag: { singular: 'crag beast', plural: 'crag beasts', done: 'The crag beasts no longer prowl the passes. The shepherds owe you.' },
+    reiver: { singular: 'reiver', plural: 'reivers', done: 'The reivers have learned what raiding here costs.' },
+    stormward: { singular: 'stormward', plural: 'stormwards', done: 'The stormwards are still, and the ridge has its sky back.' },
+    tomb: { singular: 'tomb guardian', plural: 'tomb guardians', done: 'The tomb guardians lie down in the sand again.' },
+    dune: { singular: 'dune stalker', plural: 'dune stalkers', done: 'No more stalkers in the dunes. The caravans move at dawn.' },
+    sunbound: { singular: 'sunbound', plural: 'sunbound', done: 'The sunbound chant no more. The obelisks are silent.' },
+    rootkin: { singular: 'rootkin', plural: 'rootkin', done: 'The rootkin are cut down to the stump. The paths stay open.' },
+    grave: { singular: 'grave walker', plural: 'grave walkers', done: 'The grave walkers are back in the ground, where they belong.' },
+    veil: { singular: 'veilwraith', plural: 'veilwraiths', done: 'The veilwraiths have thinned, and the mist with them.' },
+    cinder: { singular: 'cinder beast', plural: 'cinder beasts', done: 'The cinder beasts are ash. The outposts can rest.' },
+    forgeborn: { singular: 'forgeborn', plural: 'forgeborn', done: 'The forgeborn lie as slag on the forge floor. The smiths will be glad.' },
+    pyrecult: { singular: 'pyre cultist', plural: 'pyre cultists', done: 'The pyre cultists\' fires are out. The villages are safe tonight.' },
   },
   // Start camp options (C.PREP_OPTION). name repeats the constant's name as a check; flavour is one line of colour,
   // rule is one plain line without numbers (the numbers are constants and may change).
