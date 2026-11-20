@@ -35,6 +35,8 @@ Resurrect awareness (M2 v3): when a bot ranks a Shrine boon or decides whether i
 ### 1.2 Bar template
 Fill slots in this order with known spells: interrupt, main nuke/builder, finisher or second nuke, defensive, cleanse, AoE, then highest-damage remaining. At Camp the planner, speedrunner and tactician put interrupt and cleanse first.
 
+**Multi-target spells (D166, draft; Legacy runs only, `legacyRules`).** A spell's template damage is one target's: Ricochet Bolt's bounces are not counted, as Volley Rain, Cinder Storm and Deadfall Trap count one target. Autoplay casts Ricochet Bolt only with 2 or more enemies; counted with its bounces on every cast, it took the Hunter's Camp AoE step from Deadfall Trap and a zone slot from Savage Order, and the Hunter with Lost Technique I won 11 % at hero 20 against 35.5 % without it [source: docs/reports/legacy-hunter-techniques-2026-11-20.md]. Level-60 runs keep the bounces in the value.
+
 ### 1.3 Standard builds
 For each class and tree: spend points to reach the capstone of the tree first (tier order, highest-rank talents first within a tier), then the remaining points by tier order in the class's other two trees alternately. This gives 9 builds (3 classes × 3 trees).
 

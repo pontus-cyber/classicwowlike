@@ -73,7 +73,11 @@ function rawDamage(s, id) {
       const weapon = ((sp.w || 0) + (sp.wFlat || 0)) * s.player.d.wd;
       one = (a.amount - weapon) * FINISHER_CP + weapon;
     }
-    return one * (a.hits || 1) * (sp.bounces ? 1 + sp.bounces * sp.bounceFrac : 1);
+    // D166 (Legacy runs only, legacyRules): one target for every multi-target spell, as Volley Rain, Cinder Storm and
+    // Deadfall Trap already count. Counting Ricochet Bolt's bounces on every cast (autoplay casts it only with 2+
+    // enemies) put it in the Camp bar's AoE step over Deadfall Trap and in the zone bar over Savage Order: the Hunter with
+    // Lost Technique I won 11 % at hero 20 against 35.5 % without it (report legacy-hunter-techniques-2026-11-20).
+    return one * (a.hits || 1) * (sp.bounces && !legacyRules(s) ? 1 + sp.bounces * sp.bounceFrac : 1);
   }
   if (a.kind === 'dot') return a.perTick * a.rounds * (sp.dot.perCp ? FINISHER_CP : 1);
   return 0;
