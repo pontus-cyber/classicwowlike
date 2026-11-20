@@ -4,8 +4,8 @@
  * Playwright session per class, played as a new player would: a fresh browser profile (no storage), the guide on, the
  * hints on, real engine at Instant speed.
  *
- *   node tools/build.mjs --out /tmp/qa-game.html
- *   node qa/browser/playtest-onboarding.mjs [--file /tmp/qa-game.html] [--classes rogue,mage,hunter] [--size 1366x768]
+ *   node qa/browser/playtest-onboarding.mjs [--file <build>]   (no --file: builds this worktree's own build, build-path.mjs)
+ *   [--classes rogue,mage,hunter] [--size 1366x768]
  *        [--seed 7] [--shots /tmp/qa/onb] [--json /tmp/qa/onb.json] [--max-steps 3000]
  *
  * The player follows the coach line: in a fight, a line with a key chip (1, Q, W, E, X, 8) is answered by pressing that key
@@ -24,10 +24,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { resolveBuild, BUILD_DIR } from './build-path.mjs'; // each worktree builds to its own path (qa.md)
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const FILE = path.resolve(arg('--file', '/tmp/qa-game.html'));
+const FILE = resolveBuild(arg('--file', null));
 if (!fs.existsSync(FILE)) { console.error(`no build at ${FILE}: node tools/build.mjs --out ${FILE}`); process.exit(2); }
 const CLASSES = arg('--classes', 'rogue,mage,hunter').split(',');
 const [W, H] = arg('--size', '1366x768').split('x').map(Number);

@@ -13,3 +13,4 @@ Nothing is done until you have checked it. You also play the game like a player 
 - Bugs in qa/bugs.md: ID, build, steps, expected, actual, severity.
 
 - Browser checks that reload the page use `reloadKeep(page)` from qa/browser/ui-regress.mjs, not `page.reload()`: headless Chromium sometimes starts a reloaded page with empty storage (qa-2026-11-19).
+- Each worktree builds to its own path. `ui-regress.mjs`, `canvas-shot.mjs`, `style-snapshot.mjs` and `playtest-onboarding.mjs` default to `/tmp/tbwcr-<worktree folder name>/game.html` (qa/browser/build-path.mjs) and rebuild it from that worktree's src/ before they run, so no `node tools/build.mjs --out ...` step and no shared `/tmp/ui-game.html` or `/tmp/qa-game.html`. `TBWCR_BUILD_DIR` moves the folder; `--file` tests another build. `ui-checks.mjs`, `full-run.mjs` and `pace.mjs` default to the worktree's own game.html (the Lead's build). Their default shots and snapshots also go to that folder.

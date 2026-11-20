@@ -3,8 +3,8 @@
  * qa/browser/style-snapshot.mjs - computed styles of fixed UI states, to prove that a CSS refactor changed nothing on
  * screen. Track R step R1 (docs/reviews/ui-architecture-2026-11-12.md, section 3; D119).
  *
- *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/style-snapshot.mjs [--file /tmp/ui-game.html] [--out /tmp/style-snapshot.json] [--size 1366x768] [--states a,b]
+ *   node qa/browser/style-snapshot.mjs [--file <build>] [--out <worktree build folder>/style-snapshot.json]   (no --file: builds this worktree's own build, build-path.mjs)
+ *   node qa/browser/style-snapshot.mjs [--size 1366x768] [--states a,b]
  *   node qa/browser/style-snapshot.mjs --compare before.json after.json
  *
  * Snapshot: each state in a fresh browser context at Instant speed, reached through the game's own controls and the
@@ -30,6 +30,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { resolveBuild, BUILD_DIR } from './build-path.mjs'; // each worktree builds to its own path (qa.md)
 import * as R from '../../src/rules.js';
 
 const args = process.argv.slice(2);
@@ -91,8 +92,8 @@ if (args.includes('--compare')) {
   process.exitCode = out.length ? 1 : 0; // no process.exit(): a long diff into a pipe is written whole
 } else {
 // ------------------------------------------------------------------ snapshot
-const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
-const OUT = path.resolve(arg('--out', '/tmp/style-snapshot.json'));
+const FILE = resolveBuild(arg('--file', null));
+const OUT = path.resolve(arg('--out', path.join(BUILD_DIR, 'style-snapshot.json')));
 const [W, H] = arg('--size', '1366x768').split('x').map(Number);
 const URL = pathToFileURL(FILE).href;
 if (!fs.existsSync(FILE)) { console.error(`no build at ${FILE}: run node tools/build.mjs --out ${FILE}`); process.exit(2); }

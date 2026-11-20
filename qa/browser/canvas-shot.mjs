@@ -4,9 +4,8 @@
  * control, to prove that a palette refactor changed no canvas pixel. Track R step R3 (docs/reviews/ui-architecture-
  * 2026-11-12.md, section 3; D119). The style snapshot (style-snapshot.mjs) reads the DOM; this reads the canvas.
  *
- *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/canvas-shot.mjs [--file /tmp/ui-game.html] [--out /tmp/canvas-shot] [--size 1366x768] [--states a,b]
- *                                   [--theme lantern]
+ *   node qa/browser/canvas-shot.mjs [--file <build>] [--out <worktree build folder>/canvas-shot]   (no --file: builds this worktree's own build, build-path.mjs)
+ *                                   [--size 1366x768] [--states a,b] [--theme lantern]
  *   node qa/browser/canvas-shot.mjs --compare dirA dirB
  *
  * Shot: each state in a fresh context. Math.random is a fixed-seed generator and the page clock is Playwright's fake
@@ -25,6 +24,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { resolveBuild, BUILD_DIR } from './build-path.mjs'; // each worktree builds to its own path (qa.md)
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -68,8 +68,8 @@ if (args.includes('--compare')) {
 }
 
 // ------------------------------------------------------------------ shots
-const FILE = path.resolve(arg('--file', 'game.html'));
-const OUT = path.resolve(arg('--out', '/tmp/canvas-shot'));
+const FILE = resolveBuild(arg('--file', null));
+const OUT = path.resolve(arg('--out', path.join(BUILD_DIR, 'canvas-shot')));
 const [W, H] = arg('--size', '1366x768').split('x').map(Number);
 const THEME = arg('--theme', null);
 

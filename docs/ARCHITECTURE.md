@@ -270,7 +270,7 @@ Node 22 is used (directory arguments to `node --test` resolve to each folder's `
 | Balance pass | `node sim/pass.mjs --out sim/out/pass-YYYY-MM-DD [--runs 2000] [--stages A,T,G,B,C,D,H,E,F] [--tact-runs N] [--opener-runs N] [--resume]` |
 | Balance report | `node sim/report.mjs --in sim/out/pass-YYYY-MM-DD --out docs/reports/balance-YYYY-MM-DD.md [--heat-off <B57 arm>] [--before-combat <dir> --before-heat <dir>] [--before <earlier report>]` |
 | Build | `node tools/build.mjs` (to `dist/game.html`), `node tools/build.mjs --out game.html` (Lead's release), `--watch`, `--serve [port]` for unbundled development |
-| Browser checks | build first: `node tools/build.mjs --out /tmp/qa-game.html`; then `NODE_PATH=/opt/npm-tools/node_modules node qa/browser/full-run.mjs --file /tmp/qa-game.html`, and likewise `ui-checks.mjs`, `ui-regress.mjs`, `pace.mjs` |
+| Browser checks | `NODE_PATH=/opt/npm-tools/node_modules node qa/browser/ui-regress.mjs` builds this worktree's own `/tmp/tbwcr-<worktree>/game.html` first (qa/browser/build-path.mjs; also `canvas-shot.mjs`, `style-snapshot.mjs`, `playtest-onboarding.mjs`); `full-run.mjs`, `ui-checks.mjs` and `pace.mjs` test the worktree's game.html, or the build named by `--file` |
 | QA player, headless | `node qa/browser/playtest.mjs [--classes rogue,mage,hunter] [--seeds 1-20] [--trace]` |
 | UI screenshots | `NODE_PATH=/opt/npm-tools/node_modules node tools/ui-check.mjs` (see the header of the file for the Chrome and puppeteer setup) |
 | Art contact sheet | `node tools/art-sheet.mjs [--out /tmp/art-sheet.png] [--theme lantern]` (Playwright from `/opt/npm-tools`; prints the PNG's SHA-256) |

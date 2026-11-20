@@ -5,8 +5,8 @@
  * map rows from the engine, travel on early, Linked per Shard, the round time budget) and for the M2 v3 UI changes
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
- *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA]
+ *   node qa/browser/ui-regress.mjs [--file <build>]   (no --file: builds /tmp/tbwcr-<worktree>/game.html from src/ first, build-path.mjs)
+ *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -217,6 +217,7 @@ import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR, RETRIGGER_S as Q_RETRIGGER_S } from '../../src/ui/audio.js';
+import { resolveBuild } from './build-path.mjs'; // each worktree builds to its own path (qa.md)
 import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
 import { trainerWaiting, trainerWaitingShort, BAGS_FULL } from '../../src/ui/ui-text.js'; // blind round 2 (part U); BAGS_FULL: blind Legacy v2
 import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
@@ -228,7 +229,7 @@ const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a h
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
+const FILE = resolveBuild(arg('--file', null));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
 const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA').split(',');
