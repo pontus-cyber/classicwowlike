@@ -53,7 +53,11 @@ test('the hall: cards read C.META_HERO (ranks, costs, effect); the level-20 wing
     const b = createBridge({ seed: 3, legacy: true });
     const D = b.data.meta;
     for (const id of Object.keys(C.META_HERO)) assert.deepEqual([D.entries[id].ranks, D.entries[id].costs], [C.META_HERO[id].ranks, C.META_HERO[id].costs], id);
-    assert.equal(metaEffect(D.entries.vigor, D, b.data).short, '+1 % max health per rank');
+    // hall v3d (D167): rank values from C.META_HERO's lists
+    assert.equal(metaEffect(D.entries.vigor, D, b.data).short, '+3 % max health, then +1 %');
+    assert.equal(metaEffect(D.entries.vigor, D, b.data).long, 'Every hero starts with 3 % more maximum health with rank I and 1 % more with rank II (4 % in all).');
+    assert.equal(metaEffect(D.entries.edge, D, b.data).short, '+2 % Power, then +1 %');
+    assert.equal(metaEffect(D.entries.pockets, D, b.data).short, `+${C.HALL_POCKETS_SLOTS} bag slots per rank`);
     assert.equal(metaEffect(D.entries.quick_study, D, b.data).short, '+5 % experience per rank');
     assert.match(metaEffect(D.entries.quartermaster, D, b.data, 'expedition').short, /camp points per rank$/);
     assert.deepEqual(D.wing, { level: C.TREE_OPEN_LEVEL, trees: C.TREE_OPEN_COST, armoury: C.ARMOURY_COST });

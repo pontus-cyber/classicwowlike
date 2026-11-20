@@ -1264,12 +1264,16 @@ Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` 
 - Hero XP (E4): `heroXpToNext(H)` reads `C.HERO_XP_ECON2` while the switch is on (1800 / 1850 / 1900 for levels 1-3); `heroView`,
   `heroesView` follow.
 - The hall (E5): `metaOffers(profile)` on a version 3 profile lists exactly `C.META_HERO` (the 13 entries of 4.2, the
-  techniques per class as six ids: 18 offers) at the E5 prices, with the effects of 4.2 (Vigor / Edge +1 % and Quick Study +5 %
-  a rank, two ranks; Deeper Pockets one rank); `buyMeta` sells only those. A Legacy run reads its effects from `META_HERO`; a
+  techniques per class as six ids: 18 offers) at the E5 prices, with the effects of 4.2 (Quick Study +5 % a rank, two ranks);
+  hall v3d (D167, draft): Vigor `hpPct` and Edge `powerPct` are lists, the value of each rank (`C.HALL_VIGOR_PCT` [0.03, 0.01],
+  `C.HALL_EDGE_PCT` [0.02, 0.01]; `metaFromProfile` sums the ranks owned, so `state.meta.hpPct` stays a number), Deeper Pockets
+  one rank of `C.HALL_POCKETS_SLOTS` (8) for 50, Stormhawk 90; `buyMeta` sells only those. A META field is still a number
+  per rank. A profile that bought under the v2 prices keeps its ranks; no refund (legacy.md 4.7 E5 refund rule). A Legacy run reads its effects from `META_HERO`; a
   rank the profile holds of a retired entry (Keen Lineage, ...) has no effect, and a rank above META_HERO's counts as its top
   rank. The level-20 wing (`C.TREE_OPEN_COST` 250 / 300, `C.ARMOURY_COST` 150, from `C.TREE_OPEN_LEVEL`) is not
   sold until phases 4-5 build what it opens. A UI card's text reads `C.META_HERO[id]` (ranks, costs, hpPct, ...) for a
-  version 3 profile.
+  version 3 profile (a list field: ui-text.js `metaEffect` writes each rank's value). `R.bagCapacity` in CREATE reads the same
+  hall as the run will (META_HERO under the switch in a Legacy run).
 - The refund (D160): the first time `migrateProfile` (or `newRun`, `newProfile`, which read it) sees a version 3 profile with
   the switch on, every Legacy point it spent under the old catalogue comes back (`legacy` += `spent`, `spent` 0) and its
   purchases are cleared (`unlocks` {}, Packed Satchel included); the profile gets `hallV2: true`, so it happens once. A profile

@@ -531,8 +531,11 @@ export function metaEffect(m, D, d, mode = 'rows') {
   const exp = mode === 'expedition';
   const onlyExp = exp ? '' : ' No effect on the classic map.'; // D116: said only while new runs are classic (Dev menu)
   switch (m.id) {
-    case 'vigor': return { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
-    case 'edge': return { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
+    // hall v3d (D167, legacy.md 4.7 E5, draft): a list is the value of each rank (META_HERO), a number the value per rank (META)
+    case 'vigor': return Array.isArray(m.hpPct) ? byRank(m.hpPct, 'max health', 'Every hero starts with', 'more maximum health')
+      : { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
+    case 'edge': return Array.isArray(m.powerPct) ? byRank(m.powerPct, 'Power', 'Every hero has', 'more Power', ': more damage from every attack and spell')
+      : { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
     case 'keen': return { short: `+${pct1(m.crit)} critical strike per rank`, long: `Every hero has +${pct1(m.crit)} chance to strike critically for each rank.` };
     case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
     case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
@@ -583,6 +586,20 @@ export function metaEffect(m, D, d, mode = 'rows') {
   }
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/**
+ * A stat entry whose ranks differ (hall v3d, D167: META_HERO Vigor [0.03, 0.01], Edge [0.02, 0.01]) in words: short "+3 %
+ * max health, then +1 %"; long "Every hero starts with 3 % more maximum health with rank I and 1 % more with rank II (4 % in
+ * all)." Numbers from the list only.
+ */
+const RANK_NAMES = ['I', 'II', 'III', 'IV'];
+function byRank(v, stat, lead, more, tail = '') {
+  const total = v.reduce((a, b) => a + b, 0);
+  const parts = v.map((x, i) => `${pct1(x)}${i === 0 ? ` ${more}` : ' more'} with rank ${RANK_NAMES[i]}`);
+  return {
+    short: `+${pct1(v[0])} ${stat}${v.slice(1).map((x) => `, then +${pct1(x)}`).join('')}`,
+    long: `${lead} ${parts.join(' and ')} (${pct1(total)} in all)${tail}.`,
+  };
+}
 
 /** A requirement of an unlock in words (R.C.META req: an unlock id or a profile flag); short: for the card. */
 export function metaReqText(req, D, short = false) {

@@ -1615,28 +1615,41 @@ export const ZONE_LAG = [0.15, 0, 0, 0, 0, 0];
 /** legacy.md 4.7 E4: HERO_XP with levels 1-3 at 1800 / 1850 / 1900 (was 2000 / 2000 / 2050); 69 300 in all. */
 export const HERO_XP_ECON2 = [1800, 1850, 1900, ...HERO_XP.slice(3)];
 /**
+ * legacy.md 4.7 E5 hall v3d (D167, draft): Vigor of the Line's max HP by rank (rank I, rank II), front-loaded; a profile
+ * at rank r has the sum of the first r values (+0.03, then +0.04 in all). Was +0.01 a rank under the v2 hall.
+ */
+export const HALL_VIGOR_PCT = [0.03, 0.01];
+/** legacy.md 4.7 E5 hall v3d (D167, draft): Edge of the Line's Power by rank (rank I, rank II); +0.02, then +0.03 in all. */
+export const HALL_EDGE_PCT = [0.02, 0.01];
+/** legacy.md 4.7 E5 hall v3d (D167, draft): Deeper Pockets' bag slots (one rank; was 4). */
+export const HALL_POCKETS_SLOTS = 8;
+/**
  * legacy.md 4.2 and 4.7 E5 (draft): the Legacy hall a version 3 profile is sold under GATES.economyV2: the 13 entries of
- * 4.2 (the per-class techniques are six ids) at the E5 prices, with the effects of 4.2 (LEGACY_EFFECT: Vigor +0.01 max HP,
- * Edge +0.01 Power, Quick Study +0.05 XP per rank, two ranks each; Deeper Pockets one rank of +4 bag slots). Same ids and
- * fields as META, so the engine's readers take either table; needs (req) as META. The rest of META (Keen Lineage,
- * Prospector, Heirloom Blade, Trainer's Ledger, Scout's Eye, Alchemist's Notes, the Cache, the Relics, Ancestral Insight)
- * is retired from the hall (4.6): not sold, and a rank stored on the profile has no effect in a Legacy run.
+ * 4.2 (the per-class techniques are six ids) at the E5 prices (hall v3d, D167: Deeper Pockets 50, Stormhawk 90; the rest
+ * as the v2 hall), with the effects of 4.2 except the v3d stat ranks and pockets: Vigor HALL_VIGOR_PCT and Edge
+ * HALL_EDGE_PCT (a list, the value of each rank; nodes.js metaFromProfile sums the ranks owned), Quick Study +0.05 XP per
+ * rank, two ranks each; Deeper Pockets one rank of HALL_POCKETS_SLOTS bag slots. Same ids and fields as META, so the
+ * engine's readers take either table (a number field is per rank, a list field by rank); needs (req) as META. The rest of
+ * META (Keen Lineage, Prospector, Heirloom Blade, Trainer's Ledger, Scout's Eye, Alchemist's Notes, the Cache, the Relics,
+ * Ancestral Insight) is retired from the hall (4.6): not sold, and a rank stored on the profile has no effect in a Legacy
+ * run. A profile that bought under the v2 prices keeps its ranks and plays the v3d effects; no refund (legacy.md 4.7 E5,
+ * D167 refund note).
  */
 const hall = (id, costs, more = {}) => [id, { ...META[id], ranks: costs.length, costs, ...more }];
 export const META_HERO = Object.fromEntries([
   hall('satchel', [50]),
-  hall('pockets', [40], { slots: 4 }),
+  hall('pockets', [50], { slots: HALL_POCKETS_SLOTS }),
   hall('quartermaster', [70, 110]),
   hall('cartographer', [60]),
   hall('old_hand', [70]),
   hall('swift_boots', [100]),
-  hall('vigor', [70, 130], { hpPct: 0.01 }),
-  hall('edge', [70, 130], { powerPct: 0.01 }),
+  hall('vigor', [70, 130], { hpPct: HALL_VIGOR_PCT }),
+  hall('edge', [70, 130], { powerPct: HALL_EDGE_PCT }),
   hall('quick_study', [80, 140], { xpPct: 0.05 }),
   hall('second_breath', [200]),
   hall('sp_r1', [120]), hall('sp_m1', [120]), hall('sp_h1', [120]),
   hall('sp_r2', [200]), hall('sp_m2', [200]), hall('sp_h2', [200]),
-  hall('stormhawk', [150]),
+  hall('stormhawk', [90]),
   hall('oaths', [0]),
 ]);
 /**

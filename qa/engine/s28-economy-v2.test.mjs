@@ -2,7 +2,7 @@
 // (off by default), in Legacy runs only (D158). One test or more per rule: the switch and its scope; E1 (camp points kept pay
 // nothing, a zone left pays 10; LE1); E2 (XP against the level of the place: zone band, the Camp, contracts; LE2); E7 (D161:
 // Camp waves take the level-gap falloff past the Camp's level); E3 (zone 1's lag); E4 (HERO_XP 1-3); E5 (the hall a version 3 profile is sold and the effects a Legacy run reads); E6 (content
-// lines, draft); D160 (the old catalogue refunded once); the golden runs with the switch off (Legacy runs as on 708841f; level-60 runs as on 9a79dee with it on).
+// lines, draft); D160 (the old catalogue refunded once); D167 (hall v3d: the catalogue pinned, ranks bought at v2 prices kept); the golden runs with the switch off (Legacy runs as on 708841f; level-60 runs as on 9a79dee with it on).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -318,10 +318,11 @@ describe('legacy.md 4.2, 4.7 E5: the hall, re-priced', () => {
     const offers = R.metaOffers(R.newProfile());
     assert.deepEqual(offers.map((o) => o.id), Object.keys(C.META_HERO));
     assert.equal(offers.length, 18);
-    assert.equal(sum(ACCOUNT) + sum(['sp_r1', 'sp_r2']), 1640);
-    assert.equal(sum(ACCOUNT) + sum(['sp_h1', 'sp_h2', 'stormhawk']), 1790);
+    // hall v3d (D167): 1 650 (Hunter 1 740), 2 350 with the level-20 wing (v2: 1 640, 1 790, 2 340)
+    assert.equal(sum(ACCOUNT) + sum(['sp_r1', 'sp_r2']), 1650);
+    assert.equal(sum(ACCOUNT) + sum(['sp_h1', 'sp_h2', 'stormhawk']), 1740);
     assert.equal(C.TREE_OPEN_COST[0] + C.TREE_OPEN_COST[1] + C.ARMOURY_COST, 700);
-    assert.equal(1640 + 700, 2340);
+    assert.equal(sum(ACCOUNT) + sum(['sp_r1', 'sp_r2']) + 700, 2350);
     assert.deepEqual(offers.find((o) => o.id === 'vigor'), { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', rank: 0, ranks: 2, nextCost: 70, req: [], available: true, affordable: false });
   }));
 
@@ -333,7 +334,7 @@ describe('legacy.md 4.2, 4.7 E5: the hall, re-priced', () => {
     assert.deepEqual([av(p, 'sp_m2'), av({ ...p, reachedBoss: true }, 'second_breath'), av({ ...p, bossKills: 1 }, 'oaths')], [true, true, true]);
     assert.throws(() => R.buyMeta(p, 'keen'), /unknown meta unlock keen/);
     p = R.buyMeta(R.buyMeta(p, 'pockets'), 'quick_study');
-    assert.deepEqual([p.legacy, p.unlocks.pockets, p.unlocks.quick_study], [5000 - 120 - 40 - 80, 1, 1]);
+    assert.deepEqual([p.legacy, p.unlocks.pockets, p.unlocks.quick_study], [5000 - 120 - 50 - 80, 1, 1]);
     assert.throws(() => R.buyMeta(p, 'pockets'), /not available/);
     // a version 1 profile (level-60 game) keeps the whole catalogue, switch or not
     const v1 = gates({ legacy: false }, () => R.newProfile());
@@ -344,13 +345,63 @@ describe('legacy.md 4.2, 4.7 E5: the hall, re-priced', () => {
   test('a Legacy run reads the 4.2 effects (META_HERO); a retired entry\'s rank has no effect; ranks above the hall\'s count as its top', () => gates(V2, () => {
     const u = { vigor: 4, edge: 1, quick_study: 2, pockets: 2, keen: 2, prospector: 3, talent_pt: 1, satchel: 1, sp_r1: 1, sp_r2: 1, second_breath: 1 };
     const m = metaFromProfile({ unlocks: u }, 'rogue', C.META_HERO);
-    assert.deepEqual([m.hpPct, m.powerPct, m.xpPct, m.bagSlots, m.crit, m.goldPct, m.talentPoints, m.satchel, m.resCharges], [0.02, 0.01, 0.1, 4, 0, 0, 0, true, 1]);
+    // hall v3d (D167): Vigor rank II (stored 4) +3 then +1 %, Edge rank I +2 %, Pockets +8
+    assert.deepEqual([m.hpPct, m.powerPct, m.xpPct, m.bagSlots, m.crit, m.goldPct, m.talentPoints, m.satchel, m.resCharges], [0.04, 0.02, 0.1, 8, 0, 0, 0, true, 1]);
     assert.deepEqual(m.spells, ['ghostblade_rush', 'bloodprice_gambit']);
     const s = heroRun('rogue', 6, 3, true, { ...later(), unlocks: u });
-    assert.deepEqual([s.meta.hpPct, s.meta.crit, s.meta.bagSlots], [0.02, 0, 4]);
+    assert.deepEqual([s.meta.hpPct, s.meta.crit, s.meta.bagSlots], [0.04, 0, 8]);
     // the same profile in a Legacy run without the switch, and a level-60 run with it, read META
     const old = gates({ legacy: true, economyV2: false }, () => heroRun('rogue', 6, 3, true, { ...later(), unlocks: u }));
     assert.deepEqual([old.meta.hpPct, old.meta.crit], [4 * C.META.vigor.hpPct, 2 * C.META.keen.crit]);
+  }));
+});
+
+describe('D167: hall v3d (legacy.md 4.7 E5, draft; LH1 report section 10, sim arm v3d)', () => {
+  test('the catalogue: Vigor +3 / +1 %, Edge +2 / +1 % at 70 / 130, Deeper Pockets 50 for +8, Second Breath 200, Stormhawk 90; the rest as v2', () => {
+    assert.deepEqual([C.HALL_VIGOR_PCT, C.HALL_EDGE_PCT, C.HALL_POCKETS_SLOTS], [[0.03, 0.01], [0.02, 0.01], 8]);
+    assert.deepEqual(row('HALL_VIGOR_PCT (4.7, draft)').split(',').map(Number), C.HALL_VIGOR_PCT);
+    assert.deepEqual(row('HALL_EDGE_PCT (4.7, draft)').split(',').map(Number), C.HALL_EDGE_PCT);
+    assert.equal(Number(row('HALL_POCKETS_SLOTS (4.7, draft)')), C.HALL_POCKETS_SLOTS);
+    const H = C.META_HERO;
+    assert.deepEqual([H.vigor.hpPct, H.vigor.costs, H.edge.powerPct, H.edge.costs], [C.HALL_VIGOR_PCT, [70, 130], C.HALL_EDGE_PCT, [70, 130]]);
+    assert.deepEqual([H.pockets.slots, H.pockets.costs, H.pockets.ranks], [8, [50], 1]);
+    assert.deepEqual([H.second_breath.costs, H.stormhawk.costs], [[200], [90]]);
+    const V2_PRICES = { satchel: [50], quartermaster: [70, 110], cartographer: [60], old_hand: [70], swift_boots: [100], quick_study: [80, 140], oaths: [0],
+      sp_r1: [120], sp_m1: [120], sp_h1: [120], sp_r2: [200], sp_m2: [200], sp_h2: [200] };
+    for (const [id, c] of Object.entries(V2_PRICES)) assert.deepEqual(H[id].costs, c, id);
+    assert.equal(H.quick_study.xpPct, 0.05);
+    // effects at each rank (nodes.js metaFromProfile sums a list field over the ranks owned)
+    const fx = (u) => { const m = metaFromProfile({ unlocks: u }, 'hunter', H); return [m.hpPct, m.powerPct, m.bagSlots, m.stormhawk]; };
+    assert.deepEqual(fx({}), [0, 0, 0, false]);
+    assert.deepEqual(fx({ vigor: 1, edge: 1, pockets: 1, stormhawk: 1 }), [0.03, 0.02, 8, true]);
+    assert.deepEqual(fx({ vigor: 2, edge: 2 }), [0.04, 0.03, 0, false]);
+    // a level-60 catalogue (META, number fields) still reads rank x value
+    assert.equal(metaFromProfile({ unlocks: { vigor: 3 } }, 'rogue', C.META).hpPct, 3 * C.META.vigor.hpPct);
+  });
+
+  test('a Legacy run with the hall bought plays +4 % health and +3 % Power over nothing bought; switch off: META as before', () => {
+    const u = { vigor: 2, edge: 2, pockets: 1 };
+    const on = gates(V2, () => heroRun('mage', 10, 3, true, { ...later(), unlocks: u }));
+    const bare = gates(V2, () => heroRun('mage', 10, 3, true, later()));
+    assert.deepEqual([on.meta.hpPct, on.meta.powerPct, on.meta.bagSlots], [0.04, 0.03, 8]);
+    assert.equal(R.bagCapacity(on), R.bagCapacity(bare) + 8);
+    // before START_RUN (CREATE) the bag count reads the same hall
+    assert.equal(gates(V2, () => R.bagCapacity(R.newRun({ classId: 'mage', seed: 3, content: CONTENT, profile: { ...later(), unlocks: u } }))), C.BAG_SLOTS + 8);
+    assert.ok(on.player.d.maxHp > bare.player.d.maxHp);
+    const off = gates({ legacy: true, economyV2: false }, () => heroRun('mage', 10, 3, true, { ...later(), unlocks: u }));
+    assert.deepEqual([off.meta.hpPct, off.meta.powerPct, off.meta.bagSlots], [2 * C.META.vigor.hpPct, 2 * C.META.edge.powerPct, C.META.pockets.slots]);
+  });
+
+  test('refund rule: a profile that bought under the v2 prices keeps its ranks and balance (no refund, no note); the next rank sells at v3d prices', () => gates(V2, () => {
+    // bought under the v2 hall: Pockets at 40, Stormhawk at 150, Vigor I at 70 (spent 260)
+    const p0 = { ...R.newProfile(), legacy: 140, spent: 260, unlocks: { pockets: 1, stormhawk: 1, vigor: 1 }, runs: 5, welcome: true, guide: 'done' };
+    assert.equal(p0.hallV2, true);
+    const p1 = R.migrateProfile(p0);
+    assert.deepEqual([p1.legacy, p1.spent, p1.unlocks, p1.hallV2], [140, 260, { pockets: 1, stormhawk: 1, vigor: 1 }, true]);
+    const off = (id) => R.metaOffers(p1).find((o) => o.id === id);
+    assert.deepEqual([off('pockets').rank, off('pockets').available, off('stormhawk').rank, off('vigor').rank, off('vigor').nextCost], [1, false, 1, 1, 130]);
+    const s = steps(R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 5, content: CONTENT, profile: p1 }), [{ type: 'START_RUN' }]);
+    assert.deepEqual([s.profile.legacy, s.profile.unlocks.pockets, s.meta.hpPct, s.meta.bagSlots, s.meta.stormhawk], [140, 1, 0.03, 8, true]);
   }));
 });
 

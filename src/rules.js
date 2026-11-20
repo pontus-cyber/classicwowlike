@@ -150,10 +150,13 @@ export function bossPar(state) {
   return parTime(state.player ? state.oaths : (state.create && state.create.oaths) || []);
 }
 
-/** Bag slots of the run: BAG_SLOTS plus meta Deeper Pockets (rules 8.7, 11.2). In CREATE: from the profile. */
+/**
+ * Bag slots of the run: BAG_SLOTS plus meta Deeper Pockets (rules 8.7, 11.2). In CREATE: from the profile, with the hall
+ * the run will read (D167: META_HERO's Deeper Pockets in a Legacy run under GATES.economyV2, as startRun; else META).
+ */
 export function bagCapacity(state) {
   if (state.meta) return bagCap(state);
-  return C.BAG_SLOTS + metaFromProfile(state.profile, state.create ? state.create.classId : null).bagSlots;
+  return C.BAG_SLOTS + metaFromProfile(state.profile, state.create ? state.create.classId : null, econV2(state) ? C.META_HERO : C.META).bagSlots;
 }
 
 /**

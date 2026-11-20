@@ -358,7 +358,7 @@ Bought between runs, account-wide (every hero gets them). Small and readable: th
 - Each run buys about one entry; the first run's 195 (with the welcome) buys Packed Satchel and one more.
 - Power: against today's full catalogue the set drops crit +1.5 %, the Greater Healing Draught, the extra talent point and the unique items, and keeps HP +2 %, Power +2 %, the free potion and Second Breath at today's values, so its combat power is below today's PALL, whose cap B10 holds [inference: every remaining effect is today's or a split of it]. The uniques (Cache of the Wanderer, Relics of the Deep) are parked: from level 20 the Armoury brings new things into the drop pools.
 - From level 20 the hall adds the talent trees (4.3) and the Armoury (4.4).
-- **(Economy v2, 4.7, draft):** every price in this table is replaced by the v2 price list of 4.7 E5 (same entries, same effects).
+- **(Economy v2, 4.7, draft):** every price in this table is replaced by the v2 price list of 4.7 E5 (same entries, same effects). **Hall v3d (D167, draft):** under the same switch Vigor is +3 % then +1 % max HP, Edge +2 % then +1 % Power, Deeper Pockets +8 bag slots, at the v3d prices of 4.7 E5; the other effects as this table.
 
 ### 4.3 From level 20: talent trees
 - A hero has one open tree until level 20: the tree of its first point (1.8).
@@ -438,28 +438,31 @@ Status: **draft**, not approved by the owner; replaces the parts of 1.3, 1.4, 2.
 
 **E4. Hero XP for levels 1-3.** HERO_XP[1..3] = **1 800 / 1 850 / 1 900** (was 2 000 / 2 000 / 2 050; levels 4-24 unchanged; 69 300 in all; engine 2026-11-19: was written 69 250, the sum is 69 800 - 500). With E2 a first run pays about 6 100 hero XP (was 7 800), so the first run still ends at level 4.3 (FIRST_RUN_LEVEL 4-5; at the old costs 3.96). Level 2 needs 1 800: about 10 minutes at the measured 177 XP a minute (ONB1 to be re-measured on the guided zone).
 
-**E5. The hall, re-priced: the curve.** The 4.2 set (same 13 entries, same effects and needs) and the level-20 entries at these prices:
+**E5. The hall, re-priced: the curve.** The 4.2 set (same 13 entries, same effects and needs) and the level-20 entries at these prices. **Hall v3d (D167, draft; LH1 report sections 9-10):** the build sells the v3d column (Vigor, Edge and Deeper Pockets with the v3d effects, Deeper Pockets 50, Stormhawk 90; everything else at the v2 price); the v2 column is the hall as first built (D159-D160), kept for the record.
 
-| Entry | Kind | v2 price | 4.2 price |
-|---|---|---|---|
-| Packed Satchel | power (supplies) | 50 | 60 |
-| Vigor of the Line I / II | power | 70 / 130 | 120 / 240 |
-| Edge of the Line I / II | power | 70 / 130 | 120 / 240 |
-| Quick Study I / II | levelling | 80 / 140 | 100 / 200 |
-| Lost Technique I / II (per class; learnable from hero 9 / 17) | new spell | 120 / 200 | 150 / 300 |
-| Second Breath (needs Oruvath reached once) | power | 200 | 400 |
-| Swift Boots | map | 100 | 200 |
-| Deeper Pockets | convenience | 40 | 80 |
-| Cartographer | vision | 60 | 100 |
-| Old Hand | vision | 70 | 150 |
-| Quartermaster I / II | camp points | 70 / 110 | 120 / 200 |
-| Stormhawk Companion (Hunter) | new pet | 150 | 250 |
-| Oaths (needs a first Oruvath kill) | challenge | 0 | 0 |
-| **Account entries + one class's techniques** | | **1 640** (Hunter 1 790) | 2 780 |
-| Second / third talent tree (per hero, from hero 20) | play style | 250 / 300 | 300 / 450 |
-| The Armoury (once, from hero 20) | sets | 150 | 200 |
-| **Level-20 wing** | | **700** | 950 |
-| **All, one hero** | | **2 340** | 3 730 |
+| Entry | Kind | v3d price, effect (built, D167) | v2 price | 4.2 price |
+|---|---|---|---|---|
+| Packed Satchel | power (supplies) | 50 | 50 | 60 |
+| Vigor of the Line I / II | power | 70 / 130; max HP **+3 % / +1 %** (4 % at rank II; v2 +1 % a rank) | 70 / 130 | 120 / 240 |
+| Edge of the Line I / II | power | 70 / 130; Power **+2 % / +1 %** (3 % at rank II; v2 +1 % a rank) | 70 / 130 | 120 / 240 |
+| Quick Study I / II | levelling | 80 / 140 | 80 / 140 | 100 / 200 |
+| Lost Technique I / II (per class; learnable from hero 9 / 17) | new spell | 120 / 200 | 120 / 200 | 150 / 300 |
+| Second Breath (needs Oruvath reached once) | power | 200 | 200 | 400 |
+| Swift Boots | map | 100 | 100 | 200 |
+| Deeper Pockets | convenience | **50; +8 bag slots** (v2 +4) | 40 | 80 |
+| Cartographer | vision | 60 | 60 | 100 |
+| Old Hand | vision | 70 | 70 | 150 |
+| Quartermaster I / II | camp points | 70 / 110 | 70 / 110 | 120 / 200 |
+| Stormhawk Companion (Hunter) | new pet | **90** | 150 | 250 |
+| Oaths (needs a first Oruvath kill) | challenge | 0 | 0 | 0 |
+| **Account entries + one class's techniques** | | **1 650** (Hunter 1 740) | 1 640 (Hunter 1 790) | 2 780 |
+| Second / third talent tree (per hero, from hero 20) | play style | 250 / 300 | 250 / 300 | 300 / 450 |
+| The Armoury (once, from hero 20) | sets | 150 | 150 | 200 |
+| **Level-20 wing** | | **700** | 700 | 950 |
+| **All, one hero** | | **2 350** (Hunter 2 440) | 2 340 | 3 730 |
+
+- **Hall v3d (D167, draft):** chosen from the LH1 arms (docs/reports/legacy-hall-v3-lh1-2026-11-20.md): the stat ranks of arm v3c (+2.6 pp win rate at hero 25 over the v2 hall, inside D164's +4 pp gate; D165), the v2 prices of Vigor II, Edge II and Second Breath, which keep the planner's pace (6.03 h to hero 25, the hall in run 9, LE4 pass; v3c's cheaper ranks gave 5.40 h). LE3 at hero 20 fails (+21.6 %) as it did under v2 (+20.9 %): handled separately (BACKLOG). Deeper Pockets' slots move no planner win rate (LH1 section 2).
+- **Refund rule (D167, draft):** none. A version 3 profile that bought under the v2 prices keeps its ranks, its balance and its `spent`; each rank plays the v3d effect at once (Vigor I +3 %, Deeper Pockets +8), and the next rank sells at the v3d price. No second refund pass and no note: the switch is off by default (only `?legacy=1` test profiles have bought under v2), every effect change is upward, and the only price that falls is Stormhawk's (a Hunter who paid 150 has paid 60 more than a later buyer; Deeper Pockets bought at 40 is not charged the 10). D160's refund (old catalogue to v2, `hallV2`) is unchanged.
 
 Unchanged: RESPEC_COST 30, SET_FORGE_COST 150, SET_DUPLICATE_LEGACY 40, LEGACY_PER_LEVEL 20, every other Legacy line of 4.1, the welcome 60. The account wing is sized to the income to hero 20 and the level-20 wing to the income from 20 to 25, so the hall is done when the hero reaches 25; set forging, a second hero's techniques and trees and the XP past 25 (20 a 4 100) are the sinks after it.
 
@@ -504,7 +507,7 @@ The curve (planner campaign on the v2 cells, chained by run; Legacy a run as mea
 
 **What the engineer builds** (one switch `C.GATES.economyV2`, default off until accepted; Legacy runs only, as D158): LEGACY_PER_PREP_POINT_HERO 0 and LEGACY_PER_ZONE_HERO 10 in `echoes()` when `facts.heroLevels` is set; `eventXp` and `flatXp` by E2 with a helper `xpRef(s)` in legacy.js (zone band, Camp level, else power level); ZONE_LAG in `bandNow`; HERO_XP[0..2] 1800, 1850, 1900; a Legacy profile's `metaOffers` lists exactly the 13 entries of 4.2 at the E5 prices (a META_HERO block over the same ids; phase 2 of 7.1), TREE_OPEN_COST 250 / 300 and ARMOURY_COST 150 when phases 4-5 are built. The sim mirrors E2 in sim/lib/model.mjs. Scratch reference: env ECON of the report (`{"xp":1,"step":0.1,"lag":[0.15,0,0,0,0,0]}`) over sim/legacy-run.mjs `--native --oruvath` with the three constants patched.
 
-**(engine, 2026-11-19)** Built behind `C.GATES.economyV2`, **off** (docs/handoffs/engine-2026-11-19c.md; engine-api.md 15.5): E1-E5 in the engine (legacy.js `econV2`, `xpRef`, `bandNow`, `heroXpTable`, `hallOf`; progress.js `eventXp`, `flatXp`; meta.js `echoes`, `metaOffers`; constants Part 7, `META_HERO`), E6's lines as content `texts.economy` and `tutorial.legacy.economyV2` (draft), the sim's planner model on the same XP rule (sim/lib/model.mjs; `sim/run.mjs --hero H --econ`, `sim/legacy-run.mjs --econ`). The level-20 wing's prices are constants (`TREE_OPEN_COST`, `ARMOURY_COST`) and are not sold until phases 4-5. Level-60 runs and Legacy runs with the switch off play as before (golden, qa/engine s28). **D160 refund (engine, 2026-11-19):** the first time a version 3 profile is read with the switch on, every Legacy point it spent under the old catalogue comes back and its purchases are cleared (Packed Satchel included), once (profile `hallV2`; legacy.js `legacyProfile`; engine-api.md 15.5). **E7 (engine, 2026-11-19, D161):** progress.js `campFalloff` in `eventXp`, legacy.js `campWaveXp` (docs/handoffs/engine-2026-11-19d.md).
+**(engine, 2026-11-19)** Built behind `C.GATES.economyV2`, **off** (docs/handoffs/engine-2026-11-19c.md; engine-api.md 15.5): E1-E5 in the engine (legacy.js `econV2`, `xpRef`, `bandNow`, `heroXpTable`, `hallOf`; progress.js `eventXp`, `flatXp`; meta.js `echoes`, `metaOffers`; constants Part 7, `META_HERO`), E6's lines as content `texts.economy` and `tutorial.legacy.economyV2` (draft), the sim's planner model on the same XP rule (sim/lib/model.mjs; `sim/run.mjs --hero H --econ`, `sim/legacy-run.mjs --econ`). The level-20 wing's prices are constants (`TREE_OPEN_COST`, `ARMOURY_COST`) and are not sold until phases 4-5. Level-60 runs and Legacy runs with the switch off play as before (golden, qa/engine s28). **D160 refund (engine, 2026-11-19):** the first time a version 3 profile is read with the switch on, every Legacy point it spent under the old catalogue comes back and its purchases are cleared (Packed Satchel included), once (profile `hallV2`; legacy.js `legacyProfile`; engine-api.md 15.5). **E7 (engine, 2026-11-19, D161):** progress.js `campFalloff` in `eventXp`, legacy.js `campWaveXp` (docs/handoffs/engine-2026-11-19d.md). **Hall v3d (engine, 2026-11-20, D167):** `META_HERO` holds the v3d column of E5 (`HALL_VIGOR_PCT`, `HALL_EDGE_PCT` as rank lists that nodes.js `metaFromProfile` sums over the ranks owned; `HALL_POCKETS_SLOTS`; Deeper Pockets 50, Stormhawk 90); no refund (E5 refund rule); sim arm v3d reads `C.META_HERO` (sim/lib/hall.mjs) (docs/handoffs/engine-2026-11-20e.md).
 
 **New checks (draft):**
 
@@ -828,7 +831,10 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | Contract XP offset (4.7, draft) | CONTRACT_CL_OFFSET_HERO (2) | CL - Z of every contract and Gorrak's bounty: × 1.2 (4.7 E2) |
 | ZONE_LAG (4.7, draft) | 0.15, 0, 0, 0, 0, 0 | power levels per power level above 1 that zones 1-6 trail the hero: band - round(lag × (P - 1)) (4.7 E3) |
 | HERO_XP (4.7, draft) | levels 1-3: 1800, 1850, 1900 (was 2000, 2000, 2050); 4-24 unchanged; 69 300 in all | hero XP (4.7 E4; engine name HERO_XP_ECON2) |
-| LEGACY_COST (4.7, draft) | satchel 50; vigor 70 / 130; edge 70 / 130; quick_study 80 / 140; sp_(class)1 120, sp_(class)2 200; second_breath 200; swift_boots 100; pockets 40; cartographer 60; old_hand 70; quartermaster 70 / 110; stormhawk 150; oaths 0 | Legacy points per rank; account entries + one class's techniques 1 640 (4.7 E5) |
+| LEGACY_COST (4.7, draft) | satchel 50; vigor 70 / 130; edge 70 / 130; quick_study 80 / 140; sp_(class)1 120, sp_(class)2 200; second_breath 200; swift_boots 100; pockets 50; cartographer 60; old_hand 70; quartermaster 70 / 110; stormhawk 90; oaths 0 | Legacy points per rank, hall v3d (D167; v2: pockets 40, stormhawk 150); account entries + one class's techniques 1 650 (Hunter 1 740) (4.7 E5) |
+| HALL_VIGOR_PCT (4.7, draft) | 0.03, 0.01 | max HP of Vigor of the Line rank I, rank II (summed: +4 % at rank II); hall v3d, D167 (v2: 0.01 a rank) (4.7 E5) |
+| HALL_EDGE_PCT (4.7, draft) | 0.02, 0.01 | Power of Edge of the Line rank I, rank II (summed: +3 % at rank II); hall v3d, D167 (v2: 0.01 a rank) (4.7 E5) |
+| HALL_POCKETS_SLOTS (4.7, draft) | 8 | bag slots of Deeper Pockets (one rank); hall v3d, D167 (v2: 4) (4.7 E5) |
 | TREE_OPEN_COST (4.7, draft) | 250 / 300 | Legacy points, second / third tree per hero (was 300 / 450) (4.7 E5) |
 | ARMOURY_COST (4.7, draft) | 150 | Legacy points, once (was 200) (4.7 E5) |
 | HALL_PACE_TOL (4.7, draft) | 0.15 | cumulative planner Legacy at hero 20 / 25 against the account wing / the whole hall (LE3) |

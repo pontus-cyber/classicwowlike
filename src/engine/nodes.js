@@ -66,7 +66,13 @@ export function metaFromProfile(profile, classId, cat = META) {
   const u = (profile && profile.unlocks) || {};
   // Economy v2 (legacy.md 4.7 E5; cat META_HERO): an id outside the hall is retired (4.6) and counts as rank 0
   const r = (id) => (cat[id] ? Math.min(u[id] || 0, cat[id].ranks) : 0);
-  const per = (id, k) => (cat[id] ? r(id) * cat[id][k] : 0);
+  // a number field is the value per rank (rank x value); a list field (hall v3d, D167: META_HERO Vigor / Edge) the value of
+  // each rank, summed over the ranks owned
+  const per = (id, k) => {
+    if (!cat[id]) return 0;
+    const v = cat[id][k];
+    return Array.isArray(v) ? v.slice(0, r(id)).reduce((a, b) => a + b, 0) : r(id) * v;
+  };
   return {
     hpPct: per('vigor', 'hpPct'),
     powerPct: per('edge', 'powerPct'),

@@ -1,8 +1,10 @@
 // Hall arms for the Legacy cells (D164, docs/specs/legacy-hall-v3-draft.md sections 2, 5, 7; arm LH1): the v2 hall (the
-// engine's C.META_HERO as built), the v3 hall and its fallback, played by sim-side overrides only. The engine's hall is
-// read per run from C.META_HERO (metaFromProfile: rank x hpPct / powerPct / slots), so an arm sets those three fields on
-// that table before each run and the profile's unlocks say what is owned. No engine file changes; a cell without
-// `cell.hall` resets the fields to the engine's values (a worker plays runs of several cells).
+// engine's C.META_HERO before D167), the v3 hall and its fallback, played by sim-side overrides only; D167: the engine's
+// C.META_HERO is the v3d hall, and arm v3d reads it (so the sim's v3d cannot drift from the engine's catalogue). The
+// engine's hall is read per run from C.META_HERO (metaFromProfile: a number field per rank, a list field the value of each
+// rank, summed over the ranks owned), so an arm sets those three fields on that table before each run and the profile's
+// unlocks say what is owned. No engine file changes; a cell without `cell.hall` resets the fields to the engine's values
+// (a worker plays runs of several cells).
 //
 // What an arm changes (nothing else does): Vigor and Edge per-rank values, Deeper Pockets slots, and the prices the
 // chain (hallChain) uses. Second Breath, Stormhawk and the Cartographer have no effect to override: Second Breath and
@@ -12,34 +14,41 @@
 // add nothing the planner lacks.
 //
 //   cell.hall = '<arm>' (every hall entry at its top rank for the class) or '<arm>:<id><rank>,<id><rank>...' (a stage of
-//   the campaign: only those entries; tech1 / tech2 = the class's two Lost Techniques). arm: none | v2 | v3 | v3fb. 'none' is the profile with nothing bought.
+//   the campaign: only those entries; tech1 / tech2 = the class's two Lost Techniques). arm: none | v2 | v3 | v3fb | v3c |
+//   v3d | v3e | v3s | v3p. 'none' is the profile with nothing bought.
 import { C } from './engine.mjs';
 
-/** Engine values as built (read once at load, before any cell sets an arm). */
-const ORIG = Object.freeze({
-  vigor: [...Array(C.META_HERO.vigor.ranks)].map(() => C.META_HERO.vigor.hpPct),
-  edge: [...Array(C.META_HERO.edge.ranks)].map(() => C.META_HERO.edge.powerPct),
+/** A stat field as a list of rank values (a number field: the same value for each rank). */
+const byRank = (v, ranks) => (Array.isArray(v) ? [...v] : [...Array(ranks)].map(() => v));
+/** Engine values as built (read once at load, before any cell sets an arm): since D167 the v3d hall. */
+const ENGINE = Object.freeze({
+  vigor: byRank(C.META_HERO.vigor.hpPct, C.META_HERO.vigor.ranks),
+  edge: byRank(C.META_HERO.edge.powerPct, C.META_HERO.edge.ranks),
   slots: C.META_HERO.pockets.slots,
 });
+/** The v2 hall as built before D167 (legacy.md 4.7 E5 v2 prices; +1 % a rank, +4 slots), now a sim-side arm. */
+const V2 = { vigor: [0.01, 0.01], edge: [0.01, 0.01], slots: 4, price: { vigor: [70, 130], edge: [70, 130], pockets: [40], second_breath: [200], stormhawk: [150] } };
 
 /**
- * Arms. vigor / edge: the value of rank 1, rank 2 (v2: the engine's +0.01 each). slots: Deeper Pockets. price: per-id
- * overrides of the engine's prices (rank list). legacy-hall-v3-draft.md 2 (S2, P1, B, H) and its fallback line in 5
- * (Vigor II +2 %, Edge II +1 %, prices unchanged).
+ * Arms. vigor / edge: the value of rank 1, rank 2. slots: Deeper Pockets. price: per-id overrides of the engine's prices
+ * (rank list). legacy-hall-v3-draft.md 2 (S2, P1, B, H) and its fallback line in 5 (Vigor II +2 %, Edge II +1 %, prices
+ * unchanged). v3d: the engine's own hall (D167), no override.
  */
 export const HALL_ARMS = {
   none: null,
-  v2: { vigor: ORIG.vigor, edge: ORIG.edge, slots: ORIG.slots, price: {} },
+  v2: V2,
   v3: { vigor: [0.05, 0.03], edge: [0.04, 0.02], slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
   v3fb: { vigor: [0.05, 0.02], edge: [0.04, 0.01], slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
   // v3c: a calibration arm for the +4 pp gate (about 1.35 pp a point of HP % plus Power % over v2, from v3 and v3fb): Vigor +3 / +1, Edge +2 / +1.
   v3c: { vigor: [0.03, 0.01], edge: [0.02, 0.01], slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
-  // v3d (Lead): v3c effects with the v2 prices of Vigor II, Edge II (130) and Second Breath (200); Pockets 50, Stormhawk 90. v3e: v3d with Stormhawk 150, Pockets 40 (the v2 price list with v3c effects and 8 slots).
-  v3d: { vigor: [0.03, 0.01], edge: [0.02, 0.01], slots: 8, price: { vigor: [70, 130], edge: [70, 130], pockets: [50], second_breath: [200], stormhawk: [90] } },
+  // v3d (Lead, D167): v3c effects with the v2 prices of Vigor II, Edge II (130) and Second Breath (200); Pockets 50, Stormhawk 90. Built in
+  // the engine (C.META_HERO), so the arm is the engine's values and prices. v3e: v3d with Stormhawk 150, Pockets 40 (the v2 price list
+  // with v3c effects and 8 slots).
+  v3d: { vigor: ENGINE.vigor, edge: ENGINE.edge, slots: ENGINE.slots, price: {} },
   v3e: { vigor: [0.03, 0.01], edge: [0.02, 0.01], slots: 8, price: { vigor: [70, 130], edge: [70, 130], pockets: [40], second_breath: [200], stormhawk: [150] } },
-  // Attribution arms (what moved the win rate): v3's stat ranks with today's four slots, and today's stat ranks with eight slots.
-  v3s: { vigor: [0.05, 0.03], edge: [0.04, 0.02], slots: ORIG.slots, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
-  v3p: { vigor: ORIG.vigor, edge: ORIG.edge, slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
+  // Attribution arms (what moved the win rate): v3's stat ranks with the v2 hall's four slots, and the v2 stat ranks with eight slots.
+  v3s: { vigor: [0.05, 0.03], edge: [0.04, 0.02], slots: V2.slots, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
+  v3p: { vigor: V2.vigor, edge: V2.edge, slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
 };
 
 /** The hall's ids a class can own: the 13 account entries and the class's two techniques (and its hawk for the Hunter). */
@@ -82,13 +91,16 @@ export function hallUnlocks(spec, cls) {
   return Object.fromEntries(hallIds(cls).map((m) => [m.id, m.ranks]));
 }
 
-/** Sets C.META_HERO's three effect fields for the arm and the ranks the profile owns (vigor rank r: mean of its first r values). */
+/**
+ * Sets C.META_HERO's three effect fields for the arm: Vigor and Edge as lists of rank values (the engine sums the ranks the
+ * profile owns, D167), Deeper Pockets' slots. 'none' and no cell.hall: the engine's values. `unlocks` is not needed since
+ * the engine reads rank lists (kept for the callers).
+ */
 export function applyHall(spec, unlocks = {}) {
   const { arm } = parseHall(spec);
-  const a = HALL_ARMS[arm] || HALL_ARMS.v2; // 'none' and no cell.hall: the engine's values
-  const mean = (v, r) => (r > 0 ? v.slice(0, r).reduce((x, y) => x + y, 0) / r : v[0]);
-  C.META_HERO.vigor.hpPct = mean(a.vigor, Math.min(unlocks.vigor || 0, a.vigor.length));
-  C.META_HERO.edge.powerPct = mean(a.edge, Math.min(unlocks.edge || 0, a.edge.length));
+  const a = HALL_ARMS[arm] || ENGINE;
+  C.META_HERO.vigor.hpPct = [...a.vigor];
+  C.META_HERO.edge.powerPct = [...a.edge];
   C.META_HERO.pockets.slots = a.slots;
 }
 
