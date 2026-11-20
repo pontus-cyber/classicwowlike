@@ -494,9 +494,10 @@ describe('golden: the switch off plays every run as before Legacy (profile, resu
     // serialized with its profile, the result (summary, Echoes, profile) and the catalogue offers of the result's profile.
     // Heat state 2026-11-20 (engine-2026-11-20b): every hash here is of the text with the tolls by heat state masked to their total
     // (helpers.mjs tollsMasked), re-recorded on 57923eb with the engine before the change; the change hashes the same.
+    // content-2026-11-20: re-recorded for the content-2026-11-20 item names (draft words); with every name masked, 108 runs over three gate arms hash as before (scratch check, docs/handoffs/content-2026-11-20.md section 4).
     const WANT = {
-      'rows:mage:21': '47d8b8e186c27c1c:99', 'expPrep:rogue:21': '20b1cebf55dabdd7:217', 'expPrep:hunter:22': '1bb93204397837d9:575',
-      'first:mage:23': 'b515f5f04b481baf:107', 'guided:rogue:24': 'e3255d79d02d5073:386', 'second:hunter:25': 'fdce76bcb618430b:625',
+      'rows:mage:21': '4c1709081fa9aff7:99', 'expPrep:rogue:21': 'c6c11d0e1f3da61f:217', 'expPrep:hunter:22': '7c093ef57e92cd0f:575',
+      'first:mage:23': 'ab595ce5d0268f3f:107', 'guided:rogue:24': 'f73a594d9e653247:386', 'second:hunter:25': '0e0821fa208f1abf:625',
     };
     const RUNS = { rows: 2, expPrep: 2, first: 0, guided: 0, second: 1 };
     assert.equal(C.GATES.legacy, false);

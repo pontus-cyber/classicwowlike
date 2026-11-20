@@ -432,10 +432,11 @@ describe('golden: the switch off plays every Legacy run as on 708841f; level-60 
   };
   // Heat state 2026-11-20 (engine-2026-11-20b): every hash here is of the text with the tolls by heat state masked to their total
   // (helpers.mjs tollsMasked), re-recorded on 57923eb with the engine before the change; the change hashes the same.
+  // content-2026-11-20: re-recorded for the content-2026-11-20 item names (draft words); with every name masked, 108 runs over three gate arms hash as before (scratch check, docs/handoffs/content-2026-11-20.md section 4); WANT60 too.
   const RUNS = [['rogue', 1, 41, 'first'], ['mage', 3, 42, 'later'], ['hunter', 9, 43, 'later'], ['rogue', 20, 44, 'later'], ['mage', 25, 45, 'later']];
   const WANT = {
-    legacy: ['9c9d204745b5e6a2:657', 'f7f736fbf264f10f:643', 'affa01c35865b777:546', 'c449b1bbad442264:280', 'd8f21d0730d2ebfc:335'],
-    'legacy+oruvathLegacy': ['60417711e4c90d37:644', 'd5ce4eda01b2041e:624', '3ba947966b5e57d9:560', 'c449b1bbad442264:280', 'b4052296916573ff:335'],
+    legacy: ['336f40b6e0671f69:657', '1c8a8f1861fa0de7:643', 'f7293b7fc6c31703:546', '3824fc0c4ee820bb:280', '1bf64ca79cb58599:335'],
+    'legacy+oruvathLegacy': ['ffd21f2bba28150e:644', 'f66ca1ed8b4526ca:624', '5b18da9a3d83df61:560', '3824fc0c4ee820bb:280', '71c3adb24a66ef9e:335'],
   };
 
   // D162 (autoplay's Legacy quest gate, AUTO_QUEST_LEVEL_SLACK) changes Legacy autoplay on purpose, so these hashes are
@@ -462,8 +463,8 @@ describe('golden: the switch off plays every Legacy run as on 708841f; level-60 
 
   test('level-60 runs with economyV2 on hash as recorded on 9a79dee (s23 golden: rows, start camp, first, guided, second)', () => gates({ economyV2: true, oruvathLegacy: true }, () => {
     const WANT60 = {
-      'rows:mage:21': '47d8b8e186c27c1c:99', 'expPrep:rogue:21': '20b1cebf55dabdd7:217', 'expPrep:hunter:22': '1bb93204397837d9:575',
-      'first:mage:23': 'b515f5f04b481baf:107', 'guided:rogue:24': 'e3255d79d02d5073:386', 'second:hunter:25': 'fdce76bcb618430b:625',
+      'rows:mage:21': '4c1709081fa9aff7:99', 'expPrep:rogue:21': 'c6c11d0e1f3da61f:217', 'expPrep:hunter:22': '7c093ef57e92cd0f:575',
+      'first:mage:23': 'ab595ce5d0268f3f:107', 'guided:rogue:24': 'f73a594d9e653247:386', 'second:hunter:25': '0e0821fa208f1abf:625',
     };
     const N = { rows: 2, expPrep: 2, first: 0, guided: 0, second: 1 };
     for (const [key, want] of Object.entries(WANT60)) {
