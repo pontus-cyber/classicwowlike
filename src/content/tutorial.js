@@ -254,8 +254,8 @@ export const TUTORIAL = {
   },
 
   // Demo wording (MD D.5, draft; docs/specs/demo.md 4.2 and question Q1): no demo run meets the final boss, so the
-  // Furnace lines that warn about him read this text while C.GATES.demo is on. Not wired yet: the content index binds
-  // `legacy` only (hand-off content-2026-11-25, for the UI engineer). Same placeholders as the line each replaces.
+  // Furnace lines that warn about him read this text while C.GATES.demo is on (L1: the content index binds it, as it
+  // binds `legacy`). Same placeholders as the line each replaces.
   demo: {
     beats: {
       G5: { line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.' },

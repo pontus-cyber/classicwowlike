@@ -26,7 +26,7 @@ export function econLine(texts, id, vars = {}) {
 export const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
 /**
  * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
- * "You sell 7 junk items for 42 copper." Draft, for the owner and content.
+ * "You sell 7 junk items for 42 c." (L5: money as gold, silver and copper) Draft, for the owner and content.
  */
 export const junkSoldName = (n) => `${n} junk ${n === 1 ? 'item' : 'items'}`;
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
@@ -473,7 +473,10 @@ export const RES_NAME = { boon: 'Ember of Return', meta: 'Second Breath', ember:
 export function resurrectText(p, bossFight) {
   const counts = new Map();
   for (const k of p.resurrect || []) counts.set(k, (counts.get(k) || 0) + 1);
-  const items = [...counts].map(([k, n]) => `${RES_NAME[k] || humanize(k)}${n > 1 ? ` ×${n}` : ''}${k === 'meta' ? ' (not in the final fight)' : ''}`);
+  // L6 (MD D.5, draft): the boon's charge and a carried Ember share one name, so they read as one count: "Ember of Return ×2"
+  const byName = new Map();
+  for (const [k, n] of counts) { const nm = RES_NAME[k] || humanize(k); const e = byName.get(nm) || { n: 0, meta: false }; e.n += n; e.meta = e.meta || k === 'meta'; byName.set(nm, e); }
+  const items = [...byName].map(([nm, e]) => `${nm}${e.n > 1 ? ` ×${e.n}` : ''}${e.meta ? ' (not in the final fight)' : ''}`);
   const held = (p.resurrectHeld && p.resurrectHeld.meta) || 0;
   const note = bossFight && held > 0 && !counts.has('meta') ? 'Second Breath does not work in the final fight.' : null;
   return { list: items.length ? items.join(', ') : bossFight ? 'None in this fight' : 'None', note, count: (p.resurrect || []).length };
@@ -532,14 +535,18 @@ export function metaEffect(m, D, d, mode = 'rows') {
   if (m.passive) return passiveEffect(m.passive, d);
   const exp = mode === 'expedition';
   const onlyExp = exp ? '' : ' No effect on the classic map.'; // D116: said only while new runs are classic (Dev menu)
+  // L3 (MD D.5, draft): the demo hall sells rank I only (m.ranks 1): no "per rank", "for each rank", "with rank I" or "(N in all)"
+  const one = !!(d && d.demo) && m.ranks === 1;
   switch (m.id) {
     // hall v3d (D167, legacy.md 4.7 E5, draft): a list is the value of each rank (META_HERO), a number the value per rank (META)
     case 'vigor': return Array.isArray(m.hpPct) ? byRank(m.hpPct, 'max health', 'Every hero starts with', 'more maximum health')
+      : one ? { short: `+${pct1(m.hpPct)} max health`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health.` }
       : { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
     case 'edge': return Array.isArray(m.powerPct) ? byRank(m.powerPct, 'Power', 'Every hero has', 'more Power', ': more damage from every attack and spell')
+      : one ? { short: `+${pct1(m.powerPct)} Power`, long: `Every hero has ${pct1(m.powerPct)} more Power: more damage from every attack and spell.` }
       : { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
     case 'keen': return { short: `+${pct1(m.crit)} critical strike per rank`, long: `Every hero has +${pct1(m.crit)} chance to strike critically for each rank.` };
-    case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
+    case 'quick_study': return one ? { short: `+${pct1(m.xpPct)} experience`, long: `Every hero earns ${pct1(m.xpPct)} more experience: levels come sooner.` } : { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
     case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
     case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${lv(N.maxLevel)}`, long: `At level ${lv(N.maxLevel)} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
     // M2b v6 (rules 7.5, 11.2): also the free potion, the first potion each fight costs no turn; M2b v8: at FREE_POTION_MULT
@@ -550,7 +557,7 @@ export function metaEffect(m, D, d, mode = 'rows') {
         long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight costs no turn${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
     }
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${lv(m.ilvl)}`, long: `Your starting weapon is ${m.rarity} quality, item level ${lv(m.ilvl)}, instead of a common one.` };
-    case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
+    case 'pockets': return one ? { short: `+${m.slots} bag slots`, long: `Your bags hold ${m.slots} more items.` } : { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
     case 'scout': {
       const x = m.expedition; const pf = x ? `the type of every node within ${numWord(x.typeRadius)} hops shows on the map (not its level, enemies or contract marks)` : null;
@@ -569,7 +576,9 @@ export function metaEffect(m, D, d, mode = 'rows') {
     case 'cartographer': return { short: `Free ${NM.charts} every run`, long: `Every run starts with ${NM.charts}: each zone map shows every node's region and where the dungeon is.${onlyExp}` };
     case 'old_hand': return { short: `Free ${NM.tracker} every run`, long: `Every run starts with ${NM.tracker}: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen.${onlyExp}` };
     // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points"
-    case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points'; return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
+    case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points';
+      if (one) return { short: `+${m.points} ${w}`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp.${onlyExp}` };
+      return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;
@@ -605,6 +614,7 @@ export function passiveEffect(x, d) {
  */
 const RANK_NAMES = ['I', 'II', 'III', 'IV'];
 function byRank(v, stat, lead, more, tail = '') {
+  if (v.length === 1) return { short: `+${pct1(v[0])} ${stat}`, long: `${lead} ${pct1(v[0])} ${more}${tail}.` }; // L3: one rank (the demo hall)
   const total = v.reduce((a, b) => a + b, 0);
   const parts = v.map((x, i) => `${pct1(x)}${i === 0 ? ` ${more}` : ' more'} with rank ${RANK_NAMES[i]}`);
   return {

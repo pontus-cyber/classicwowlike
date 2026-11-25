@@ -237,16 +237,17 @@ export function windupLines(e, x, ctx, st) {
       h('div.tt-line.num', w ? deathblowStakes(w) : windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))]
     : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s strongest move, shown on its track ahead of time.`),
       h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
+  let nothingStops = false; // L2: the line below already says nothing can stop it
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
-    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'Nothing you have now can stop it. Kill it first, or be ready to take it.'));
+    if (!w.ready) { lines.push(h('div.tt-warn.db-no', 'Nothing you have now can stop it. Kill it first, or be ready to take it.')); nothingStops = true; }
     else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Stop it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
-  } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
+  } else if (!x.now && !nothingStops) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
   if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet, it still lands (it is empowered and you are maimed). Send the Pet has your pet take it on purpose, which stops it.'));
   if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
   const soft = softPending(v, e, x, st);

@@ -43,6 +43,7 @@ import { tip } from './tooltip.js';
 import { HEAT_WORDS as HW, tolls } from './ui-text.js';
 import { HEAT } from './theme.js';
 import { store } from './store.js';
+import { DEMO_TEXT, demoOn } from './demo.js';
 
 export const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
 export const HEAT_COLOR = HEAT; // the --heat-* tokens of tokens.css (theme.js), read when used
@@ -321,7 +322,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     els.state.querySelector('.ht-sname').textContent = m.name;
     queueMicrotask(fitHeader); // after the texts below are set
     els.num.textContent = m.line; // D152: the Dimming's words when it sets the state
-    const boss = m.boss;
+    const boss = demoOn(ctx) ? '' : m.boss; // L1: the demo meets no boss, so the meter names none
     els.boss.textContent = boss; els.boss.classList.toggle('hidden', !boss);
     // the player's marker; an arrow when the heat is off the bar (bar.beyond)
     els.mark.style.left = `${pctOf(m.run.x, bar)}%`;
@@ -356,7 +357,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       if (v.phase === 'ZONE_HUB' && svcOpen) els.intro.classList.add('hidden');
       else if (v.phase === 'ZONE_HUB') {
         if (els.intro.classList.contains('hidden')) {
-          add(clear(els.intro.querySelector('.hi-b')), h('p', FURNACE_LINE));
+          add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
           els.intro.classList.remove('hidden');
         }
       } else if (!els.intro.classList.contains('hidden')) closeIntro();
@@ -406,6 +407,8 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
 // ------------------------------------------------------------------ tooltips
 /** D150 item 5: the meter's one sentence (its tooltip, and the retired first-time note). */
 export const FURNACE_LINE = 'Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.';
+/** L1 (MD D.5, draft): the meter's sentence; in the demo, which meets no boss, DEMO_TEXT.furnaceLine. */
+export const furnaceLine = (ctx) => (demoOn(ctx) ? DEMO_TEXT.furnaceLine : FURNACE_LINE);
 /** The four states as the tooltip's table rows (D150 item 5): [state, when, bonus or ''] from the engine's thresholds. */
 export function stateRows(H) {
   return [['clear', 'Tolls to spare'], ['warm', `Up to ${H.hotAt} overspent`], ['hot', `${H.hotAt} to ${H.scorchAt} overspent`], ['scorched', `${H.scorchAt} or more overspent`]]
@@ -419,7 +422,7 @@ export function heatTip(ctx) {
   box.appendChild(h('div.tt-name', HW.Name));
   // D152 (changes-m3-v2.md 4): while the Dimming sets the state, the tolls figure moves here, as the first line
   if (hv.by === 'dim') box.appendChild(h('div.tt-line.ht-dimtip', dimTipLine(hv)));
-  box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
+  box.appendChild(h('div.tt-line.desc', furnaceLine(ctx)));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
   if (hv.node && hv.node.state) box.appendChild(h('div.tt-line.ht-countswhy', `${countsLine(hv)}. ${COUNTS_WHY}`)); // D163 (draft)

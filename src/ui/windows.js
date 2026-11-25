@@ -11,7 +11,7 @@ import { tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn } from './tooltip
 import { dragSource, dropTarget } from './hud.js';
 import { buildMap } from './screens.js';
 import { settings } from './settings.js';
-import { DEMO_TEXT } from './demo.js';
+import { DEMO_TEXT, demoOn } from './demo.js';
 import { buildContractLog } from './prep.js';
 import { resurrectText, econLine } from './ui-text.js';
 import { flags } from './engine-bridge.js';
@@ -284,7 +284,7 @@ export function createWindows(root, ctx) {
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',
             h('span.kbd', 'C B P'), 'Character, bags, spells', h('span.kbd', 'N L M'), 'Talents, quests, map')),
-        h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`));
+        demoOn(ctx) ? null : h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`)); // L4: not in the demo
       const win = frame('settings', 'Menu and settings', null, body);
       if (devRow) win.classList.add('dev');
       return win;

@@ -33,6 +33,29 @@ import { GATES } from '../constants.js';
   }
 }(TUTORIAL));
 
+/**
+ * Demo wording (MD D.5 L1, draft; demo.md 4.2): while C.GATES.demo is on, the Furnace lines that warn about the final boss
+ * (no demo run meets him) read their `TUTORIAL.demo` text: a beat's `line` (G5) and a hint's `line` (H16, H17), as
+ * legacyWords binds `TUTORIAL.legacy` (a getter per field, read at each use; off: the line as it was, legacy wording included).
+ */
+(function demoWords(T) {
+  const D = T.demo;
+  if (!D) return;
+  const bind = (obj, k, text) => {
+    const was = Object.getOwnPropertyDescriptor(obj, k);
+    const read = () => (was.get ? was.get.call(obj) : was.value);
+    Object.defineProperty(obj, k, { get: () => (GATES.demo ? text : read()), enumerable: true, configurable: true });
+  };
+  for (const [id, f] of Object.entries(D.beats || {})) {
+    const beat = (T.beats || []).find((x) => x.id === id);
+    if (beat) for (const [k, text] of Object.entries(f)) bind(beat, k, text);
+  }
+  for (const [id, f] of Object.entries(D.hints || {})) {
+    const hint = (T.hints || []).find((x) => x.id === id);
+    if (hint) for (const [k, text] of Object.entries(f)) bind(hint, k, text);
+  }
+}(TUTORIAL));
+
 export const CONTENT = {
   version: 'm1-content-1',
   zones: ZONES,

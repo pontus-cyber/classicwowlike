@@ -25,8 +25,8 @@ export const DEMO_TEXT = {
   capLevel: 'Level {cap}: the demo\'s highest',
   hallAllOwned: 'You own every unlock in the demo.',
   heroIntro: 'Your hero keeps its level from run to run, up to level {cap} in the demo.',
-  // MD D.5 (draft): demo variants of full-game lines that name what the demo never reaches. Not wired yet (hand-off
-  // content-2026-11-25, for the UI engineer): heat.js FURNACE_LINE in the demo.
+  // MD D.5 (draft): demo variants of full-game lines that name what the demo never reaches. Wired (L1): heat.js reads
+  // furnaceLine in the demo for the meter's tooltip and the hub intro; the tutorial's G5, H16 and H17 read TUTORIAL.demo.
   furnaceLine: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.',
 };
 

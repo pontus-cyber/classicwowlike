@@ -18,7 +18,7 @@
 // D150 (owner 2026-11-14, text pass): "Deathblow stopped" and "Wind-up stopped" (floats and log lines), the end boss
 // and the Ember of Return by their names ("Oruvath", "You return to the fight"); a quest's, story's or contract's XP
 // floats not with the fight's (its window shows it), so the fight's floats add up to the spoils' experience.
-import { wait, SkipToken, fmtNum, deepClone, lv, econShown } from './util.js'; // lv: Legacy's hero scale (identity off)
+import { wait, SkipToken, fmtNum, moneyText, deepClone, lv, econShown } from './util.js'; // lv: Legacy's hero scale (identity off)
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine } from './ui-text.js';
 import { capLevelText } from './demo.js';
@@ -457,13 +457,13 @@ export class Director {
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : themeToken('--accent-pale'), size: 20 });
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
-          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from the Furnace)` : ''}.`, 'lg-loot'); break;
+          case 'gold': hud.log(`You receive ${moneyText(e.amount)}${e.heat ? ` (+${moneyText(e.heat)} from the Furnace)` : ''}.`, 'lg-loot'); break;
           case 'msg': if (!e.quiet) ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break; // quiet: the log only
           case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest: health and mana restored.', 'lg-sys'); await W(500); break;
           case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, themeToken('--accent-pale'), 30, 160, { up: 80 }); await W(500); break;
           case 'trap': break;
           case 'buy': hud.log(`You buy ${e.name}.`, 'lg-loot'); break;
-          case 'sell': hud.log(`You sell ${e.name} for ${fmtNum(e.gold)} copper.`, 'lg-loot'); break;
+          case 'sell': hud.log(`You sell ${e.name} for ${moneyText(e.gold)}.`, 'lg-loot'); break;
           case 'learn': scene.aura('player', '#c8a8ff'); ctx.ui.toast(`Learned ${e.name}`, 'good'); hud.log(`You learn ${e.name}.`, 'lg-sys'); break;
           case 'train': hud.log(`${e.name} trained to rank ${e.rank}.`, 'lg-sys'); break;
           case 'equip': hud.log(`Equipped ${e.name}.`, 'lg-sys'); break;
