@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="67a843d 2026-11-25T18:38:30Z">
+<meta name="build" content="3ae047e 2026-11-25T22:13:21Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2178,8 +2178,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (67a843d 2026-11-25T18:38:30Z) from 71 modules.
-const __BUILD__ = "67a843d 2026-11-25T18:38:30Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (3ae047e 2026-11-25T22:13:21Z) from 71 modules.
+const __BUILD__ = "3ae047e 2026-11-25T22:13:21Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -16928,7 +16928,7 @@ const ENEMIES = {
    "ab_z2_mawgrim_heavy_blow",
    "ab_z2_mawgrim_self_heal"
   ],
-  "text": "A bloated gatekeeper who opens the floodgates on those who owe him toll."
+  "text": "A bloated gatekeeper who opens the floodgates on anyone who crosses his locks unpaid."
  },
  "z3_cairn_brute": {
   "id": "z3_cairn_brute",
@@ -18491,9 +18491,9 @@ const QUESTS = {
  "q_z1_guide_hedge_breaker": {
   "id": "q_z1_guide_hedge_breaker",
   "title": "The Hedge Breaker",
-  "giver": "Hobb Larrow",
+  "giver": "Jory Larrow",
   "objective": "slay",
-  "text": "An ogre keeps smashing through the hedges on the east lane. He swings slow and heavy. Send him back to the woods.",
+  "text": "A slow, heavy ogre keeps smashing through the hedges on the east lane. Send him back to the woods.",
   "turnIn": "The lane is quiet again. Well struck.",
   "enemies": [
    "z1_hedge_ogre"
@@ -18514,7 +18514,7 @@ const QUESTS = {
  "q_z1_guide_tusks_in_the_verge": {
   "id": "q_z1_guide_tusks_in_the_verge",
   "title": "Tusks in the Verge",
-  "giver": "Warden Pell",
+  "giver": "Hayward Tobin",
   "objective": "slay",
   "text": "Boars come down from the Verge and churn every field they cross. Thin them out for us.",
   "turnIn": "That will keep them off the fields a while.",
@@ -20094,7 +20094,7 @@ const TEXTS = {
   families: {
     outlaw: { singular: 'outlaw', plural: 'outlaws', done: 'Fewer outlaws on the roads. The carters will sleep easier.' },
     wild: { singular: 'wild beast', plural: 'wild beasts', done: 'The wild beasts keep their distance now. The herders thank you.' },
-    blight: { singular: 'blightborn', plural: 'blightborn', done: 'The blightborn are burnt back. The fields can breathe.' },
+    blight: { singular: 'blighted thing', plural: 'blighted things', done: 'The blighted things are burnt back. The fields can breathe.' },
     fenbeast: { singular: 'fen beast', plural: 'fen beasts', done: 'The fen beasts have gone quiet in the reeds. Good riddance.' },
     reedfolk: { singular: 'reedfolk', plural: 'reedfolk', done: 'The reedfolk have pulled back into the marsh. The boats can go out again.' },
     witchkin: { singular: 'witchkin', plural: 'witchkin', done: 'The witchkin\'s hexes are broken, and the wells taste clean.' },
@@ -20136,11 +20136,11 @@ const TEXTS = {
     hub: '{hub} has work on the board: {contract}',
   },
   expedition: {
-    shardfall: 'Where a shard of Oruvath fell and cracked the rim. The dark starts here.',
+    shardfall: 'Where a falling shard struck the land. The dark spreads from here.',
     shardspawn: "Things that walked into the Dimming and came out hollow, lit only by the shard's cold glow.",
-    dimming: 'Darkness that spreads from the Shardfall. It takes the land hop by hop, and whoever stands in it.',
+    dimming: 'Darkness that spreads from the Shardfall, place by place. Whoever stands in it must fight.',
     homeward_bell: 'A small brass bell. Rung, it carries you on to the next zone\'s hub.',
-    dimming_pace: 'It takes at most {maxPerToll} places a toll, nearest the purple star first, from toll {grace} in the zone.',
+    dimming_pace: 'It spreads up to {maxPerToll} places for each toll, nearest the purple star first, once you have spent {grace} tolls in the zone.',
   },
   // The talent window's rule lines (newcomer check 2026-11-15, draft; ids C.PROGRESS_TEXT_IDS): {first} is
   // C.TALENT_FIRST_LEVEL, {step} C.TALENT_LEVEL_STEP (rules 6: one point at the first level, then one every step).
@@ -20155,16 +20155,16 @@ const TEXTS = {
   // {spell} a spell's name; {key_talents} the talents key; {xp} HERO_XP_AT_MAX and {legacy} LEGACY_PER_LEVEL at level 25.
   economy: {
     camp_points: 'camp points',
-    camp_points_tip: 'Camp points buy contracts and supplies here. Points you keep can buy a contract at a hub on the way. They do not carry over to the next run.',
+    camp_points_tip: 'Points you keep can buy a contract at a hub on the way. They do not carry over to the next run.',
     set_out: 'You set out with {contracts} contracts and {points} camp points.',
     hub_offer: 'Take for {price} camp points (you have {points}).',
     tracker: '{points} camp points',
     first_run_lost: 'Camp points you do not spend are lost.',
-    second_camp: 'Your camp has grown: {points} camp points and a contract board. Contracts pay XP, gold and a choice of gear.',
+    second_camp: 'Your camp has grown: {points} camp points and a contract board. Contracts give XP, gold and a choice of gear.',
     run_kept: 'Kept: level {level} (was {was}) · spells and ranks · talents · Legacy unlocks',
-    run_left: "Left behind: gear, gold, potions and camp points. Your next run starts with the Wayfarer's kit.",
+    run_left: 'Left behind: gear, gold, potions and camp points. Your next run starts with new gear for your level.',
     run_balance: 'You have {legacy} Legacy points. Next in the hall: {next}, {cost}.',
-    abandon_confirm: 'Abandon this run? You keep your level, XP and spells. Gear, gold and camp points are lost. Legacy points pay only for what you did.',
+    abandon_confirm: 'End the run here? You keep your level, XP and spells; gear, gold and camp points are lost. Legacy points count only what you did.',
     level_title: 'Level {level}',
     level_title_multi: 'Level {level} (+{n})',
     level_health: 'Health {from} → {to}',
@@ -20172,7 +20172,7 @@ const TEXTS = {
     level_new_spell: 'New spell: {spell}. Learn it at a trainer.',
     level_new_ranks: 'Better ranks for {n} spells at a trainer.',
     level_talent: 'Talent point to spend ({key_talents}).',
-    level_legacy: '+{legacy} Legacy points at the end of the run.',
+    level_legacy: '+{legacy} Legacy points when this run ends, to spend in the Legacy hall.',
     level_hero20: 'Level 20: your other talent trees can open in the Legacy hall.',
     level_hero25: 'Level 25, the highest. From now on every {xp} XP pays {legacy} Legacy points.',
     level_progress: 'Level {from} → {to}',
@@ -20270,7 +20270,7 @@ const TUTORIAL = {
   // (mapView node `held`); dimBackLine, the log line of a rescue's fall-back of the Dimming (event `dimBack`); bountyLine,
   // the line of Gorrak's bounty on a first run (event `bounty`, his victory pays the guided Cull's reward).
   guide: {
-    rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
+    rescueLine: 'The Bellwrights ring you back to safety ({rescueTolls} tolls).',
     rescueCapLine: 'That was the last rescue: the guide ends here, and from now on a death ends the run.',
     rescueLeftLine: 'Rescues left before the guide ends: {rescuesLeft}.',
     skipLine: 'You skip the guide: new things get one hint each.',
@@ -20278,11 +20278,11 @@ const TUTORIAL = {
     endLine: 'The guide ends here. New things get one hint each.',
     hubLine: 'Welcome to {zone}.',
     hubTrainerLine: 'Welcome to {zone}. The trainer has something new for you.',
-    holdLine: 'The Bellwrights keep the dark off this road until Gorrak\'s fight is over.',
-    dimBackLine: 'The Bellwrights ring the dark back.',
-    bountyLine: 'Gorrak\'s bounty: the Bellwrights pay for the Fieldbreaker.',
+    holdLine: 'The Bellwrights ring back the dark on this road until Gorrak\'s fight is over.',
+    dimBackLine: 'The Bellwrights ring their bells, and the dark falls back.',
+    bountyLine: 'Gorrak is beaten: the Bellwrights pay his bounty when you reach the next hub.',
     // M3 v3 (D153, changes-m3-v3.md 3, draft): the bounty's XP paid on arrival at zone 2's hub (event bounty `road`); {xp}
-    bountyRoadLine: 'The Bellwrights pay for the road you kept open: +{xp} XP.',
+    bountyRoadLine: 'The Bellwrights pay Gorrak\'s bounty: +{xp} XP.',
   },
 
   // The start camp of a lean first run (D152, changes-m3-v2.md 1.3, draft; prepView `first`): unspentFirst, over Set out
@@ -20332,7 +20332,7 @@ const TUTORIAL = {
       line: 'Contract site: win this fight to count it.',
       alt: { done: 'Contract done: choose one reward.' } },
     { id: 'G11', name: 'Potions', hint: 'H09', anchor: 'item slot',
-      line: 'Low health: drink a Healing Draught ({key_item1}). It uses your turn.' },
+      line: 'Low health: drink a Healing Draught ({key_item1}).' },
     // G12 (D150 item 13, draft): its line once (the purple star is the Shardfall's icon on the map); road: once its line
     // has been shown and the Roads are open (they are closed until Gorrak's fight). The caught line is gone: there was
     // nowhere to walk.
@@ -20346,7 +20346,7 @@ const TUTORIAL = {
     // onRoadFirst (D152, changes-m3-v2.md 2.4 `G13.road.first`, draft): on a Road in zone 1 of a first run, which has no
     // Bell yet (the engine's line id G13.onRoadFirst; the far line does not show then)
     { id: 'G13', name: 'Homeward Bell', hint: 'H19', anchor: 'Bell or Road button',
-      line: 'Far from a Road? Ring the Homeward Bell to reach the next hub.',
+      line: 'Far from a Road? Ring the Homeward Bell to leave the zone.',
       alt: {
         onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.',
         closed: 'Face Gorrak first: the Roads open once his fight is over.',
@@ -20380,12 +20380,12 @@ const TUTORIAL = {
     { id: 'H04', system: 'Deathblow', perClass: true, line: null, retired: 'D150' },
     // alt.shield (D144, draft): the target's shield would absorb a whole hit (R.offBalance(...).absorbs): the big hit goes
     // into the shield (casual s0193: a crit for 0, 88 absorbed), so the line says to break the shield first
-    { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct}% damage. Spend your big hit now.',
+    { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct} % damage. Spend your big hit now.',
       alt: { shield: 'Off-balance, but its shield takes your hits first: break it, then spend your big hit.' } },
-    { id: 'H06', system: 'Maimed', line: 'Maimed: your healing is halved for this fight.' },
+    { id: 'H06', system: 'Maimed', line: 'Maimed: your healing is halved this fight. Drink early.' },
     { id: 'H07', system: 'Lethal', line: 'Lethal: this hit kills you. Stop it, heal, or kill first.' },
-    { id: 'H08', system: 'DoT preview', line: 'The marked end of a health bar is what damage over time will still take.' },
-    { id: 'H09', system: 'Potions', line: 'Low health: drink a Healing Draught ({key_item1}). It uses your turn.' },
+    { id: 'H08', system: 'DoT preview', line: 'The striped end of a health bar is what bleeds, burns and poisons take this round.' },
+    { id: 'H09', system: 'Potions', line: 'Low health: drink a Healing Draught ({key_item1}).' },
     { id: 'H10', system: 'Free potion', line: 'Packed Satchel: your first potion each fight costs no turn, at half strength.' },
     { id: 'H11', system: 'Loot', line: 'Green arrow means upgrade. Equip it in your bags {key_bags}.' },
     // H12 (D150): retired, no line: the level-up banner names what is new at the trainer
@@ -20407,8 +20407,8 @@ const TUTORIAL = {
     { id: 'H27', system: 'Disrupt', line: 'Bosses resist control: {key_engage2} disrupts their first wind-up instead.' },
     { id: 'H28', system: 'Vendor', line: 'Sell what you do not need. Potions are always in stock.' },
     { id: 'H29', system: 'Rest', line: 'Rest: back to full health and mana, for tolls.' },
-    { id: 'H30', system: 'Pass', line: 'Waiting ({key_pass}) keeps them sapped: the wind-up never comes.' },
-    { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It answers Deathblows too.' },
+    { id: 'H30', system: 'Pass', line: 'Sapped: press Pass ({key_pass}) and it stays sapped, so its wind-up never comes.' },
+    { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It stops Deathblows too.' },
     { id: 'H32', system: 'Flee', line: 'You can flee ({key_flee}). The node stays open for later.' },
     { id: 'H33', system: 'Pet', perClass: true, line: 'Your pet fights beside you and draws some of the blows.' },
     // H34 (D150 item 11): retired, no line (it showed with no opener owned; the naming rule's word is Stealth)
@@ -20438,12 +20438,25 @@ const TUTORIAL = {
     },
   },
 
+  // Demo wording (MD D.5, draft; docs/specs/demo.md 4.2 and question Q1): no demo run meets the final boss, so the
+  // Furnace lines that warn about him read this text while C.GATES.demo is on. Not wired yet: the content index binds
+  // `legacy` only (hand-off content-2026-11-25, for the UI engineer). Same placeholders as the line each replaces.
+  demo: {
+    beats: {
+      G5: { line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.' },
+    },
+    hints: {
+      H16: { line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.' },
+      H17: { line: 'Burning: more XP, gold and better drops. The Dimming still spreads with every toll.' },
+    },
+  },
+
   // The first-run nudge (spec 4.2-4.3). unlock: the META id the nudge points at. {satchelPotions}: META.satchel.potions.
   nudge: {
     unlock: 'satchel',
-    welcomeLabel: "The Bellwrights' welcome",
+    welcomeLabel: 'First-run welcome',
     summaryLine: 'Your first unlock is ready: Packed Satchel.',
-    hallLine: 'Buy Packed Satchel: {satchelPotions} potions every run, and your first potion each fight costs no turn.',
+    hallLine: 'Buy Packed Satchel: {satchelPotions} potions every run, and your first potion each fight costs no turn, at half strength.',
     later: 'Later',
   },
 };
@@ -20553,7 +20566,7 @@ const PETS = {
   duskcat: { id: 'duskcat', name: 'Duskcat', hpPct: 0.4, armorMult: 0.8, dmgMult: 1.3, critBonus: 0.10, aggro: 0.20,
     text: 'Fragile and deadly. Hits hard with a higher critical chance.' },
   stormhawk: { id: 'stormhawk', name: 'Stormhawk', hpPct: 0.35, armorMult: 0.7, dmgMult: 0.8, critBonus: 0, aggro: 0.15, locked: true,
-    text: 'Meta unlock. Its attacks also strike a second enemy.' },
+    text: 'Its attacks also strike a second enemy.' },
 };
 
 // fx: dmg [school, b, l(tl), p, w] ; aoe ; hits ; cp ; fin (× CP) ; st (status on target) ; self (status on self)
@@ -20566,7 +20579,7 @@ const SPELLS = Object.fromEntries([
   S('throat_jab', 'rogue', 'Throat Jab', 8, ['E', 20], 4, ['interrupt'], 'Interrupts a cast and silences the target for 1 round. Never misses and cannot be dodged.', { dmg: ['phys', 2, 0.4, 0.2, 0], interrupt: true, st: ['SILENCED', 1] }),
   S('open_vein', 'rogue', 'Open Vein', 10, ['E', 30], 0, ['finisher', 'dot'], 'Finisher. The target bleeds for 4 rounds; stronger per combo point.', { dot: ['BLEED', 4, 2, 0.45, 0.13], fin: true }),
   S('temple_blow', 'rogue', 'Temple Blow', 12, ['E', 25], 5, ['finisher', 'stun'], 'Finisher. Stuns for 1 round plus 1 per 2 combo points (max 3).', { stunFin: true, fin: true }),
-  S('smoke_veil', 'rogue', 'Smoke Veil', 16, ['E', 25], 8, ['defensive'], 'Gain Evasion: +45 % dodge for 3 rounds.', { self: ['EVASION', 3, 0.45] }),
+  S('smoke_veil', 'rogue', 'Smoke Veil', 16, ['E', 25], 8, ['defensive'], '+45 % dodge for 3 rounds (Evasion).', { self: ['EVASION', 3, 0.45] }),
   S('whirling_edges', 'rogue', 'Whirling Edges', 20, ['E', 50], 0, ['aoe', 'builder'], 'Strikes every enemy. Awards 1 combo point.', { dmg: ['phys', 3, 0.6, 0.3, 0.6], aoe: true, cp: 1 }),
   S('expose_weakness', 'rogue', 'Expose Weakness', 24, ['E', 25], 0, ['finisher'], 'Finisher. The target takes more damage for 5 rounds.', { st: ['EXPOSED', 5], fin: true }),
   S('adrenal_surge', 'rogue', 'Adrenal Surge', 30, null, 10, ['resource'], 'Gain 60 energy; energy regeneration doubled for 3 rounds.', { energy: 60 }),
@@ -20622,7 +20635,7 @@ const STATUS_INFO = {
   HEXED: { name: 'Hexed', debuff: true, text: 'Skips its actions. Damage breaks the hex.' },
   SILENCED: { name: 'Silenced', debuff: true, text: 'Cannot cast spells.' },
   BLEED: { name: 'Bleeding', debuff: true, text: 'Takes damage at the end of each round.' },
-  BURN: { name: 'Burning', debuff: true, text: 'Takes fire damage at the end of each round.' },
+  BURN: { name: 'Ablaze', debuff: true, text: 'Takes fire damage at the end of each round.' },
   POISON: { name: 'Poisoned', debuff: true, text: 'Takes poison damage per stack each round.' },
   CHILLED: { name: 'Chilled', debuff: true, text: 'Deals 20 % less damage.' },
   CURSED: { name: 'Cursed', debuff: true, text: 'Deals 15 % less damage.' },
@@ -20730,7 +20743,7 @@ const CONSUMABLES = {
   healing_draught: { id: 'healing_draught', name: 'Healing Draught', use: 'both', price: 1.5, stack: 5, text: 'Restores 35 % of your maximum health. Shares a 4-round cooldown with other draughts.' },
   mana_draught: { id: 'mana_draught', name: 'Mana Draught', use: 'both', price: 1.5, stack: 5, text: 'Restores 35 % of your maximum mana. Shares a 4-round cooldown with other draughts.' },
   trail_rations: { id: 'trail_rations', name: 'Trail Rations', use: 'out', price: 0.5, stack: 10, text: 'Out of combat: restores 40 % of health, mana and pet health.' },
-  purifying_tonic: { id: 'purifying_tonic', name: 'Purifying Tonic', use: 'combat', price: 2, stack: 5, text: 'Removes every debuff on you, including Brand stacks.' },
+  purifying_tonic: { id: 'purifying_tonic', name: 'Purifying Tonic', use: 'combat', price: 2, stack: 5, text: 'Removes every debuff on you.' },
   spark_flask: { id: 'spark_flask', name: 'Spark Flask', use: 'combat', price: 1, stack: 5, text: 'Throw it: magic damage to every enemy.' },
   elixir_ferocity: { id: 'elixir_ferocity', name: 'Elixir of Ferocity', use: 'out', price: 3, stack: 3, text: '+10 % damage for the next 3 nodes.' },
   ember_of_return: { id: 'ember_of_return', name: 'Ember of Return', use: 'passive', price: 30, stack: 1, text: 'Carried: when you die, you return at once with 40 % health. One at a time.' },
@@ -20738,7 +20751,7 @@ const CONSUMABLES = {
 };
 
 const BOONS = {
-  return: { id: 'return', name: 'Boon of Return', w: 10, text: 'A resurrect charge that lasts until used.' },
+  return: { id: 'return', name: 'Boon of Return', w: 10, text: 'An extra Ember of Return, kept until you use it.' },
   insight: { id: 'insight', name: 'Boon of Insight', w: 20, text: '+20 % experience for the next 3 nodes.' },
   fury: { id: 'fury', name: 'Boon of Fury', w: 20, text: '+15 % damage for the next 3 nodes.' },
   plenty: { id: 'plenty', name: 'Boon of Plenty', w: 20, text: 'A pouch of gold, now.' },
@@ -22696,12 +22709,12 @@ function windupStakes(n) {
  * asks of the player (the spec's table, in words). The script itself is read from the engine (data.v2.scripts).
  */
 const ROLE_INFO = {
-  brute: { name: 'Brute', text: 'Hits hard. Its Heavy Smash is a telegraphed big blow.', asks: 'Stop or absorb its Heavy Smash, then punish the opening.' },
-  caster: { name: 'Caster', text: 'Fragile, but its casts hurt and curse you.', asks: 'Interrupt or control its Hex Bolt, or kill it before it casts.' },
-  skulker: { name: 'Skulker', text: 'Bleeds you, and as a lookout signals for help when it is not alone.', asks: 'Kill, interrupt or control it before it signals.' },
+  brute: { name: 'Brute', text: 'Hits hard. Its Heavy Smash is a big blow, shown ahead on its track.', asks: 'Stop its Heavy Smash with a stun or control, or let a shield take it; then hit it while it is off-balance.' },
+  caster: { name: 'Caster', text: 'Fragile, but its casts hurt and curse you.', asks: 'Stop its Hex Bolt with an interrupt or control, or kill it before it casts.' },
+  skulker: { name: 'Skulker', text: 'Bleeds you, and as a lookout signals for help when it is not alone.', asks: 'Kill it, or stop it with an interrupt or control, before it signals.' },
   beast: { name: 'Beast', text: 'Bloodlust: deals more damage every turn it acts.', asks: 'Kill it early: every turn alive makes it stronger.' },
   guardian: { name: 'Guardian', text: 'Shields its ward and braces itself; tough to bring down.', asks: 'Do not spend your burst on its ward early, or control the guardian.' },
-  mender: { name: 'Mender', text: 'Bolsters the weakest ally with a shield and mends the wounded.', asks: 'Kill or control it; interrupt its Mend.' },
+  mender: { name: 'Mender', text: 'Bolsters the weakest ally with a shield and mends the wounded.', asks: 'Kill or control it, and stop its Mend with an interrupt.' },
 };
 /** A control status as a word on the track ("Heavy Smash cancelled: stunned"). */
 const CONTROL_WORD = { STUN: 'stunned', FROZEN: 'frozen', HEXED: 'hexed', SAPPED: 'sapped', TRAP: 'trapped', INTERRUPT: 'interrupted' };
@@ -22859,7 +22872,7 @@ const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c
 // {family}, {familyOne}, {region}, {zone}, {levels}, {elite}, {dungeon}, {hub}, {contract}. Without them: the id in
 // words ("wild foes") and the lines below. Every price, count and reward comes from R.prepView / R.contractView; radii
 // and limits from the rules table (data.rules.prep).
-const CONTRACT_KIND = { cull: 'Cull', bounty: 'Bounty', delve: 'Delve' };
+const CONTRACT_KIND = { cull: 'Cull', bounty: 'Wanted', delve: 'Delve' };
 const CONTRACT_KIND_TEXT = {
   cull: 'Win fights at its sites: Quest and Grind nodes, most of them in one region.',
   bounty: 'Hunt down one named elite that roams one region.',
@@ -22884,7 +22897,7 @@ function contractTarget(c, content) {
 /** A contract in a few words (tracker, toasts, map marks): "Cull wild beasts in Barleyreach Verge", "Bounty: Grosk". */
 function contractTitle(c, content) {
   if (c.kind === 'cull') return `Cull ${contractTarget(c, content)}`;
-  if (c.kind === 'bounty') return `Bounty: ${c.name || 'a named elite'}`;
+  if (c.kind === 'bounty') return `Wanted: ${c.name || 'a named elite'}`;
   return `${CONTRACT_KIND[c.kind] || humanize(c.kind)}: ${contractTarget(c, content)}`;
 }
 const fill = (tpl, vals) => tpl.replace(/\{(\w+)\}/g, (m, k) => (vals[k] != null && vals[k] !== '' ? String(vals[k]) : m));
@@ -22926,7 +22939,7 @@ function contractSitesText(c, r, has = {}) {
   // content-2026-11-20 (blind Legacy v2 s0255, draft): the region and the dungeon are in the sentence above, so these lines
   // give only the rule and when the map shows the marks
   if (c.kind === 'delve') return `While you hold it, ${c.dungeon || "the zone's dungeon"} shows on the zone map.`;
-  const see = `Marks show within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, even on nodes you have not seen` : ''}.`;
+  const see = `Marks show up to ${r.vision} ${plural(r.vision, 'step')} away${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes up to ${r.tracker} steps, even on nodes you have not seen` : ''}.`;
   if (c.kind === 'bounty') return `It can be found at ${numWord(r.bountyPlaced)} Elite nodes away from the hub; beat it at either. ${see}`;
   // Legacy bugs 2026-11-19 (s0133): which nodes count, exactly (contracts.js placeSites, siteWon): the marked ones only
   return `Only Quest or Grind nodes with its mark count; other fights do not. ${see}`;
@@ -22956,8 +22969,8 @@ function prepOptionEffect(o, r, name = (id) => humanize(id), content = null) {
     case 'prep_bell': return `+${o.bell} Homeward Bell charge: one more way out of a zone.`;
     case 'prep_mule': return `+${o.slots} bag slots for the whole run.`;
     case 'prep_charts': return "Every node's region and every dungeon shown on each zone map.";
-    case 'prep_tracker': return `Contract sites marked within ${r.tracker} hops of you, even on nodes you have not seen yet.`;
-    case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'hop')} further on every zone map.`;
+    case 'prep_tracker': return `Contract sites marked up to ${r.tracker} steps away, even on nodes you have not seen yet.`;
+    case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'step')} further on every zone map.`;
     case 'prep_spyglass': return `${o.charges} looks on the map: any node and its neighbours in full view, no tolls.`;
     default: { const g = group(content, 'prep'); const x = g && g[o.id]; return (x && x.rule) || ''; }
   }
@@ -22981,7 +22994,7 @@ const pct2 = (x) => `${Math.round(x * 10000) / 100} %`;
  */
 const strengthText = (mult) => (mult == null || mult >= 1 ? null : mult === 0.5 ? 'half strength' : `${pct1(mult)} strength`);
 /** "Free action (Packed Satchel)" with the strength when it is not full: "Free action, half strength (Packed Satchel)". */
-const freeActionText = (mult) => `Free action${strengthText(mult) ? `, ${strengthText(mult)}` : ''} (Packed Satchel)`;
+const freeActionText = (mult) => `Costs no turn${strengthText(mult) ? `, ${strengthText(mult)}` : ''} (Packed Satchel)`;
 
 /**
  * What a status does, in exact numbers (rules 7.4). s: a view status (engine-bridge.js `statuses`: the engine's status
@@ -23045,7 +23058,7 @@ function statusEffect(s, r, info = {}) {
 }
 
 /** Resurrect sources of the view (player.resurrect): Second Breath is 'meta' (rules 9). */
-const RES_NAME = { boon: 'Boon of Return', meta: 'Second Breath', ember: 'Ember of Return' };
+const RES_NAME = { boon: 'Ember of Return', meta: 'Second Breath', ember: 'Ember of Return' };
 /**
  * Resurrect charges in words (rules 9, M2 v3). `p.resurrect` lists what a death would use now, in order (the engine's
  * resurrectCharges().now); `p.resurrectHeld` counts the charges held. In the end-boss fight Second Breath does not work:
@@ -23073,14 +23086,14 @@ const DANGER_LEVELS = 10;
  * band (draft line); null when that is no extra damage.
  */
 function dangerRule(r, z = null) {
-  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage.` : null;
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to ${pct1(z.danger)} more damage than their level alone.` : null;
   if (r.dangerStep == null || r.dangerFrom == null) return null;
   const dungeon = r.dangerStepDungeon != null && r.dangerStepDungeon !== r.dangerStep ? ` (in dungeons +${pct1(r.dangerStepDungeon)})` : '';
   return `Enemies above level ${lv(r.dangerFrom)} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
 }
 /** Short line for the zone banner when the zone's enemies take zone danger (z.danger > 0), else null. */
 function dangerBanner(r, z) {
-  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage` : null; // Legacy (draft)
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to ${pct1(z.danger)} more damage than their level alone` : null; // Legacy (draft)
   return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${lv(r.dangerFrom)} hit harder` : null;
 }
 
@@ -23127,8 +23140,8 @@ function metaEffect(m, D, d, mode = 'rows') {
     // strength (D.freePotionMult from the engine; "half strength")
     case 'satchel': {
       const str = strengthText(D.freePotionMult);
-      return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight is free${str ? `, at ${str}` : ''}`,
-        long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight is a free action${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
+      return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight costs no turn${str ? `, at ${str}` : ''}`,
+        long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight costs no turn${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
     }
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${lv(m.ilvl)}`, long: `Your starting weapon is ${m.rarity} quality, item level ${lv(m.ilvl)}, instead of a common one.` };
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
@@ -23304,7 +23317,7 @@ const UI_HINTS = {
 };
 const NEAREST_ROAD_TAIL = 'Nearest: {hops}, {tolls}.';
 /** "2 hops", "1 hop". */
-const hopsText = (n) => `${n} ${n === 1 ? 'hop' : 'hops'}`;
+const hopsText = (n) => `${n} ${n === 1 ? 'step' : 'steps'}`;
 /**
  * The nearest open Road from the player's node on an expedition map (pure; mapView): { id, hops, tolls }, or null when the
  * player stands on a Road or none can be reached. Hops count the fewest steps along the paths, through nodes that are not
@@ -23870,7 +23883,7 @@ function itemTip(item, ctx, opts = {}) {
     if (opts.compare !== false && eq && eq.uid !== item.uid) {
       const a = ctx.bridge.itemScore(item); const b = ctx.bridge.itemScore(eq);
       const diff = Math.round((a - b) * 10) / 10;
-      box.appendChild(h('div.tt-compare', U.off ? offLine() : diff > 0 ? h('span.up', `▲ Upgrade (+${diff} item score)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'Same item score as equipped')));
+      box.appendChild(h('div.tt-compare', U.off ? offLine() : diff > 0 ? h('span.up', `▲ Upgrade (+${diff} overall)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'As good overall as what you wear')));
       const deltas = [];
       for (const k of ['wd', 'armor', 'sta', 'agi', 'int', 'spi', 'power', 'crit']) {
         const dv = (item.stats[k] || 0) - (eq.stats[k] || 0);
@@ -24102,7 +24115,7 @@ const DIM_NEAR_WORDS = 'The Dimming is near';
 function dimTipLine(x) {
   const n = Math.abs(x.heat || 0);
   const mine = x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}. ` : '';
-  return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
+  return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The dark near you sets the Furnace now.`;
 }
 /**
  * engine-2026-11-15 UI need 8 (newcomer check s0142: does overspending carry over?): the tooltip's line from heatView.carry
@@ -24112,10 +24125,10 @@ function dimTipLine(x) {
 function carryLine(hv) {
   const c = hv && hv.carry; if (!c || !c.cumulative || !c.share) return '';
   const n = Math.abs(Math.round(c.carried || 0)); if (!n) return '';
-  return `Tolls carry over: ${n} ${c.carried > 0 ? 'overspent' : 'saved'} before this zone, which adds ${c.share}.`;
+  return `Tolls carry over: ${n} ${c.carried > 0 ? 'overspent' : 'saved'} before this zone; this zone gives ${c.share}.`;
 }
 /** Newcomer check 2026-11-15 (s0017-s0133, draft): the tooltip's one line on the diamond (the Dimming's marker). */
-const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further right sets the state.';
+const DIM_MARK_LINE = '◆ The dark near you. The marker further right sets the state.';
 /**
  * D163 (engine-2026-11-20b recommendation 1; draft): the tag on the meter's label that names the clock that sets the state,
  * shown where two clocks run (an expedition zone: the run clock and the Dimming of the place the player stands on). Its
@@ -24149,10 +24162,10 @@ function arrivalLine(hv) {
   const c = hv && hv.carry;
   if (!c || !c.cumulative || !(c.share > 0) || !(hv.z > 1)) return '';
   const n = Math.abs(Math.round(c.carried || 0));
-  const was = !n ? '' : c.carried > 0 ? `; you overspent ${n}` : `; you saved ${n}`;
+  const was = !n ? '' : c.carried > 0 ? `, less the ${n} you overspent` : `, plus the ${n} you saved`;
   const left = c.carried - c.share;
   const end = left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`;
-  return `Zone ${hv.z} adds ${tolls(c.share)}${was}: ${end}.`;
+  return `Zone ${hv.z} gives you ${tolls(c.share)}${was}: ${end}.`;
 }
 /**
  * D163 (engine-2026-11-20b recommendation 3; draft): a node tooltip's line on the places the Dimming takes while the player is
@@ -24472,7 +24485,7 @@ function heatBadge(state, ctx, kind = 'node') {
   if (!H || !state || !(H.gain[state] > 0 || H.rarityUp[state] > 0)) return null;
   const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? `▲ ${HW.Name}` : `${HEAT_NAME[state]} bonus`);
   tip(el, () => h('div', h('div.tt-name', kind === 'item' ? `Raised by ${HW.name}` : `Entered ${HEAT_NAME[state]}`),
-    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: ${HW.name} raised this item one rarity.` : `${payText(state, H)}.`)));
+    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: one rarity better than it dropped.` : `${payText(state, H)}.`)));
   return el;
 }
 
@@ -24502,7 +24515,7 @@ function buildHeatSummary(sum, ctx) {
   // share a row, and the chart is lower (HT), so the summary fits without a scroll in the common case
   card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
     h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`))))));
-  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} per zone: above 0 overspent, below 0 to spare`), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-sub', h('div.hc-cap', 'Per zone: above 0 overspent, below 0 to spare'), h('span.hc-end', endLine)));
   card.appendChild(heatChart(recs, H, zc));
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
   // Legacy bugs 2026-11-19 (blind returning player s0059: "0 Infernal" after the meter had shown Infernal): a node counts in
@@ -25021,7 +25034,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
   const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
   /** A new run on screen: the presentation state and the engine log start afresh. */
-  const resetLocal = () => { local.secondCamp = false; local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
+  const resetLocal = () => { local.ended = null; local.secondCamp = false; local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -25854,7 +25867,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const pend = s.node && s.node.stage === 'reward' ? s.node.rewards.filter((r) => r.kind === 'items') : [];
     const nextOf = (list) => list.map((r) => {
       if (r.contract) { const c = v.contracts ? v.contracts.contracts.find((x) => x.id === r.contract) : null; return { kind: 'contract', title: c ? TXT.contractTitle(c, CONTENT) : 'a contract' }; }
-      if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: the story` : 'the story' };
+      if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: zone story` : 'zone story' };
       if (r.bounty) return { kind: 'bounty', title: BOUNTY_TITLE };
       return { kind: 'quest', title: (CONTENT.quests[s.node.quest] || {}).title || 'the quest' };
     });
@@ -26000,7 +26013,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (e.u === 'player') { out.push({ t: 'death', dst: ref('player'), name: s.player.name }); if (s.phase === 'SUMMARY' || s.phase === 'ENDED') out.push({ t: 'defeat' }); }
           else { hp.set(key(e.u), 0); out.push({ t: 'death', dst: ref(e.u), name: e.name || enemyName(e.u) }); }
           break;
-        case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Boon of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
+        case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Ember of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
         // heat (rules 1.7.3): the extra XP and gold of a node entered Hot or Scorched, carried by the events as `heat`
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why, heat: e.heat || 0 }); break;
         // engine-2026-11-15 UI need 2: the trainer's offer as at this level (R.trainerView(state, level)), for its banner
@@ -26051,7 +26064,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         // Gorrak's bounty on a first run (content guide.dimBackLine, guide.bountyLine; draft)
         case 'dimBack': out.push({ t: 'msg', text: guideLine('dimBackLine') || 'The dark falls back.', kind: 'good' }); break;
         // D153 (engine-2026-11-17 UI need 2): the road's share (road: true, at zone 2's hub) has its own line, guide.bountyRoadLine
-        case 'bounty': out.push(e.road ? { t: 'msg', text: (guideLine('bountyRoadLine') || 'The Bellwrights pay for the road: +{xp} XP.').replace('{xp}', String(e.xp || 0)), kind: 'good', bountyRoad: true }
+        case 'bounty': out.push(e.road ? { t: 'msg', text: (guideLine('bountyRoadLine') || 'The Bellwrights pay Gorrak\'s bounty: +{xp} XP.').replace('{xp}', String(e.xp || 0)), kind: 'good', bountyRoad: true }
           : { t: 'msg', text: guideLine('bountyLine') || "Gorrak's bounty.", kind: 'good' }); break; // the XP and gold lines follow their own events
         case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;
@@ -26086,8 +26099,27 @@ function engineBackend(seedOpt, runOpts = {}) {
     // Legacy (legacy.md 1.5; UI need 5): the hero checkpoint at every zone and Camp arrival is stored at once, so a closed
     // browser loses at most the zone in progress (not a dev run: its profile stays as it was)
     if (st.legacy && !st.dev && st.profile && st.profile.v >= 3 && r.events.some((e) => e.t === 'zone' || e.t === 'camp')) saveProfile(st.profile);
+    storeRunEnd();
     heatSteps(before, action, r);
     return r;
+  }
+
+  /**
+   * D175 (BUG-QA-12; demo.md 5.3: the run end is a checkpoint): the step that ends the run (a death, Abandon, the demo's
+   * end, a victory) stores at once what END_RUN will store, before the summary shows: the profile of a dry END_RUN (hero
+   * levels and XP, Legacy points, the welcome, the guide) and the run in the run log. F5 or a closed tab on the summary
+   * keeps it; the summary's button (END_RUN) then stores the same profile again and does not log the run twice. Stored again
+   * if the run's state changes on the summary (the same profile; local.ended.of is the state it was computed from).
+   */
+  function storeRunEnd() {
+    if (st.phase !== 'SUMMARY' || (local.ended && local.ended.of === st)) return;
+    let r = null;
+    try { r = R.step(st, { type: 'END_RUN' }).state; } catch { return; }
+    if (!r.result || !r.result.profile) return;
+    const was = local.ended;
+    local.ended = { of: st, profile: r.result.profile, logged: !!(was && was.logged), guide: was ? was.guide : null };
+    saveProfile(local.ended.guide ? R.setGuide(r.result.profile, local.ended.guide) : r.result.profile);
+    if (!local.ended.logged && !r.result.summary.dev) { recordRun(r.result.summary); local.ended.logged = true; } // a dev run stays out of the log
   }
 
   /**
@@ -26226,8 +26258,11 @@ function engineBackend(seedOpt, runOpts = {}) {
           const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : {};
           if (st.result && st.result.profile) {
             const sum = st.result.summary;
-            profile = st.result.profile; saveProfile(profile); refreshPets();
-            if (!sum.dev) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
+            // D175: the run end was stored when the run ended (storeRunEnd): the same profile again (with "Play the guide
+            // again" if it was chosen on the summary), and the run is not logged twice
+            const ended = local.ended;
+            profile = ended && ended.guide ? R.setGuide(st.result.profile, ended.guide) : st.result.profile; saveProfile(profile); refreshPets();
+            if (!sum.dev && !(ended && ended.logged)) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
             // from: the hero's level at the run's start (Legacy; hero select's "Level 4 → 7", legacy.md 4.7 E6.4)
             local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.hero ? sum.hero.level : sum.level, from: sum.hero && sum.hero.start ? sum.hero.start.level : null,
               gained: st.result.echoes, before, after: balanceOf(profile), firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
@@ -26271,7 +26306,10 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'GUIDE_AGAIN': {
           // Settings, "Play the guide again" (2.2): the profile's guide back to 'todo'; the next run (at class select: this
           // one) is guided. The welcome is not paid again (the profile keeps welcome: true).
-          profile = R.setGuide(profile || R.newProfile(), 'todo'); saveProfile(profile); guideOn = true;
+          profile = R.setGuide(profile || R.newProfile(), 'todo'); guideOn = true;
+          // D175: on the summary the stored profile is already the run end's (storeRunEnd): the guide goes back on that one,
+          // and END_RUN keeps it
+          if (local.ended) { local.ended.guide = 'todo'; saveProfile(R.setGuide(local.ended.profile, 'todo')); } else saveProfile(profile);
           if (st.phase === 'CREATE') rebuildCreate();
           return { ok: true, events: [], now: st.phase === 'CREATE' };
         }
@@ -26462,6 +26500,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       return { ok: false, error: `Dev tools: ${(err && err.message) || err}` };
     }
     if (fresh) { local.spoils = null; local.hold = null; local.reward = null; } else afterStep(prev, events);
+    storeRunEnd(); // D175: a dev op that ends the run (or changes it on the summary) stores the run end as a step does
     const bad = R.debug.validate(st, { steps: false });
     if (bad.length) console.error(`[dev] ${op}: the state fails the engine's checks: ${bad.join('; ')}`);
     return { ok: true, note };
@@ -29250,6 +29289,9 @@ yield;
 // (theme.js artStyle) backdrops are built with art-world.js's Lantern pass (zones 1-2 and the camp), actors take the
 // Lantern looks (art-actors.js heroLook, foeLook...), painted (paintActor) with the key light of the backdrop into sprites
 // kept per pose (drawPainted); a switch of the attribute rebuilds the backdrops and the looks at once (restyle()).
+// Paint on demand (D175, docs/specs/demo.md 5.4 frame time): frame() moves the scene's state on every frame as before, but
+// on the map and in fights (IDLE_MODES) it paints the canvas only while something is moving or has changed (busy(), sig());
+// a still map or idle fight keeps its last paint. paintNow() paints a stale canvas at once (canvas-shot.mjs).
 
 
 
@@ -29271,6 +29313,14 @@ const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD =
 // is HEAD_DY0 px above the head; under an enemy it is HEAD_GAP px below the word lane's last row (px at 768 high)
 const HEAD_ROWS = 2; const HEAD_DY0 = 18; const HEAD_ROW = 28; const HEAD_GAP = 30; const FLOG_MAX = 240;
 const SCHOOL_COL = IMPACT; // theme.js: the --fx-impact-* tokens (frost: --school-frost)
+// paint on demand (D175; Scene.frame): the modes whose canvas may hold its last paint while nothing on it moves (the map and
+// fights; class select, the camp, the hub, nodes and the summary paint every frame as before); an actor or prop within
+// SETTLE_PX of its mark, a scroll under SETTLE_SPEED px/s and a dim within SETTLE_DIM of its target count as settled
+const IDLE_MODES = new Set(['map', 'combat', 'boss']);
+const SETTLE_PX = 0.25; const SETTLE_SPEED = 0.5; const SETTLE_DIM = 0.001;
+/** A small number per object (sig(): the same look or backdrop object, the same number). */
+const objIds = new WeakMap(); let objNext = 0;
+const objId = (x) => { let n = objIds.get(x); if (n === undefined) { n = ++objNext; objIds.set(x, n); } return n; };
 
 class Scene {
   constructor(canvas) {
@@ -29296,8 +29346,12 @@ class Scene {
     this.target = null; this.hover = null;
     this.desat = 0;
     this.art = artStyle();
+    // the paint on demand (D175; frame()): the canvas is out of date (dirty), the last frame did not paint (stale), what the
+    // last paint in an idle mode showed (lastSig), and frame counts for the checks (painted, coasted)
+    this.dirty = true; this.stale = false; this.lastSig = null; this.painted = 0; this.coasted = 0;
     this.resize();
-    onTheme(() => this.restyle());
+    // a theme or art style switch (Lantern) changes the paint of tokens and looks: the next frame paints
+    onTheme(() => { this.restyle(); this.invalidate(); });
   }
 
   /** The art style changed (data-art on <html>): rebuild the backdrops and give every actor the look of the new style. */
@@ -29323,6 +29377,7 @@ class Scene {
     this.cv.style.width = W + 'px'; this.cv.style.height = H + 'px';
     this.backdrops.clear();
     this.bd = this.getBackdrop(this.theme, this.hub); this.prevBd = null;
+    this.dirty = true;
     this.u = H / 768;
     this.layout(true);
     this.seedAmbient();
@@ -29708,10 +29763,101 @@ class Scene {
   }
 
   // ------------------------------------------------------------------ frame
+  /**
+   * One animation frame (D175, BUG: the map and idle fights cost a full canvas paint every frame). The scene's state moves on
+   * every frame exactly as before (the clock, the ambient motes, actors settling on their marks, the scroll); the canvas is
+   * painted only when that paint shows something new: always outside IDLE_MODES; in them while an effect, a tween or a
+   * running animation is on (busy()), when anything the paint reads changed (sig()), and after invalidate(). An idle map
+   * or fight keeps its last paint (its ambient motion holds still) until then. Returns true when it painted.
+   */
   frame(now) {
     const t = now / 1000;
     const dt = this.last ? Math.min(0.05, t - this.last) : 0.016;
-    this.last = t; this.time += dt;
+    this.last = t;
+    if (this.mustPaint()) { this.paint(dt); this.stale = false; this.painted++; return true; }
+    this.coast(dt); this.stale = true; this.coasted++;
+    return false;
+  }
+
+  /** Mark the canvas out of date: the next frame paints (a resize, an art style switch). */
+  invalidate() { this.dirty = true; }
+
+  /** Test hook (canvas-shot.mjs): when the last frame did not paint, paint the scene as it stands now (no time passes). */
+  paintNow() { if (this.stale) { this.paint(0, true); this.stale = false; } }
+
+  /** Does this frame need a paint? Records what was painted (lastSig) when it does. */
+  mustPaint() {
+    if (this.dirty || !IDLE_MODES.has(this.mode) || this.busy()) { this.dirty = false; this.lastSig = null; return true; }
+    const sig = this.sig();
+    if (sig === this.lastSig) return false;
+    this.lastSig = sig;
+    return true;
+  }
+
+  /**
+   * Is an effect, a tween or a running animation on screen? Effects with a lifetime, the hit-stop, the screen shake, the
+   * scroll, the dim and the backdrop cross-fade, actors in a pose, a recoil, a hit flash, a death fade or walking to their
+   * mark, a prop sliding in; and the animations that carry meaning: a held telegraph (its tremble and sparks) and the
+   * animated status marks (stun, burn, hex, sleep, off-balance). The idle breathing, the rank glow, the drifting backdrop
+   * and the ambient motes are not counted: they hold still between paints.
+   */
+  busy() {
+    if (this.freeze > 0 || this.prevBd || this.shakeAmt > 0 || this.flash || this.pillar) return true;
+    if (this.targetSpeed !== 0 || Math.abs(this.speed) > SETTLE_SPEED || Math.abs(this.dim - this.targetDim) > SETTLE_DIM) return true;
+    if (this.particles.length || this.texts.length || this.projectiles.length || this.charges.length || this.cores.length || this.rays.length || this.rings.length || this.beams.length) return true;
+    const t = this.time;
+    for (const a of this.actors.values()) {
+      if (a.visible === false) continue;
+      if (a.act || a.kb || (a.flashT && t - a.flashT < 0.2) || (a.deadT0 && t - a.deadT0 < 0.7)) return true;
+      if (a.tx != null && (a.x == null || Math.abs(a.x - a.tx) > SETTLE_PX)) return true;
+      const live = a.alive !== false;
+      if (a.tele && !a.teleSpent && live && !a.deadT0) return true;
+      if (live && (a.fxStun || a.fxBurn || a.fxHex || ((a.fxSap || a.fxOffBal) && !a.deadT0))) return true;
+    }
+    for (const pr of this.props) if (pr.tx != null && (pr.x == null || Math.abs(pr.x - pr.tx) > SETTLE_PX)) return true;
+    return false;
+  }
+
+  /** What a paint reads besides the clock and the ambient motion, as one string (equal strings: the same picture). */
+  sig() {
+    const o = (x) => (x && typeof x === 'object' ? objId(x) : x);
+    const p = [this.mode, this.theme, this.hub ? 1 : 0, o(this.bd), this.W, this.H, this.dpr, this.art, this.target, this.hover, this.stealth ? 1 : 0, this.desat, this.bossPhase, this.targetDim];
+    for (const a of this.actors.values()) {
+      p.push(a.id, a.uid, a.kind, o(a.look), a.scale, a.flip ? 1 : 0, a.visible, a.alive, a.hidden, a.dead, a.deadT0, a.rank, a.dy, a.alpha, a.tx, a.born,
+        a.fxWard, a.fxStun, a.fxFrozen, a.fxHex, a.fxBurn, a.fxSap, a.fxOffBal, a.tele ? `${a.tele.kind}${a.tele.color}` : '', a.teleSpent);
+    }
+    for (const pr of this.props) p.push(pr.kind, pr.at, pr.tx, pr.color, pr.open, pr.mark, pr.look ? JSON.stringify(pr.look) : '');
+    return p.join('|');
+  }
+
+  /**
+   * A frame without a paint: the state moves on as paint() would move it (the same steps in the same order), so the next
+   * paint is the one the old every-frame loop would have shown at that moment. Only reached when busy() is false, so no
+   * effect, pose or random draw is pending.
+   */
+  coast(dt) {
+    this.time += dt;
+    const adt = this.freeze > 0 ? Math.max(0, dt - this.freeze) : dt;
+    this.freeze = Math.max(0, this.freeze - dt); this.atime += adt;
+    this.speed = lerp(this.speed, this.targetSpeed, Math.min(1, dt * 3.2));
+    this.scroll += this.speed * dt;
+    if (this.prevBd) { this.fade = Math.min(1, this.fade + dt / 1.4); if (this.fade >= 1) this.prevBd = null; }
+    this.dim = lerp(this.dim, this.targetDim, Math.min(1, dt * 5));
+    this.shakeAmt = 0;
+    for (let i = 0; i < this.ambient.length; i++) this.moveMote(this.ambient[i], (i % 3 === 0), dt);
+    for (const pr of this.props) this.moveProp(pr);
+    const walking = Math.abs(this.speed) > 5;
+    for (const a of this.actors.values()) {
+      if (a.visible === false) continue;
+      if (a.tx != null) a.x = lerp(a.x ?? a.tx, a.tx, Math.min(1, dt * (a.id.startsWith('enemy') ? 3.2 : 4)));
+      const moving = walking && (a.id === 'player' || a.id === 'pet') || (a.tx != null && Math.abs(a.x - a.tx) > 3);
+      a.phase = (a.phase || 0) + dt * (moving ? (a.kind === 'beast' ? 9 : 7.5) : 0);
+    }
+  }
+
+  /** Paint a frame dt seconds after the last one (the scene loop as it always was). still: paint the state as it stands. */
+  paint(dt, still = false) {
+    this.time += dt;
     // the actor clock stops during a hit-stop
     const adt = this.freeze > 0 ? Math.max(0, dt - this.freeze) : dt;
     this.freeze = Math.max(0, this.freeze - dt); this.atime += adt;
@@ -29732,9 +29878,9 @@ class Scene {
     if (this.prevBd) drawBackdrop(ctx, this.prevBd, this.scroll, this.time, 1, true);
     drawBackdrop(ctx, this.bd, this.scroll, this.time, this.prevBd ? ease.inOut(this.fade) : 1, true);
 
-    this.drawAmbient(ctx, dt, false);
+    this.drawAmbient(ctx, dt, false, still);
     // props (set pieces) scroll with the ground
-    for (const pr of this.props) this.drawProp(ctx, pr);
+    for (const pr of this.props) this.drawProp(ctx, pr, still);
 
     // actors sorted by depth
     const walking = Math.abs(this.speed) > 5;
@@ -29749,7 +29895,7 @@ class Scene {
     drawForeground(ctx, this.bd, this.scroll, this.prevBd ? ease.inOut(this.fade) : 1);
 
     this.drawFx(ctx, dt);
-    this.drawAmbient(ctx, dt, true);
+    this.drawAmbient(ctx, dt, true, still);
     ctx.restore();
 
     // grade + vignette, desaturation, dim and the screen flash (art-fx.js drawGrade); the flash ends here
@@ -29902,11 +30048,18 @@ class Scene {
     } else ctx.drawImage(sp.cv, x + sp.dx, gy + sp.dy, w, h);
   }
 
-  /** A set piece (art-props.js), an NPC (art-actors.js) or a tree (art-world.js) on the ground line; an arriving one slides in. */
-  drawProp(ctx, pr) {
-    const u = this.u; const gy = this.groundY; const t = this.time;
+  /** A prop's place this frame (where it is drawn), then its slide toward its mark (an arriving one); kept as pr.dx. */
+  moveProp(pr) {
     const x = pr.x != null ? pr.x : this.W * (pr.at || 0.66);
     if (pr.tx != null) pr.x = lerp(pr.x ?? pr.tx, pr.tx, Math.min(1, 0.06));
+    pr.dx = x;
+    return x;
+  }
+
+  /** A set piece (art-props.js), an NPC (art-actors.js) or a tree (art-world.js) on the ground line; an arriving one slides in. */
+  drawProp(ctx, pr, still = false) {
+    const u = this.u; const gy = this.groundY; const t = this.time;
+    const x = still && pr.dx != null ? pr.dx : this.moveProp(pr);
     const th = this.palette();
     if (pr.kind === 'npc') {
       drawHumanoid(ctx, x, gy, 1.4 * u, pr.look, { t: t + 3, flip: true });
@@ -29968,26 +30121,31 @@ class Scene {
     }
   }
 
-  drawAmbient(ctx, dt, front) {
-    const u = this.u; const t = this.time; const W = this.W; const H = this.H; const sp = this.speed;
+  drawAmbient(ctx, dt, front, still = false) {
+    const u = this.u; const t = this.time;
     ctx.save();
     for (let i = 0; i < this.ambient.length; i++) {
       const p = this.ambient[i];
       if ((i % 3 === 0) !== front) continue;
-      const k = p.kind;
-      let vx = -sp * (front ? 0.9 : 0.35) * 0.05, vy = 0;
-      if (k === 'pollen') { vx += 8 * u; vy = Math.sin(t + p.p) * 6 * u; }
-      if (k === 'motes') { vx += 4 * u; vy = -3 * u + Math.sin(t * 0.7 + p.p) * 4 * u; }
-      if (k === 'wind') { vx += -260 * u * p.s; }
-      if (k === 'dust') { vx += -30 * u * p.s; vy = Math.sin(t + p.p) * 5 * u; }
-      if (k === 'wisps') { vx += Math.sin(t * 0.5 + p.p) * 10 * u; vy = Math.cos(t * 0.6 + p.p) * 8 * u; }
-      if (k === 'embers') { vx += 10 * u; vy = -40 * u * p.s; }
-      if (k === 'stars') { vy = -10 * u * p.s; }
-      p.x += vx * dt - sp * dt * (front ? 0.6 : 0.15); p.y += vy * dt;
-      if (p.x < -20) p.x += W + 40; if (p.x > W + 20) p.x -= W + 40; if (p.y < -20) p.y += H + 40; if (p.y > H + 20) p.y -= H + 40;
+      if (!still) this.moveMote(p, front, dt);
       drawMote(ctx, p, front, u, t);
     }
     ctx.restore();
+  }
+  /** An ambient mote drifts for dt seconds (its kind's motion, the scroll) and wraps round the screen. */
+  moveMote(p, front, dt) {
+    const u = this.u; const t = this.time; const W = this.W; const H = this.H; const sp = this.speed;
+    const k = p.kind;
+    let vx = -sp * (front ? 0.9 : 0.35) * 0.05, vy = 0;
+    if (k === 'pollen') { vx += 8 * u; vy = Math.sin(t + p.p) * 6 * u; }
+    if (k === 'motes') { vx += 4 * u; vy = -3 * u + Math.sin(t * 0.7 + p.p) * 4 * u; }
+    if (k === 'wind') { vx += -260 * u * p.s; }
+    if (k === 'dust') { vx += -30 * u * p.s; vy = Math.sin(t + p.p) * 5 * u; }
+    if (k === 'wisps') { vx += Math.sin(t * 0.5 + p.p) * 10 * u; vy = Math.cos(t * 0.6 + p.p) * 8 * u; }
+    if (k === 'embers') { vx += 10 * u; vy = -40 * u * p.s; }
+    if (k === 'stars') { vy = -10 * u * p.s; }
+    p.x += vx * dt - sp * dt * (front ? 0.6 : 0.15); p.y += vy * dt;
+    if (p.x < -20) p.x += W + 40; if (p.x > W + 20) p.x -= W + 40; if (p.y < -20) p.y += H + 40; if (p.y > H + 20) p.y -= H + 40;
   }
 }
 
@@ -30254,11 +30412,11 @@ function windupLines(e, x, ctx, st) {
     ? [h('div.tt-line.wu.db', h('img', { src: deathblowIcon(), alt: '' }), h('b', `Deathblow${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature${n.deathblowMult && isDamage(x) ? `, at ×${n.deathblowMult} damage` : ''}. It decides the fight.`),
       (w ? w.est : x.est) && isDamage(x) ? h('div.tt-line.num.db', `Estimated damage to ${targetWord(x, v) || 'you'}: about ${fmtNum(w ? w.est : x.est)}`) : null,
       h('div.tt-line.num', w ? deathblowStakes(w) : windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))]
-    : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature, telegraphed from the round it shows.`),
+    : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s strongest move, shown on its track ahead of time.`),
       h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
-    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'No answer ready: nothing you have now can stop it. Kill it first, or be ready to take it.'));
+    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'Nothing you have now can stop it. Kill it first, or be ready to take it.'));
     else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Stop it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
@@ -30266,7 +30424,7 @@ function windupLines(e, x, ctx, st) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
   } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
-  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet it lands all the same (empowered, and you are maimed). Send the Pet makes your pet take it on purpose: stopped.'));
+  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet, it still lands (it is empowered and you are maimed). Send the Pet has your pet take it on purpose, which stops it.'));
   if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
   const soft = softPending(v, e, x, st);
   if (soft === 'wait') lines.push(h('div.tt-hint.ans', `${cap(answeredBy(st))}: ${SOFT_WORDS.wait} (press Pass); it will be staggered. ${SAP_BREAK_WARN}.`));
@@ -30560,11 +30718,11 @@ function entryTip(e, x, ctx, o = {}) {
   const wu = o.wu !== undefined ? o.wu : windupState(e, x, o.cancel, o.preview);
   if (wu) lines.push(...windupLines(e, x, ctx, wu));
   else {
-    if (x.heavy) lines.push(h('div.tt-warn', 'Heavy: a telegraphed big hit. Stun or control it on that turn to cancel it (it is then off-balance), or let a shield, a dodge or your pet take it.'));
-    if (x.cast) lines.push(h('div.tt-hint', 'Cast: interrupt it or control the caster on that turn to cancel it; a cancelled cast leaves it off-balance.'));
+    if (x.heavy) lines.push(h('div.tt-warn', 'Heavy: a big hit, shown ahead. Stun or control the enemy on that turn to stop it (it is then off-balance), or let a shield, a dodge or your pet take it.'));
+    if (x.cast) lines.push(h('div.tt-hint', 'Cast: interrupt it or control the caster on that turn to stop it; a stopped cast leaves it off-balance.'));
   }
-  if (x.signature && !x.windup) lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, '★ Signature: its strongest ability, on a scripted turn.'));
-  else if (x.scripted && !x.boss && !x.windup) lines.push(h('div.tt-sub', 'Opening move: the same for every enemy of its role.'));
+  if (x.signature && !x.windup) lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, '★ Signature: its strongest ability, on a set turn.'));
+  else if (x.scripted && !x.boss && !x.windup) lines.push(h('div.tt-sub', 'Opening move: every enemy of its role opens this way.'));
   if (x.replaced) lines.push(h('div.tt-warn', `${x.replaced.from} → ${x.name}: ${x.replaced.reason}.`));
   if (o.cancel) {
     const word = CONTROL_WORD[o.cancel.by] || 'controlled';
@@ -30944,7 +31102,7 @@ function boardTip(o, ctx, opts = {}) {
   const rw = o.reward || {};
   const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
-      : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
+      : `Win ${o.need} fights on Quest or Grind nodes that carry its mark, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
   // Economy v2 (engine-2026-11-19c UI need 7): the board's XP is what the contract pays (reward.xp), so no "about"
   const pay = [legacyShown() && typeof rw.xp === 'number' ? `${econShown() ? '' : 'about '}${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
@@ -30960,7 +31118,7 @@ function optionTip(o, ctx, key, why) {
   const r = ctx.data.rules.prep;
   const fl = prepFlavour(o.id, ctx.data.content);
   return h('div.tt-contract',
-    h('div.tt-row', h('div.tt-name', o.name), h('span.ctag', { dataset: { kind: o.kind } }, o.kind === 'vision' ? 'Sight' : 'Supply')),
+    h('div.tt-row', h('div.tt-name', o.name), h('span.ctag', { dataset: { kind: o.kind } }, o.kind === 'vision' ? 'Map' : 'Supply')),
     h('div.tt-line', prepOptionEffect(o, r, consName(ctx), ctx.data.content)),
     fl ? h('div.tt-line.flav', fl) : null,
     h('div.tt-sub', o.owned ? 'Owned already (Hall of Echoes or the run\'s options): nothing to buy.' : `${pts(o.price)}${o.kind === 'vision' ? ', for the whole run' : ', in effect when you set out'} · sold back for a full refund until you set out`),
@@ -31025,7 +31183,7 @@ function createPrepScreen(v, ctx) {
     cards.appendChild(b);
     return b;
   });
-  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each gives its reward when its last site is won.'), reroll), cards);
+  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'Up to three at a time. Each gives its reward when its task is done.'), reroll), cards);
   // the options: small cards in one row
   const optEls = new Map();
   const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
@@ -31114,7 +31272,7 @@ function createPrepScreen(v, ctx) {
       x.el.disabled = o.owned;
       x.el.setAttribute('aria-label', `${o.name}, ${o.owned ? 'owned' : o.bought ? 'bought' : pts(o.price)}`);
       clear(x.el).append(h('img', { src: optIcon(o.id), alt: '' }),
-        h('div.po-txt', h('div.po-nm', h('span.kbd', x.key), h('span.po-name', o.name)), h('div.po-kd', o.kind === 'vision' ? 'Sight' : 'Supply')),
+        h('div.po-txt', h('div.po-nm', h('span.kbd', x.key), h('span.po-name', o.name)), h('div.po-kd', o.kind === 'vision' ? 'Map' : 'Supply')),
         h('div.po-right', o.owned ? h('span.po-own', 'Owned') : [h('span.pc-price', String(o.price)), h('span.po-act', o.bought ? 'Sell' : 'Buy')]));
     }
   };
@@ -31269,7 +31427,7 @@ function buildHubOffer(v, ctx, state = { swap: false }) {
   tip(take, () => h('div', h('div.tt-name', econShown() ? 'Take it for camp points' : 'Take it from Reserve'), h('div.tt-line', econShown() ? `Pay ${pts(o.price)} of your ${cv.reserve}. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.` : `Pay ${pts(o.price)} of your ${cv.reserve} Reserve. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.`),
     o.reserve ? h('div.tt-hint', 'Click to take it') : h('div.tt-warn', ctx.bridge.why({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }) || 'Not now')));
   const swapBtn = h('button.btn.small' + (o.swap.length ? '' : '.disabled'), { type: 'button', dataset: { hub: 'swap' } }, state.swap ? 'Keep my contracts' : 'Swap…');
-  tip(swapBtn, () => h('div', h('div.tt-name', 'Swap'), h('div.tt-line', 'Give up one contract you hold and take this one for free. No refund; its progress is lost. Only before you leave this hub.')));
+  tip(swapBtn, () => h('div', h('div.tt-name', 'Swap'), h('div.tt-line', 'Give up one contract you hold and take this one for free. No refund; its progress is lost.')));
   const list = h('div.hc-swap' + (state.swap ? '' : '.hidden'), cv.contracts.filter((c) => o.swap.includes(c.id)).map((c) => {
     const b = h('button.hc-give', { type: 'button', dataset: { contract: c.id }, style: { '--cc': colors.get(c.id) || OFF_COLOR } }, h('i.dot'), h('span', `Give up: ${contractTitle(c, ctx.data.content)}`), h('span.muted', ` · zone ${c.z}, ${progressText(c)}`));
     b.addEventListener('click', () => { taken(); ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: c.id }); });
@@ -31316,11 +31474,11 @@ yield;
 const DEMO_TEXT = {
   heading: 'End of the demo',
   madeIt: 'You made it through {zones}.',
-  runs: 'Runs: {n}',
+  runs: 'Runs so far: {n}',
   hero: '{who}, level {level}',
-  hall: 'Legacy hall: {owned} of {total} unlocks',
-  capReached: '{who} has reached level {cap}, the highest level in the demo.',
-  fullGame: 'The full game goes on past {last}: {more} more zones, the Camp and {boss}.',
+  hall: 'Legacy hall: {owned} of {total} unlocks owned',
+  capReached: '{who} has reached level {cap}, the demo\'s highest.',
+  fullGame: 'The full game goes on past {last}: {more} more zones and a final boss.',
   nextRun: 'Next run',
   hallButton: 'Legacy hall',
   leaveLine: 'Leaving {last} ends this demo run. You keep your levels and Legacy points.',
@@ -31333,6 +31491,9 @@ const DEMO_TEXT = {
   capLevel: 'Level {cap}: the demo\'s highest',
   hallAllOwned: 'You own every unlock in the demo.',
   heroIntro: 'Your hero keeps its level from run to run, up to level {cap} in the demo.',
+  // MD D.5 (draft): demo variants of full-game lines that name what the demo never reaches. Not wired yet (hand-off
+  // content-2026-11-25, for the UI engineer): heat.js FURNACE_LINE in the demo.
+  furnaceLine: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.',
 };
 
 /** A line with its placeholders filled. */
@@ -31494,7 +31655,7 @@ function setBar(el, cur, max, text, wardVal = 0, dot = null) {
   el.querySelector('.txt').textContent = text;
   el.classList.toggle('low', el.classList.contains('hp') && f < 0.3);
 }
-const RESURRECT_NAME = { boon: 'your Boon of Return', second_breath: 'Second Breath', ember: 'an Ember of Return' };
+const RESURRECT_NAME = { boon: 'your Ember of Return', second_breath: 'Second Breath', ember: 'an Ember of Return' };
 /**
  * Tooltip of an HP bar with a DoT preview (engine-api.md 6.1): what the ticks at the end of this round do, tick by tick,
  * and whether they kill. who: 'player', 'pet' or 'enemy'; name: the unit's name. null without a preview.
@@ -32223,9 +32384,9 @@ function createHud(root, ctx) {
     else if (c.engage) { els.turn.classList.add('hidden'); els.turn.dataset.kind = 'engage'; return; }
     else if (ans) parts = ['Wind-up now: stop it with ', kb(key(ans)), ` ${name(ans)}`];
     else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
-    else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
+    else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can stop it`];
     else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
-    else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in R${lethalHit.x.round}`}: ≈ ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
+    else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in round ${lethalHit.x.round}`}: about ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
     else if (pot) { const pi = els.items.indexOf(pot); const it = L.items && L.items[pi]; parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}${it && it.heal > 0 ? ` +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}` : ''}`]; }
     // D150 item 24: a wind-up stopped this round already says "hit it now" over the enemy: the prompt stays plain then
     else if (win && !c.enemies.some((e) => e.alive && !e.hidden && stoppedNow(e, ctx))) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
@@ -32259,7 +32420,7 @@ function createHud(root, ctx) {
     if (z && !z.camp && z.rows && z.rows.length) {
       const sq = R.storyQuests; const t = travelState(v);
       lines.push(['h', z.name]);
-      lines.push([z.storyDone ? 'd' : 'l', `Story: ${Math.min(sq, z.questsDone)} / ${sq} quests${z.storyDone ? ' (done)' : ''}`]);
+      lines.push([z.storyDone ? 'd' : 'l', `Zone story: ${Math.min(sq, z.questsDone)} / ${sq} quests${z.storyDone ? ' (done)' : ''}`]);
       // travel on (rules 1.5): legal from travelLevel, under the exit level when the engine allows it
       if (t.kind === 'done' || (t.rows && z.pos.row >= t.rows)) lines.push(['d', `Row ${t.rows} done: travel on`]);
       else if (p.level >= t.exit) lines.push(['d', `Level ${t.exit} reached: you may travel on`]);
@@ -32501,7 +32662,7 @@ function createMeta(ctx) {
     const win = h('div.mwin.panel');
     // header: title, feedback line, balance, close
     const bal = h('div.mbal', h('i.eg.big'), h('b.n', fmtNum(m.echoes)), h('span.u', 'Echoes'), h('span.delta'));
-    tip(bal, () => h('div', h('div.tt-name', 'Echoes'), h('div.tt-line.desc', `Every run earns Echoes: for levels, zones, dungeons, elites and quests, and for facing ${D.names.boss}. They buy lasting unlocks here.`),
+    tip(bal, () => h('div', h('div.tt-name', 'Echoes'), h('div.tt-line.desc', 'Every run earns Echoes for what it did: levels, zones, dungeons, elites, quests and more. They buy lasting unlocks here.'),
       h('div.tt-line.num', `Earned ${fmtNum(m.earned)} · spent ${fmtNum(m.spent)}`), h('div.tt-sub', `${numWord(reach)} ${plural(reach, 'unlock')} within reach`)));
     const close = h('button.xbtn', { 'aria-label': 'Close' }, '×');
     close.addEventListener('click', () => ctx.ui.closeMeta());
@@ -33878,7 +34039,7 @@ function updateCreate(root, v, ctx) {
       drawPortrait(cv.getContext('2d'), 120, PET_LOOKS[id], 'beast', { bg1: '#2e3a26' });
       const el = h('div.pet' + (c.petId === id ? '.sel' : '') + (pd.locked ? '.locked' : ''), cv, h('div.pn', pd.name));
       const unlockName = pd.meta && d.meta && d.meta.entries[pd.meta] ? d.meta.entries[pd.meta].name : null;
-      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null), { avoid: '.pets .pet' }); // blind round 2 (tactician s0005-s0008): not over the other companions
+      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked in the Hall of Echoes.') : null), { avoid: '.pets .pet' }); // blind round 2 (tactician s0005-s0008): not over the other companions
       if (!pd.locked) el.addEventListener('click', () => ctx.act({ type: 'SELECT_PET', petId: id }));
       pets.appendChild(el);
     }
@@ -33958,7 +34119,7 @@ function buildHub(v, ctx) {
   if (offer) body.appendChild(offer);
   // blind panel 2026-11-13 (item 8): the offer just taken leaves a note of the same height, so the cards under it stay where
   // the pointer is (the next click hit the Inn instead of the Trainer)
-  else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
+  else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its marks are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   const trainerCard = svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0));
   // blind round 2 (casual re-run s0279): the card stands out while a new spell the gold covers waits there
@@ -34354,17 +34515,17 @@ function buildExpMap(v, ctx, readOnly) {
   }
   const pace = dm.steady && mv.texts && mv.texts.dimming_pace ? mv.texts.dimming_pace.replace('{maxPerToll}', String(dm.maxPerToll)).replace('{grace}', String(dm.grace)) : null;
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
-    h('div.tt-line.xpace', pace || `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
-    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost. Leave by a Road or the Bell.')));
+    h('div.tt-line.xpace', pace || `It spreads ${dm.frontHops} steps every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
+    h('div.tt-sub', 'What a Dimmed place held is lost. Leave by a Road or the Bell before the dark reaches you.')));
   // blind round 2 (casual re-run s0014: the Key panel looked empty at rest, its rows only on hover): the node icons stay in
   // view as a row of pictures (no words, D150's budget), each named under the pointer; the fog rows on hover as before
   const kinds = ['quest', 'grind', 'elite', 'dungeon', 'treasure', 'shrine', 'rest', 'vendor', 'trainer'];
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
-    h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
+    h('div.xk', h('i.xk-seen'), 'In sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Seen from afar'), h('div.xk', h('i.xk-unk'), 'Unknown'),
     h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
-  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes within ${mv.vision.radius} ${plural(mv.vision.radius, 'hop')} of you are in full view; a node once seen stays on the map.`),
-    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types within ${mv.vision.typeRadius} hops.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
+  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
+    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types up to ${mv.vision.typeRadius} steps away.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
   const right = h('div.xside.xright');
@@ -34604,8 +34765,8 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   const ringText = `Ring ${n.ring}${n.guided ? ' · guided fight' : band && !(full && L) ? ` · levels ${lv(band[0])}–${lv(band[1])}` : ''}`;
   box.appendChild(h('div.tt-sub', [n.hub ? 'Zone hub: trainer, vendor and inn' : ringText, reg && reg.name ? reg.name : null].filter(Boolean).join(' · ')));
   const fog = fogState(n, mv);
-  if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring gives its level range.'));
-  else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Known from afar: its type only.'));
+  if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring (how far it is from the hub) gives its level range.'));
+  else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Seen from afar: its type only.'));
   else if (fog === 'remembered') box.appendChild(h('div.tt-line.muted', 'Remembered: seen before, out of sight now.'));
   if (full && !n.hub) {
     if (n.type === 'quest' && n.title) box.appendChild(h('div.tt-line', { style: { color: token('--accent-cream'), fontWeight: 700 } }, n.title));
@@ -34720,7 +34881,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it gave a bonus' : ''}`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
   else if (reach) box.appendChild(h('div.tt-hint', 'Click to travel here'));
-  else box.appendChild(h('div.tt-warn', 'Not reachable from your position'));
+  else box.appendChild(h('div.tt-warn', 'Not next to you'));
   return box;
 }
 
@@ -34882,7 +35043,7 @@ function buildLoot(v, ctx) {
  */
 function nextStrip(L) {
   const list = L.next || []; if (!list.length) return null;
-  const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : x.kind === 'bounty' ? x.title : `Quest complete: ${x.title}`);
+  const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Zone story complete: ${x.title}` : x.kind === 'bounty' ? x.title : `Quest complete: ${x.title}`);
   return h('div.lnext', { dataset: { next: list.map((x) => x.kind).join(',') } }, h('span.nx', 'Next'), h('span.nt', list.map(word).join(', then ')));
 }
 function miniBtn(label, fn, cls = '') { const b = h('button.btn.small' + cls, { type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
@@ -34936,7 +35097,7 @@ function buildReward(v, ctx) {
     ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
   }
   const story = L.kind === 'story';
-  return dialog(story ? 'Story complete' : 'Quest complete', L.title, [
+  return dialog(story ? 'Zone story complete' : 'Quest complete', L.title, [
     h('div.qtext.parchment', L.giver ? h('div.giver', `${L.giver} says:`) : null, h('div.turnin', `“${L.text}”`)),
     h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
     h('div.subtitle', story ? 'Choose one rare reward' : 'Choose your reward'), cards,
@@ -35058,11 +35219,11 @@ function buildSummary(v, ctx) {
     ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
   ]));
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
-    ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (${s.story} stories)`],
+    ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (zone stories: ${s.story})`],
     // contracts (expedition.md 8.1; prep): the summary's expedition.contracts
     ...(s.contracts && !s.firstRun ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''}${econShown() ? '' : ` · Reserve left ${s.contracts.reserve}`}`]] : []),
     ['Dungeons cleared', String(s.dungeons)],
-    ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Times revived', String(s.resurrects)],
+    ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Returned to the fight', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],
   ]), h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.8rem' } }, s.equipped.map((it) => tip(h('div.slot.q-' + it.rarity, h('img', { src: itemIcon(it), alt: '' })), () => itemTip(it, ctx, { compare: false })))));
   // Echoes (rules 11.1): the engine's lines; the balance after the run from the bridge's dry END_RUN (view.meta.after)
@@ -35077,7 +35238,7 @@ function buildSummary(v, ctx) {
   const card3 = h('div.card', h('h3', 'Echoes earned'), carry, s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null, balance,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
-      ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
+      ? (after.affordable ? `${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Keep them for the next run.')
       : 'Echoes buy lasting unlocks between runs.'));
   // heat (H.4, engine-api.md 11.3): the tolls-against-the-line track per zone, tolls by state, the end against the line or the par
   win.appendChild(h('div.sbody', card1, card2, card3, s.heat ? buildHeatSummary(s, ctx) : null));
@@ -35090,7 +35251,7 @@ function buildSummary(v, ctx) {
   if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
   if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
     after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
-  if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select. Your Echoes are kept: the Hall of Echoes is there too.')));
+  if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select, where the Hall of Echoes is too. Your Echoes are kept.')));
   // M3 nudge (m3-onboarding.md 4.3 step 1): the first summary (and once more while Packed Satchel is not bought): Spend Echoes
   // glows, with one line under it; the Hall then highlights the Satchel (onboarding.js). Nothing is disabled.
   const coach = ctx.coach;
@@ -35262,7 +35423,7 @@ function createWindows(root, ctx) {
         const sp = d.spells[k.id];
         const slot = p.bar.indexOf(k.id);
         const row = h('div.sprow' + (slot >= 0 ? '.onbar' : ''), h('img', { src: spellIcon(k.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Rank ${k.rank}${sp.cd ? ` · ${sp.cd} round cooldown` : ''}`)), slot >= 0 ? h('span.pill', `Slot ${slot + 1}`) : h('span.pill.muted', 'Not on bar'));
-        tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7); right-click a bar slot to clear it. The bar order is also the autoplay priority.' : 'Bar changes only out of combat' }));
+        tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7); right-click a bar slot to clear it.' : 'Bar changes only out of combat' }));
         dragSource(row, ctx, () => (v.legal.outOfCombat ? { kind: 'spell', id: k.id, icon: spellIcon(k.id, sp) } : null));
         return row;
       }));
@@ -35345,7 +35506,7 @@ function createWindows(root, ctx) {
       let abandonRow = null;
       if (canAbandon) {
         const ab = h('button.btn.small', { type: 'button', dataset: { abandon: 'ask' } }, 'Abandon run');
-        const note = h('div.muted', 'Ends this run where your hero stands, as a death. Your hero keeps its level and the run pays its Legacy points.');
+        const note = h('div.muted', 'Ends this run where your hero stands, as a death.');
         ab.addEventListener('click', () => {
           // Economy v2 (legacy.md 4.7 E6.3; content abandon_confirm, draft): the confirmation says what is kept and lost
           const ask = econShown() ? `${econLine(ctx.data.content && ctx.data.content.texts, 'abandon_confirm')} Click again to end it.` : 'Abandon this run? Click again to end it.';
@@ -35374,7 +35535,7 @@ function createWindows(root, ctx) {
       }
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         abandonRow,
-        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
+        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays becomes your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
         h('div.setrow', h('div', 'Skip travel scenes'), tog('skipTravel')),
         h('div.setrow', h('div', h('div', 'Autoplay pace'), h('div.muted', 'Pause between autoplay rounds.')), seg('autoDelay', [[700, 'Calm'], [350, 'Normal'], [120, 'Quick'], [40, 'Rush']])),
@@ -35776,7 +35937,7 @@ function makeInterim(prev, next) {
 /** The rescue banner's line (content guide.rescueLine, {rescueTolls} from the event / C.ONB_RESCUE_TOLLS). */
 function rescueLine(ctx, n) {
   const t = ctx.data.tutorial;
-  const raw = t && t.table.guide && t.table.guide.rescueLine ? t.table.guide.rescueLine : 'The Bellwrights pull you back ({rescueTolls} tolls).';
+  const raw = t && t.table.guide && t.table.guide.rescueLine ? t.table.guide.rescueLine : 'The Bellwrights ring you back to safety ({rescueTolls} tolls).';
   return raw.replace('{rescueTolls}', String(n ?? (t ? t.num.rescueTolls : 2)));
 }
 
@@ -36013,7 +36174,7 @@ class Director {
             if (e.op === 'add' && label) await W(tm.wait);
             break;
           }
-          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(tm.wait); break;
+          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is stopped.`, 'lg-you'); await W(tm.wait); break;
           case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18, small: true }); await W(tm.wait); break;
           case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(tm.wait); break;
           case 'cleanse': scene.aura(ref(e.dst), themeToken('--ink-bright')); scene.float(ref(e.dst), 'Cleansed', { color: themeToken('--ink-bright'), size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(tm.wait); break;
@@ -36048,7 +36209,7 @@ class Director {
           }
           // D150 section 7: a quest's, story's or contract's XP floats on its own window (its "+N XP"), not with the fight's:
           // the fight's floats add up to the spoils window's experience
-          case 'xp': if (e.amount > 0) { if (!OWN_WINDOW_XP.has(e.why)) scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-xp'); } break;
+          case 'xp': if (e.amount > 0) { if (!OWN_WINDOW_XP.has(e.why)) scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from the Furnace)` : ''}.`, 'lg-xp'); } break;
           case 'levelUp': {
             // Legacy (engine-api.md 15.2): the hero's own xpToNext (e.xpToNext; XP carries over, the next view's XP lands after)
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: e.xpToNext != null ? e.xpToNext : (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
@@ -36086,12 +36247,12 @@ class Director {
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
           case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(e.signal ? `${e.names[0]} answers the signal!` : `${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
           // combat v2 (engine-api.md 5): what control, traps, Signal and Bolster do to the tracks, in the log (no extra wait)
-          case 'cancel': hud.log(`${cap(e.who)}: ${e.name} cancelled (${CONTROL_LOG[e.by] || 'controlled'})${e.offBalance ? ' → off-balance!' : '.'}`, e.offBalance ? 'lg-loot' : 'lg-you'); break;
+          case 'cancel': hud.log(`${cap(e.who)}: ${e.name} stopped (${CONTROL_LOG[e.by] || 'controlled'})${e.offBalance ? ' → off-balance!' : '.'}`, e.offBalance ? 'lg-loot' : 'lg-you'); break;
           case 'replace': hud.log(`${cap(e.who)}: ${e.fromName} → ${e.toName} (${e.reason}).`, 'lg-sys'); break;
           case 'offBalance': {
             const en = enemy(e.dst.idx); const ob = (statusSource(next, e.dst) || {}).offBalance;
             if (en && ob) { en.offBalance = deepClone(ob); push(); }
-            const why = { interrupt: 'its cast was interrupted', control: 'its big move was cancelled', avoided: `its ${e.name || 'heavy blow'} missed you` }[e.why] || 'its big move failed';
+            const why = { interrupt: 'its cast was interrupted', control: 'its big move was stopped', avoided: `its ${e.name || 'heavy blow'} missed you` }[e.why] || 'its big move failed';
             hud.log(`${cap(e.who)} is off-balance (${why}): ${ob ? `+${Math.round(ob.taken * 100)} % damage taken, +${Math.round(ob.crit * 100)} % crit` : 'hit it now'} for your next action.`, 'lg-loot');
             break;
           }
@@ -36138,9 +36299,9 @@ class Director {
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : themeToken('--accent-pale'), size: 20 });
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
-          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-loot'); break;
+          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from the Furnace)` : ''}.`, 'lg-loot'); break;
           case 'msg': if (!e.quiet) ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break; // quiet: the log only
-          case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest. Health and mana restored; you feel rested.', 'lg-sys'); await W(500); break;
+          case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest: health and mana restored.', 'lg-sys'); await W(500); break;
           case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, themeToken('--accent-pale'), 30, 160, { up: 80 }); await W(500); break;
           case 'trap': break;
           case 'buy': hud.log(`You buy ${e.name}.`, 'lg-loot'); break;
@@ -36195,7 +36356,7 @@ class Director {
     const spells = [...new Set(list.flatMap((e) => e.heroSpells || []))];
     if (spells.length) for (const sp of spells.slice(0, 2)) lines.push(E('level_new_spell', { spell: sp }));
     else if (z.ranks > 0) lines.push(E('level_new_ranks', { n: z.ranks }));
-    if (sum('talentPoints') > 0) lines.push(E('level_talent', { key_talents: 'T' }));
+    if (sum('talentPoints') > 0) lines.push(E('level_talent', { key_talents: 'N' }));
     const reached = (L) => L != null && list.some((e) => e.heroLevel === L);
     // the demo (demo.md 3.1, draft): the level-up to the demo's highest level says so, once (the engine's `cap` on that event)
     if (list.some((e) => e.cap === 'demo') && ctx.data.demo) lines.push(capLevelText(ctx));
@@ -37867,6 +38028,10 @@ class App {
       dev: (op, args) => app.devAct(op, args),
       /** Sound (audio.js): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }; the log is written locked or muted too. */
       audio: () => app.audio.info(),
+      /** The scene loop (D175, scene.js frame): frames painted and frames that only moved the state on, the scene mode, stale. */
+      sceneFrames: () => ({ painted: app.scene.painted, coasted: app.scene.coasted, mode: app.scene.mode, stale: app.scene.stale }),
+      /** Paint the scene canvas now if the last frame did not (canvas-shot.mjs reads the canvas after this). */
+      paintScene: () => app.scene.paintNow(),
     };
   }
 }
