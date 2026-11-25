@@ -21,6 +21,7 @@ const META_ICON = {
   stormhawk: ['bolt', 'frost'], second_breath: ['ember', 'heal'], oaths: ['rune', 'blood'],
 };
 export function metaIcon(m) {
+  if (m && m.passive) return spellIcon(m.passive.spell); // D169 (draft): Lost Technique I (Hunter) as Keen Shot's passive
   if (m && m.spell) return spellIcon(m.spell);
   const g = META_ICON[m && m.id] || ['spark', 'arcane'];
   return icon(g[0], g[1]);
@@ -232,7 +233,7 @@ export function createMeta(ctx) {
   /** Owned skills that apply to another class only (the dry START_RUN is for the class chosen). */
   function otherClassLines(m, n, D, d) {
     if (!n) return null;
-    const names = Object.values(D.entries).filter((e) => e.spell && (m.unlocks[e.id] || 0) > 0 && d.spells[e.spell] && d.spells[e.spell].cls !== n.classId).map((e) => d.spells[e.spell].name);
+    const names = Object.values(D.entries).filter((e) => e.spell && (m.unlocks[e.id] || 0) > 0 && d.spells[e.spell] && d.spells[e.spell].cls !== n.classId).map((e) => (e.passive ? e.name : d.spells[e.spell].name)); // D169: a passive by its entry's name
     if ((m.unlocks.stormhawk || 0) > 0 && n.classId !== 'hunter') names.push(`${(d.pets.stormhawk || {}).name || 'Stormhawk'} (Hunter)`);
     return names.length ? `Owned for other classes: ${names.join(', ')}.` : null;
   }

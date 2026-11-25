@@ -528,6 +528,8 @@ const plurName = (n, name) => (n === 1 ? name : `${name}s`);
 export function metaEffect(m, D, d, mode = 'rows') {
   const N = D.num; const NM = D.names;
   const sp = m.spell && d.spells[m.spell];
+  // D169 (legacy.md 2.4.3 item 2, draft): Lost Technique I (Hunter) as Keen Shot's passive (the bridge's m.passive)
+  if (m.passive) return passiveEffect(m.passive, d);
   const exp = mode === 'expedition';
   const onlyExp = exp ? '' : ' No effect on the classic map.'; // D116: said only while new runs are classic (Dev menu)
   switch (m.id) {
@@ -586,6 +588,16 @@ export function metaEffect(m, D, d, mode = 'rows') {
   }
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/**
+ * D169 (draft): a technique that is a passive on a spell (C.KEEN_RICOCHET: spell, targets, frac, lvl) in words, for the hall
+ * card (metaEffect) and the next run's line (nextRunLines): "Keen Shot also hits up to two other enemies for 30 %".
+ */
+export function passiveEffect(x, d) {
+  const sp = d.spells[x.spell]; const name = sp ? sp.name : humanize(x.spell);
+  const who = sp ? cls(sp.cls) : '';
+  const short = `${name} also hits up to ${numWord(x.targets)} other ${plural(x.targets, 'enemy', 'enemies')} for ${pct(x.frac)}`;
+  return { short, long: `A passive${who ? ` for the ${who}` : ''}: from ${legacyShown() ? 'hero ' : ''}level ${lvLearn(x.lvl)}, every ${name} also hits up to ${numWord(x.targets)} other ${plural(x.targets, 'enemy', 'enemies')} for ${pct(x.frac)} of its damage. No spell to learn, no bar slot.` };
+}
 /**
  * A stat entry whose ranks differ (hall v3d, D167: META_HERO Vigor [0.03, 0.01], Edge [0.02, 0.01]) in words: short "+3 %
  * max health, then +1 %"; long "Every hero starts with 3 % more maximum health with rank I and 1 % more with rank II (4 % in
@@ -648,6 +660,8 @@ export function nextRunLines(n, D, d) {
   if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
   if (m.cache) add('cache', 'Unique rares in elite and treasure loot');
   if (m.relics) add('relics', 'Unique epics in dungeon boss loot');
+  // D169 (draft): Lost Technique I (Hunter) as Keen Shot's passive (the run's meta.keenRicochet; its entry's `passive`)
+  if (m.keenRicochet && D.entries.sp_h1 && D.entries.sp_h1.passive) add('sp_h1', passiveEffect(D.entries.sp_h1.passive, d).short);
   for (const id of m.spells || []) {
     const e = Object.values(D.entries).find((x) => x.spell === id); const sp = d.spells[id];
     add(e ? e.id : id, `${sp ? sp.name : humanize(id)} at the trainer${sp ? ` (level ${lvLearn(sp.lvl)})` : ''}`);

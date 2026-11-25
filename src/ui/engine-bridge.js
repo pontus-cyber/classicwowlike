@@ -165,13 +165,16 @@ function metaData(K) {
   // and effects of 4.2); the page's profile is version 3 exactly while GATES.legacy is on. The level-20 wing (priced, not
   // sold until phases 4-5): its prices, for the hall's "not yet open" cards
   const hall = K.GATES && K.GATES.legacy && K.GATES.economyV2 && K.META_HERO ? { ...K.META, ...K.META_HERO } : K.META;
+  // D169 (legacy.md 2.4.3 item 2, draft): with the D157 numbers on (legacy and oruvathLegacy) Lost Technique I (Hunter) is
+  // Keen Shot's passive (K.KEEN_RICOCHET), not Ricochet Bolt: its entry carries `passive` (ui-text.js metaEffect)
+  const keen = K.KEEN_RICOCHET && K.GATES && K.GATES.legacy && K.GATES.oruvathLegacy ? K.KEEN_RICOCHET : null;
   const uniq = Object.values(CONTENT.uniques || {});
   const zones = CONTENT.zones || [];
   const byZone = (kind) => uniq.filter((u) => u.kind === kind).sort((a, b) => (a.zone || 0) - (b.zone || 0))
     .map((u) => ({ name: u.name, zone: u.zone, slot: u.slot, text: u.text, zoneName: zones[u.zone - 1] ? zones[u.zone - 1].name : '', dungeon: zones[u.zone - 1] && zones[u.zone - 1].dungeon ? zones[u.zone - 1].dungeon.name : '' }));
   return {
     kinds: [...new Set(Object.values(K.META).map((m) => m.kind))], // catalogue order (rules 11.2)
-    entries: Object.fromEntries(Object.values(hall).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
+    entries: Object.fromEntries(Object.values(hall).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req], ...(keen && m.id === keen.meta ? { passive: { ...keen } } : {}) }])),
     wing: hall !== K.META && K.TREE_OPEN_COST ? { level: K.TREE_OPEN_LEVEL, trees: [...K.TREE_OPEN_COST], armoury: K.ARMOURY_COST } : null,
     oathIds: [...(K.OATH_IDS || [])],
     oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
