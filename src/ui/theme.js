@@ -9,6 +9,9 @@
 //                    token('--heat-clear') now. Nothing is read at import, so Node can import a module that uses one.
 //   onTheme(fn)      fn(version) after a theme change cleared the cache (art-icons.js drops its cached icons)
 //   themeVersion()   a number that changes with every theme change (for caches keyed by colour)
+//   artStyle()       'lantern' while data-art="lantern" is on <html> (the Lantern Gouache proof slice, settings.js), else
+//                    'current'. A change of data-art counts as a theme change: the cache is cleared and onTheme fires, so
+//                    a token block keyed on data-art (tokens.css) and the art modules' painted variants follow it at once.
 //
 // The shared families (JavaScript only reads colours through these or token(); a value is never written here):
 //   HEAT       the Furnace's four states (heat.js; the CSS heat rules use the same tokens)
@@ -33,7 +36,7 @@ function watch() {
   watching = true;
   try {
     new MutationObserver(() => { cache.clear(); version++; for (const fn of listeners) fn(version); })
-      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-art'] });
   } catch { /* no document (Node) */ }
 }
 
@@ -65,6 +68,10 @@ export function family(map) {
 /** Call fn(version) after every theme change; returns a function that stops it. */
 export function onTheme(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 export const themeVersion = () => version;
+/** The art style on <html>: 'lantern' (the proof slice) or 'current'; 'current' without a page (Node). */
+export function artStyle() {
+  try { watch(); return document.documentElement.dataset.art === 'lantern' ? 'lantern' : 'current'; } catch { return 'current'; }
+}
 
 export const HEAT = family({ clear: '--heat-clear', warm: '--heat-warm', hot: '--heat-hot', scorched: '--heat-scorched' });
 export const CON = family({ trivial: '--con-trivial', easy: '--con-easy', even: '--con-even', hard: '--con-hard', deadly: '--con-deadly' });
