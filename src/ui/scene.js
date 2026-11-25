@@ -17,8 +17,8 @@
 // stand, poses, effect records and their lifetimes, particle motion, the floats' lanes, slam and rise.
 // Lantern Gouache proof slice (docs/art/proof-slice-2026-11-25.md, draft; D121): while data-art="lantern" is on <html>
 // (theme.js artStyle) backdrops are built with art-world.js's Lantern pass (zones 1-2 and the camp), actors take the
-// Lantern looks (art-actors.js heroLook, foeLook...) and are drawn through a scratch canvas and painted (paintActor) with
-// the key light of the backdrop; a switch of the attribute rebuilds the backdrops and the looks at once (restyle()).
+// Lantern looks (art-actors.js heroLook, foeLook...), painted (paintActor) with the key light of the backdrop into sprites
+// kept per pose (drawPainted); a switch of the attribute rebuilds the backdrops and the looks at once (restyle()).
 import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine } from './art-world.js';
 import { drawHumanoid, drawBeast, drawBoss, drawShard, heroLook, petLook, foeLook, foeBeastLook, paintActor, makeGrain } from './art-actors.js';
 import { drawProp as drawSetPiece, drawQuestMark } from './art-props.js';
@@ -576,7 +576,7 @@ export class Scene {
       else if (a.kind === 'shard') drawShard(c, x, gy, a.scale, anim);
     };
     // the hit flash tints only the actor's own pixels (drawn on a scratch canvas), not the scene behind it
-    if (a.look && a.look.lantern && a.kind !== 'boss' && a.kind !== 'shard') this.drawPainted(ctx, a, x, gy, flash, draw);
+    if (a.look && a.look.lantern && a.kind !== 'boss' && a.kind !== 'shard') this.drawPainted(ctx, a, x, gy, flash, anim);
     else if (flash > 0.02 && a.kind !== 'boss') this.drawFlashed(ctx, a, x, gy, flash, draw);
     else draw(ctx);
     ctx.restore();
@@ -610,32 +610,65 @@ export class Scene {
   }
 
   /**
-   * Lantern: draw an actor alone on a scratch canvas, paint it (art-actors.js paintActor: glaze, edges, grain) with the
-   * key light of the backdrop on screen, tint it by `flash` as drawFlashed does, and lay it on the scene.
+   * Lantern: the actor painted (art-actors.js paintActor: glaze, edges, grain) with the key light of the backdrop on
+   * screen, as a sprite. Painting costs several canvas passes, so sprites are kept per actor and pose: the pose is drawn
+   * on steps (idle on a loop of LOOP_N steps at LOOP_HZ, an action's progress in ACT_STEPS, the walk in WALK_STEPS, as
+   * a gouache animation on twos), and a pose seen before is one drawImage. Each sprite is cropped to its pixels. The hit
+   * flash tints a copy as drawFlashed does. Only used while data-art="lantern" (the proof slice, draft).
    */
-  drawPainted(ctx, a, x, gy, flash, draw) {
-    const u = this.u; const L = a.look || {}; const k = Math.max(L.size || 1, (L.build || 1) / 1.15);
-    const bw = 340 * u * k; const bh = 380 * u * k; const left = x - bw / 2; const top = gy - bh + 30 * u;
-    const dpr = this.dpr; const pw = Math.ceil(bw * dpr); const ph = Math.ceil(bh * dpr);
-    const oc = this.paintCanvas || (this.paintCanvas = document.createElement('canvas'));
-    const tmp = this.paintTmp || (this.paintTmp = document.createElement('canvas'));
-    if (!this.grain) this.grain = makeGrain();
-    if (oc.width < pw || oc.height < ph) { oc.width = Math.max(oc.width, pw); oc.height = Math.max(oc.height, ph); }
-    const o = oc.getContext('2d');
-    o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1; o.clearRect(0, 0, pw, ph);
-    o.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
-    draw(o);
+  drawPainted(ctx, a, x, gy, flash, anim) {
+    const LOOP_N = 12; const LOOP_HZ = 6; const ACT_STEPS = 16; const WALK_STEPS = 12; const SPRITES = 64;
+    const u = this.u; const dpr = this.dpr; const L = a.look || {};
     const key = (this.bd && this.bd.lantern && this.bd.theme.key) || null;
-    const kx = key ? key.x * this.W : this.W * 0.85;
-    const span = (a.kind === 'beast' || a.kind === 'hawk' ? 46 : 26) * a.scale * (L.size || 1) * (L.build || 1) * dpr;
-    paintActor(o, pw, ph, { tmp, grain: this.grain, dir: kx >= x ? 1 : -1, cx: (x - left) * dpr, feet: (gy - top) * dpr, span, px: u * dpr,
-      heavy: a.rank === 'elite' || a.rank === 'rare' || a.rank === 'dboss', lit: key && key.lit, shade: key && key.shade });
-    if (flash > 0.02) {
-      o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-atop';
-      o.fillStyle = rgba(token('--fx-light'), 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
-      o.globalCompositeOperation = 'source-over';
+    const kx = key ? key.x * this.W : this.W * 0.85; const dir = kx >= x ? 1 : -1;
+    const q = (v, n) => Math.round(v * n) / n;
+    const step = Math.floor(anim.t * LOOP_HZ) % LOOP_N;
+    const A = { ...anim, t: step / LOOP_HZ + 1, phase: anim.walk ? q(((anim.phase || 0) % (Math.PI * 2)) / (Math.PI * 2), WALK_STEPS) * Math.PI * 2 : 0,
+      act: anim.act ? { kind: anim.act.kind, p: q(anim.act.p, ACT_STEPS) } : null, dead: q(anim.dead || 0, 10) };
+    const id = `${A.t}|${A.walk}|${A.phase.toFixed(3)}|${A.act ? `${A.act.kind}${A.act.p}` : '-'}|${A.dead}|${A.flip ? 1 : 0}|${dir}|${a.scale.toFixed(4)}|${dpr}`;
+    if (a.spriteLook !== L || a.spriteKey !== `${this.W}x${this.H}`) { a.sprites = new Map(); a.spriteLook = L; a.spriteKey = `${this.W}x${this.H}`; }
+    let sp = a.sprites.get(id);
+    if (!sp) {
+      const k = Math.max(L.size || 1, (L.build || 1) / 1.15);
+      const bw = 340 * u * k; const bh = 380 * u * k; const ox = bw / 2; const oy = bh - 30 * u; // the foot point in the box
+      const pw = Math.ceil(bw * dpr); const ph = Math.ceil(bh * dpr);
+      const oc = this.paintCanvas || (this.paintCanvas = document.createElement('canvas'));
+      const tmp = this.paintTmp || (this.paintTmp = document.createElement('canvas'));
+      if (!this.grain) this.grain = makeGrain();
+      if (oc.width !== pw || oc.height !== ph) { oc.width = pw; oc.height = ph; }
+      const o = oc.getContext('2d');
+      o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1; o.clearRect(0, 0, pw, ph);
+      o.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (a.kind === 'humanoid') drawHumanoid(o, ox, oy, a.scale, L, A); else drawBeast(o, ox, oy, a.scale, L, A);
+      o.setTransform(1, 0, 0, 1, 0, 0);
+      // crop to the drawn pixels, found on an eighth-size copy (a small read), then paint only the crop
+      const G = 8; const sw = Math.ceil(pw / G); const sh = Math.ceil(ph / G);
+      const sc = this.paintSmall || (this.paintSmall = document.createElement('canvas'));
+      if (sc.width !== sw || sc.height !== sh) { sc.width = sw; sc.height = sh; }
+      const sx = sc.getContext('2d', { willReadFrequently: true }); sx.clearRect(0, 0, sw, sh); sx.drawImage(oc, 0, 0, pw, ph, 0, 0, sw, sh);
+      const img = sx.getImageData(0, 0, sw, sh).data; let x0 = sw, y0 = sh, x1 = -1, y1 = -1;
+      for (let yy = 0; yy < sh; yy++) for (let xx = 0; xx < sw; xx++) if (img[(yy * sw + xx) * 4 + 3] > 0) { if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy; }
+      if (x1 < 0) { x0 = 0; y0 = 0; x1 = 0; y1 = 0; }
+      x0 = Math.max(0, (x0 - 1) * G); y0 = Math.max(0, (y0 - 1) * G); x1 = Math.min(pw, (x1 + 2) * G); y1 = Math.min(ph, (y1 + 2) * G);
+      const cv = document.createElement('canvas'); cv.width = Math.max(1, x1 - x0); cv.height = Math.max(1, y1 - y0);
+      const cc = cv.getContext('2d'); cc.drawImage(oc, x0, y0, cv.width, cv.height, 0, 0, cv.width, cv.height);
+      const span = (a.kind === 'beast' || a.kind === 'hawk' ? 46 : 26) * a.scale * (L.size || 1) * (L.build || 1) * dpr;
+      paintActor(cc, cv.width, cv.height, { tmp, grain: this.grain, dir, cx: ox * dpr - x0, feet: oy * dpr - y0, span, px: u * dpr,
+        heavy: a.rank === 'elite' || a.rank === 'rare' || a.rank === 'dboss', lit: key && key.lit, shade: key && key.shade });
+      sp = { cv, dx: x0 / dpr - ox, dy: y0 / dpr - oy };
+      a.sprites.set(id, sp);
+      if (a.sprites.size > SPRITES) a.sprites.delete(a.sprites.keys().next().value);
     }
-    ctx.drawImage(oc, 0, 0, pw, ph, left, top, bw, bh);
+    const w = sp.cv.width / dpr; const h = sp.cv.height / dpr;
+    if (flash > 0.02) {
+      const fc = this.flashCanvas || (this.flashCanvas = document.createElement('canvas'));
+      if (fc.width < sp.cv.width || fc.height < sp.cv.height) { fc.width = Math.max(fc.width, sp.cv.width); fc.height = Math.max(fc.height, sp.cv.height); }
+      const f = fc.getContext('2d'); f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.globalAlpha = 1;
+      f.clearRect(0, 0, sp.cv.width, sp.cv.height); f.drawImage(sp.cv, 0, 0);
+      f.globalCompositeOperation = 'source-atop'; f.fillStyle = rgba(token('--fx-light'), 0.85 * clamp(flash, 0, 1)); f.fillRect(0, 0, sp.cv.width, sp.cv.height);
+      f.globalCompositeOperation = 'source-over';
+      ctx.drawImage(fc, 0, 0, sp.cv.width, sp.cv.height, x + sp.dx, gy + sp.dy, w, h);
+    } else ctx.drawImage(sp.cv, x + sp.dx, gy + sp.dy, w, h);
   }
 
   /** A set piece (art-props.js), an NPC (art-actors.js) or a tree (art-world.js) on the ground line; an arriving one slides in. */

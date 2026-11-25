@@ -609,7 +609,7 @@ export function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
 // it a heavier shadow edge. Looks carry lantern: true; the features they add (cape, crown, jaw, sack, straw, ruff, the
 // mooring post) exist only on these looks, so the current looks draw exactly as before.
 export const LANTERN_HERO_LOOKS = {
-  rogue: { lantern: true, cloth: '#33404c', cloth2: '#4a5866', trim: '#d9a441', skin: '#d2a47c', hood: 'hood', scarf: '#8e6232', boots: '#211c1c', pants: '#2b3039',
+  rogue: { lantern: true, cloth: '#33404c', cloth2: '#4a5866', trim: '#d9a441', skin: '#d2a47c', hood: 'hood', scarf: '#6b5440', boots: '#211c1c', pants: '#2b3039',
     weapon: 'dagger', off: 'dagger', build: 0.98, metal: '#d9d6c6', eyes: '#f1e3c0', pauldron: '#4f5d6b', cloak: '#2b3640' },
   mage: { lantern: true, cloth: '#2f4f63', cloth2: '#4f8a8b', trim: '#d9a441', skin: '#d2a47c', hat: true, hair: '#ece2cc', beard: true, robe: true, boots: '#2b2118', pants: '#283c4c',
     weapon: 'staff', orb: '#f2c56b', build: 0.95, eyes: '#f1e3c0', wood: '#5e4128', pauldron: '#3c6474' },
