@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="3ae047e 2026-11-25T22:13:22Z">
+<meta name="build" content="b59f7f7 2026-11-25T23:25:29Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2178,8 +2178,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (3ae047e 2026-11-25T22:13:22Z) from 71 modules.
-const __BUILD__ = "3ae047e 2026-11-25T22:13:22Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (b59f7f7 2026-11-25T23:25:29Z) from 71 modules.
+const __BUILD__ = "b59f7f7 2026-11-25T23:25:29Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -20439,8 +20439,8 @@ const TUTORIAL = {
   },
 
   // Demo wording (MD D.5, draft; docs/specs/demo.md 4.2 and question Q1): no demo run meets the final boss, so the
-  // Furnace lines that warn about him read this text while C.GATES.demo is on. Not wired yet: the content index binds
-  // `legacy` only (hand-off content-2026-11-25, for the UI engineer). Same placeholders as the line each replaces.
+  // Furnace lines that warn about him read this text while C.GATES.demo is on (L1: the content index binds it, as it
+  // binds `legacy`). Same placeholders as the line each replaces.
   demo: {
     beats: {
       G5: { line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.' },
@@ -20495,6 +20495,29 @@ yield;
   };
   for (const [k, text] of Object.entries(L.prep || {})) if (T.prep && k in T.prep) bind(T.prep, k, text, v2[k]);
   for (const [id, f] of Object.entries(L.hints || {})) {
+    const hint = (T.hints || []).find((x) => x.id === id);
+    if (hint) for (const [k, text] of Object.entries(f)) bind(hint, k, text);
+  }
+}(TUTORIAL));
+
+/**
+ * Demo wording (MD D.5 L1, draft; demo.md 4.2): while C.GATES.demo is on, the Furnace lines that warn about the final boss
+ * (no demo run meets him) read their `TUTORIAL.demo` text: a beat's `line` (G5) and a hint's `line` (H16, H17), as
+ * legacyWords binds `TUTORIAL.legacy` (a getter per field, read at each use; off: the line as it was, legacy wording included).
+ */
+(function demoWords(T) {
+  const D = T.demo;
+  if (!D) return;
+  const bind = (obj, k, text) => {
+    const was = Object.getOwnPropertyDescriptor(obj, k);
+    const read = () => (was.get ? was.get.call(obj) : was.value);
+    Object.defineProperty(obj, k, { get: () => (GATES.demo ? text : read()), enumerable: true, configurable: true });
+  };
+  for (const [id, f] of Object.entries(D.beats || {})) {
+    const beat = (T.beats || []).find((x) => x.id === id);
+    if (beat) for (const [k, text] of Object.entries(f)) bind(beat, k, text);
+  }
+  for (const [id, f] of Object.entries(D.hints || {})) {
     const hint = (T.hints || []).find((x) => x.id === id);
     if (hint) for (const [k, text] of Object.entries(f)) bind(hint, k, text);
   }
@@ -22590,7 +22613,7 @@ const deepClone = (o) => (o === undefined ? o : structuredClone(o));
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "junkSoldName": () => junkSoldName, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "contractDoneLine": () => contractDoneLine, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "passiveEffect": () => passiveEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN, moneyText; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }], ["moneyText", (v) => { moneyText = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "goldLogLine": () => goldLogLine, "sellLogLine": () => sellLogLine, "junkSoldName": () => junkSoldName, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "contractDoneLine": () => contractDoneLine, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "passiveEffect": () => passiveEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -22620,8 +22643,11 @@ function econLine(texts, id, vars = {}) {
 const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
 /**
  * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
- * "You sell 7 junk items for 42 copper." Draft, for the owner and content.
+ * "You sell 7 junk items for 42 c." (L5: money as gold, silver and copper) Draft, for the owner and content.
  */
+/** L5 (MD D.5, draft): the log's gold and sell lines, money as gold, silver and copper as the summary has it ("1 g 20 s 5 c"). */
+const goldLogLine = (amount, heat) => `You receive ${moneyText(amount)}${heat ? ` (+${moneyText(heat)} from the Furnace)` : ''}.`;
+const sellLogLine = (name, gold) => `You sell ${name} for ${moneyText(gold)}.`;
 const junkSoldName = (n) => `${n} junk ${n === 1 ? 'item' : 'items'}`;
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
@@ -23067,7 +23093,10 @@ const RES_NAME = { boon: 'Ember of Return', meta: 'Second Breath', ember: 'Ember
 function resurrectText(p, bossFight) {
   const counts = new Map();
   for (const k of p.resurrect || []) counts.set(k, (counts.get(k) || 0) + 1);
-  const items = [...counts].map(([k, n]) => `${RES_NAME[k] || humanize(k)}${n > 1 ? ` ×${n}` : ''}${k === 'meta' ? ' (not in the final fight)' : ''}`);
+  // L6 (MD D.5, draft): the boon's charge and a carried Ember share one name, so they read as one count: "Ember of Return ×2"
+  const byName = new Map();
+  for (const [k, n] of counts) { const nm = RES_NAME[k] || humanize(k); const e = byName.get(nm) || { n: 0, meta: false }; e.n += n; e.meta = e.meta || k === 'meta'; byName.set(nm, e); }
+  const items = [...byName].map(([nm, e]) => `${nm}${e.n > 1 ? ` ×${e.n}` : ''}${e.meta ? ' (not in the final fight)' : ''}`);
   const held = (p.resurrectHeld && p.resurrectHeld.meta) || 0;
   const note = bossFight && held > 0 && !counts.has('meta') ? 'Second Breath does not work in the final fight.' : null;
   return { list: items.length ? items.join(', ') : bossFight ? 'None in this fight' : 'None', note, count: (p.resurrect || []).length };
@@ -23126,14 +23155,18 @@ function metaEffect(m, D, d, mode = 'rows') {
   if (m.passive) return passiveEffect(m.passive, d);
   const exp = mode === 'expedition';
   const onlyExp = exp ? '' : ' No effect on the classic map.'; // D116: said only while new runs are classic (Dev menu)
+  // L3 (MD D.5, draft): the demo hall sells rank I only (m.ranks 1): no "per rank", "for each rank", "with rank I" or "(N in all)"
+  const one = !!(d && d.demo) && m.ranks === 1;
   switch (m.id) {
     // hall v3d (D167, legacy.md 4.7 E5, draft): a list is the value of each rank (META_HERO), a number the value per rank (META)
     case 'vigor': return Array.isArray(m.hpPct) ? byRank(m.hpPct, 'max health', 'Every hero starts with', 'more maximum health')
+      : one ? { short: `+${pct1(m.hpPct)} max health`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health.` }
       : { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
     case 'edge': return Array.isArray(m.powerPct) ? byRank(m.powerPct, 'Power', 'Every hero has', 'more Power', ': more damage from every attack and spell')
+      : one ? { short: `+${pct1(m.powerPct)} Power`, long: `Every hero has ${pct1(m.powerPct)} more Power: more damage from every attack and spell.` }
       : { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
     case 'keen': return { short: `+${pct1(m.crit)} critical strike per rank`, long: `Every hero has +${pct1(m.crit)} chance to strike critically for each rank.` };
-    case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
+    case 'quick_study': return one ? { short: `+${pct1(m.xpPct)} experience`, long: `Every hero earns ${pct1(m.xpPct)} more experience: levels come sooner.` } : { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
     case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
     case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${lv(N.maxLevel)}`, long: `At level ${lv(N.maxLevel)} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
     // M2b v6 (rules 7.5, 11.2): also the free potion, the first potion each fight costs no turn; M2b v8: at FREE_POTION_MULT
@@ -23144,7 +23177,7 @@ function metaEffect(m, D, d, mode = 'rows') {
         long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight costs no turn${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
     }
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${lv(m.ilvl)}`, long: `Your starting weapon is ${m.rarity} quality, item level ${lv(m.ilvl)}, instead of a common one.` };
-    case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
+    case 'pockets': return one ? { short: `+${m.slots} bag slots`, long: `Your bags hold ${m.slots} more items.` } : { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
     case 'scout': {
       const x = m.expedition; const pf = x ? `the type of every node within ${numWord(x.typeRadius)} hops shows on the map (not its level, enemies or contract marks)` : null;
@@ -23163,7 +23196,9 @@ function metaEffect(m, D, d, mode = 'rows') {
     case 'cartographer': return { short: `Free ${NM.charts} every run`, long: `Every run starts with ${NM.charts}: each zone map shows every node's region and where the dungeon is.${onlyExp}` };
     case 'old_hand': return { short: `Free ${NM.tracker} every run`, long: `Every run starts with ${NM.tracker}: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen.${onlyExp}` };
     // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points"
-    case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points'; return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
+    case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points';
+      if (one) return { short: `+${m.points} ${w}`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp.${onlyExp}` };
+      return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;
@@ -23199,6 +23234,7 @@ function passiveEffect(x, d) {
  */
 const RANK_NAMES = ['I', 'II', 'III', 'IV'];
 function byRank(v, stat, lead, more, tail = '') {
+  if (v.length === 1) return { short: `+${pct1(v[0])} ${stat}`, long: `${lead} ${pct1(v[0])} ${more}${tail}.` }; // L3: one rank (the demo hall)
   const total = v.reduce((a, b) => a + b, 0);
   const parts = v.map((x, i) => `${pct1(x)}${i === 0 ? ` ${more}` : ' more'} with rank ${RANK_NAMES[i]}`);
   return {
@@ -24016,8 +24052,84 @@ const store = {
 };
 
 });
+__bundle.def("src/ui/demo.js", function* (__ns, __link) {
+let h, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let numWord; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }]]); __link.exp({ "DEMO_TEXT": () => DEMO_TEXT, "fill": () => fill, "andList": () => andList, "demoOn": () => demoOn, "atDemoExit": () => atDemoExit, "leaveLine": () => leaveLine, "buildDemoBlock": () => buildDemoBlock, "wordCount": () => wordCount, "capLevelText": () => capLevelText });
+yield;
+// The demo's player-facing lines and its demo-end block (docs/specs/demo.md 1.3, 1.4, 2.4, 3.1, 3.2, 4.3; D171). Every
+// line here is a draft for D.5 (the owner approves every line); the Content Designer may move them to content. Zone, class,
+// camp and boss names come from the bridge (ctx.data.demo, the view), never typed here. Presentation only.
+
+
+
+/** The demo's lines (draft). `{x}` placeholders are filled by fill(). */
+const DEMO_TEXT = {
+  heading: 'End of the demo',
+  madeIt: 'You made it through {zones}.',
+  runs: 'Runs so far: {n}',
+  hero: '{who}, level {level}',
+  hall: 'Legacy hall: {owned} of {total} unlocks owned',
+  capReached: '{who} has reached level {cap}, the demo\'s highest.',
+  fullGame: 'The full game goes on past {last}: {more} more zones and a final boss.',
+  nextRun: 'Next run',
+  hallButton: 'Legacy hall',
+  leaveLine: 'Leaving {last} ends this demo run. You keep your levels and Legacy points.',
+  roadSign: 'End of the demo',
+  cannotSave: 'This browser window cannot save your progress.',
+  startOver: 'Start over',
+  startOverNote: 'Deletes your heroes and Legacy unlocks and starts the demo from the beginning.',
+  startOverAsk: 'Start over? Your heroes and Legacy unlocks are deleted.',
+  startOverConfirm: 'Start over: click again',
+  capLevel: 'Level {cap}: the demo\'s highest',
+  hallAllOwned: 'You own every unlock in the demo.',
+  heroIntro: 'Your hero keeps its level from run to run, up to level {cap} in the demo.',
+  // MD D.5 (draft): demo variants of full-game lines that name what the demo never reaches. Wired (L1): heat.js reads
+  // furnaceLine in the demo for the meter's tooltip and the hub intro; the tutorial's G5, H16 and H17 read TUTORIAL.demo.
+  furnaceLine: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.',
+};
+
+/** A line with its placeholders filled. */
+const fill = (id, vars = {}) => DEMO_TEXT[id].replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
+/** "Amberfold Downs and Greywater Fens" (an "and" list of names). */
+const andList = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+/** The demo is on in this page (the demo build, or ?demo=1 in a team build): ctx.data.demo. */
+const demoOn = (ctx) => !!(ctx && ctx.data && ctx.data.demo);
+/** Standing in the demo's last zone (its Roads and the Bell end the run): the view's zone index is DEMO_LAST_ZONE or more. */
+const atDemoExit = (v, ctx) => demoOn(ctx) && !!(v && v.zone && !v.zone.camp && v.zone.idx >= ctx.data.demo.lastZone);
+/** The zone 2 leave line (demo.md 1.3), with the zone's name from content. */
+const leaveLine = (ctx) => fill('leaveLine', { last: ctx.data.demo.zones[ctx.data.demo.lastZone - 1] });
+/** "Vex, Rogue" or "Rogue" (a hero without a name of its own). */
+const whoOf = (x) => (x.name ? `${x.name}, ${x.className}` : x.className);
+
+/**
+ * The demo block over the summary of a run that ended at the cut (demo.md 1.4): heading, what this run did, so far (runs,
+ * heroes with a run, the hall), the cap line (only when the run's hero is at the demo's cap), the full game's line.
+ * s: the view's summary (demo, cap, name, className); after: view.meta.after (its `demo`: runs, heroes, owned, total).
+ * The run's own lines (level, fights, Legacy, Kept / Left behind) are the summary's, under it. Buttons are the caller's.
+ */
+function buildDemoBlock(s, after, ctx) {
+  const d = ctx.data.demo;
+  const so = after && after.demo;
+  const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
+  const lines = [
+    h('div.dm-made', fill('madeIt', { zones: andList(s.demo.zones) })),
+    so ? h('div.dm-sofar', [fill('runs', { n: fmtNum(so.runs) }), ...so.heroes.map((x) => fill('hero', { who: whoOf(x), level: x.level }))].join(' · ')) : null,
+    so ? h('div.dm-hall', fill('hall', { owned: so.owned, total: so.total })) : null,
+    s.cap === 'demo' ? h('div.dm-cap', fill('capReached', { who: named || `Your ${s.className}`, cap: d.heroMax })) : null,
+    h('div.dm-full', fill('fullGame', { last: d.zones[d.lastZone - 1], more: numWord(d.moreZones), boss: d.boss })),
+  ];
+  return h('div.demoend', { dataset: { demo: 'end' } }, h('div.dm-h', DEMO_TEXT.heading), ...lines.filter(Boolean));
+}
+
+/** Words of an element's visible text (demo.md 1.4: the demo block holds at most DEMO_END_MAX_WORDS). */
+const wordCount = (text) => (String(text).match(/[A-Za-z0-9][\w'’-]*/g) || []).length;
+
+/** The hero select and HUD line of a capped hero (demo.md 3.1): "Level 7: the demo's highest". */
+const capLevelText = (ctx) => fill('capLevel', { cap: ctx.data.demo.heroMax });
+
+
+});
 __bundle.def("src/ui/heat.js", function* (__ns, __link) {
-let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); let store; __link.imp("src/ui/store.js", [["store", (v) => { store = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "CLOCK_TAG": () => CLOCK_TAG, "CLOCK_GLYPH": () => CLOCK_GLYPH, "clockTag": () => clockTag, "countsLine": () => countsLine, "COUNTS_WHY": () => COUNTS_WHY, "arrivalLine": () => arrivalLine, "dimsLine": () => dimsLine, "atArrival": () => atArrival, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
+let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); let store; __link.imp("src/ui/store.js", [["store", (v) => { store = v; }]]); let DEMO_TEXT, demoOn; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }], ["demoOn", (v) => { demoOn = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "CLOCK_TAG": () => CLOCK_TAG, "CLOCK_GLYPH": () => CLOCK_GLYPH, "clockTag": () => clockTag, "countsLine": () => countsLine, "COUNTS_WHY": () => COUNTS_WHY, "arrivalLine": () => arrivalLine, "dimsLine": () => dimsLine, "atArrival": () => atArrival, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "furnaceLine": () => furnaceLine, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
 yield;
 // heat.js - the Heat meter and the texts that name heat (docs/specs/expedition.md H.4, H.5; engine-api.md 11; owner
 // feedback 2026-11-10 14:05: an always-visible meter, like FTL's chasing red line). Presentation only: the state, the
@@ -24059,6 +24171,7 @@ yield;
 // of the clock is one toll of the bar (the tolls before the Dimming turns Warm), inside Warm and Hot the clock's
 // HEAT_DIM thresholds are spread over the segment, and a Dimmed node sits in Scorched. Only the place inside the segment
 // is drawn here; the state is the engine's.
+
 
 
 
@@ -24342,7 +24455,7 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     els.state.querySelector('.ht-sname').textContent = m.name;
     queueMicrotask(fitHeader); // after the texts below are set
     els.num.textContent = m.line; // D152: the Dimming's words when it sets the state
-    const boss = m.boss;
+    const boss = demoOn(ctx) ? '' : m.boss; // L1: the demo meets no boss, so the meter names none
     els.boss.textContent = boss; els.boss.classList.toggle('hidden', !boss);
     // the player's marker; an arrow when the heat is off the bar (bar.beyond)
     els.mark.style.left = `${pctOf(m.run.x, bar)}%`;
@@ -24377,7 +24490,7 @@ function createHeatMeter(host, ctx, noteRoot = host) {
       if (v.phase === 'ZONE_HUB' && svcOpen) els.intro.classList.add('hidden');
       else if (v.phase === 'ZONE_HUB') {
         if (els.intro.classList.contains('hidden')) {
-          add(clear(els.intro.querySelector('.hi-b')), h('p', FURNACE_LINE));
+          add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
           els.intro.classList.remove('hidden');
         }
       } else if (!els.intro.classList.contains('hidden')) closeIntro();
@@ -24427,6 +24540,8 @@ function createHeatMeter(host, ctx, noteRoot = host) {
 // ------------------------------------------------------------------ tooltips
 /** D150 item 5: the meter's one sentence (its tooltip, and the retired first-time note). */
 const FURNACE_LINE = 'Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.';
+/** L1 (MD D.5, draft): the meter's sentence; in the demo, which meets no boss, DEMO_TEXT.furnaceLine. */
+const furnaceLine = (ctx) => (demoOn(ctx) ? DEMO_TEXT.furnaceLine : FURNACE_LINE);
 /** The four states as the tooltip's table rows (D150 item 5): [state, when, bonus or ''] from the engine's thresholds. */
 function stateRows(H) {
   return [['clear', 'Tolls to spare'], ['warm', `Up to ${H.hotAt} overspent`], ['hot', `${H.hotAt} to ${H.scorchAt} overspent`], ['scorched', `${H.scorchAt} or more overspent`]]
@@ -24440,7 +24555,7 @@ function heatTip(ctx) {
   box.appendChild(h('div.tt-name', HW.Name));
   // D152 (changes-m3-v2.md 4): while the Dimming sets the state, the tolls figure moves here, as the first line
   if (hv.by === 'dim') box.appendChild(h('div.tt-line.ht-dimtip', dimTipLine(hv)));
-  box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
+  box.appendChild(h('div.tt-line.desc', furnaceLine(ctx)));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
   if (hv.node && hv.node.state) box.appendChild(h('div.tt-line.ht-countswhy', `${countsLine(hv)}. ${COUNTS_WHY}`)); // D163 (draft)
@@ -30414,16 +30529,17 @@ function windupLines(e, x, ctx, st) {
       h('div.tt-line.num', w ? deathblowStakes(w) : windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))]
     : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s strongest move, shown on its track ahead of time.`),
       h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
+  let nothingStops = false; // L2: the line below already says nothing can stop it
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
-    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'Nothing you have now can stop it. Kill it first, or be ready to take it.'));
+    if (!w.ready) { lines.push(h('div.tt-warn.db-no', 'Nothing you have now can stop it. Kill it first, or be ready to take it.')); nothingStops = true; }
     else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Stop it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
-  } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
+  } else if (!x.now && !nothingStops) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
   if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet, it still lands (it is empowered and you are maimed). Send the Pet has your pet take it on purpose, which stops it.'));
   if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
   const soft = softPending(v, e, x, st);
@@ -31458,82 +31574,6 @@ function siteLines(n, v, ctx) {
     return h('div.tt-line.site', { style: { '--cc': colors.get(id) || OFF_COLOR } }, h('i.dot'), c ? `Contract site: ${contractTitle(c, ctx.data.content)} (${progressText(c)})` : 'Contract site');
   });
 }
-
-
-});
-__bundle.def("src/ui/demo.js", function* (__ns, __link) {
-let h, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let numWord; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }]]); __link.exp({ "DEMO_TEXT": () => DEMO_TEXT, "fill": () => fill, "andList": () => andList, "demoOn": () => demoOn, "atDemoExit": () => atDemoExit, "leaveLine": () => leaveLine, "buildDemoBlock": () => buildDemoBlock, "wordCount": () => wordCount, "capLevelText": () => capLevelText });
-yield;
-// The demo's player-facing lines and its demo-end block (docs/specs/demo.md 1.3, 1.4, 2.4, 3.1, 3.2, 4.3; D171). Every
-// line here is a draft for D.5 (the owner approves every line); the Content Designer may move them to content. Zone, class,
-// camp and boss names come from the bridge (ctx.data.demo, the view), never typed here. Presentation only.
-
-
-
-/** The demo's lines (draft). `{x}` placeholders are filled by fill(). */
-const DEMO_TEXT = {
-  heading: 'End of the demo',
-  madeIt: 'You made it through {zones}.',
-  runs: 'Runs so far: {n}',
-  hero: '{who}, level {level}',
-  hall: 'Legacy hall: {owned} of {total} unlocks owned',
-  capReached: '{who} has reached level {cap}, the demo\'s highest.',
-  fullGame: 'The full game goes on past {last}: {more} more zones and a final boss.',
-  nextRun: 'Next run',
-  hallButton: 'Legacy hall',
-  leaveLine: 'Leaving {last} ends this demo run. You keep your levels and Legacy points.',
-  roadSign: 'End of the demo',
-  cannotSave: 'This browser window cannot save your progress.',
-  startOver: 'Start over',
-  startOverNote: 'Deletes your heroes and Legacy unlocks and starts the demo from the beginning.',
-  startOverAsk: 'Start over? Your heroes and Legacy unlocks are deleted.',
-  startOverConfirm: 'Start over: click again',
-  capLevel: 'Level {cap}: the demo\'s highest',
-  hallAllOwned: 'You own every unlock in the demo.',
-  heroIntro: 'Your hero keeps its level from run to run, up to level {cap} in the demo.',
-  // MD D.5 (draft): demo variants of full-game lines that name what the demo never reaches. Not wired yet (hand-off
-  // content-2026-11-25, for the UI engineer): heat.js FURNACE_LINE in the demo.
-  furnaceLine: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.',
-};
-
-/** A line with its placeholders filled. */
-const fill = (id, vars = {}) => DEMO_TEXT[id].replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
-/** "Amberfold Downs and Greywater Fens" (an "and" list of names). */
-const andList = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-/** The demo is on in this page (the demo build, or ?demo=1 in a team build): ctx.data.demo. */
-const demoOn = (ctx) => !!(ctx && ctx.data && ctx.data.demo);
-/** Standing in the demo's last zone (its Roads and the Bell end the run): the view's zone index is DEMO_LAST_ZONE or more. */
-const atDemoExit = (v, ctx) => demoOn(ctx) && !!(v && v.zone && !v.zone.camp && v.zone.idx >= ctx.data.demo.lastZone);
-/** The zone 2 leave line (demo.md 1.3), with the zone's name from content. */
-const leaveLine = (ctx) => fill('leaveLine', { last: ctx.data.demo.zones[ctx.data.demo.lastZone - 1] });
-/** "Vex, Rogue" or "Rogue" (a hero without a name of its own). */
-const whoOf = (x) => (x.name ? `${x.name}, ${x.className}` : x.className);
-
-/**
- * The demo block over the summary of a run that ended at the cut (demo.md 1.4): heading, what this run did, so far (runs,
- * heroes with a run, the hall), the cap line (only when the run's hero is at the demo's cap), the full game's line.
- * s: the view's summary (demo, cap, name, className); after: view.meta.after (its `demo`: runs, heroes, owned, total).
- * The run's own lines (level, fights, Legacy, Kept / Left behind) are the summary's, under it. Buttons are the caller's.
- */
-function buildDemoBlock(s, after, ctx) {
-  const d = ctx.data.demo;
-  const so = after && after.demo;
-  const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
-  const lines = [
-    h('div.dm-made', fill('madeIt', { zones: andList(s.demo.zones) })),
-    so ? h('div.dm-sofar', [fill('runs', { n: fmtNum(so.runs) }), ...so.heroes.map((x) => fill('hero', { who: whoOf(x), level: x.level }))].join(' · ')) : null,
-    so ? h('div.dm-hall', fill('hall', { owned: so.owned, total: so.total })) : null,
-    s.cap === 'demo' ? h('div.dm-cap', fill('capReached', { who: named || `Your ${s.className}`, cap: d.heroMax })) : null,
-    h('div.dm-full', fill('fullGame', { last: d.zones[d.lastZone - 1], more: numWord(d.moreZones), boss: d.boss })),
-  ];
-  return h('div.demoend', { dataset: { demo: 'end' } }, h('div.dm-h', DEMO_TEXT.heading), ...lines.filter(Boolean));
-}
-
-/** Words of an element's visible text (demo.md 1.4: the demo block holds at most DEMO_END_MAX_WORDS). */
-const wordCount = (text) => (String(text).match(/[A-Za-z0-9][\w'’-]*/g) || []).length;
-
-/** The hero select and HUD line of a capped hero (demo.md 3.1): "Level 7: the demo's highest". */
-const capLevelText = (ctx) => fill('capLevel', { cap: ctx.data.demo.heroMax });
 
 
 });
@@ -35268,7 +35308,7 @@ function buildSummary(v, ctx) {
 
 });
 __bundle.def("src/ui/windows.js", function* (__ns, __link) {
-let h, clear, fmtNum, moneyEl, pct, lv, lvLearn, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, slotIcon, talentIcon, icon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["slotIcon", (v) => { slotIcon = v; }], ["talentIcon", (v) => { talentIcon = v; }], ["icon", (v) => { icon = v; }]]); let drawHumanoid, HERO_LOOKS; __link.imp("src/ui/art-actors.js", [["drawHumanoid", (v) => { drawHumanoid = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }]]); let tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["talentTip", (v) => { talentTip = v; }], ["SLOT_NAMES", (v) => { SLOT_NAMES = v; }], ["hideIn", (v) => { hideIn = v; }]]); let dragSource, dropTarget; __link.imp("src/ui/hud.js", [["dragSource", (v) => { dragSource = v; }], ["dropTarget", (v) => { dropTarget = v; }]]); let buildMap; __link.imp("src/ui/screens.js", [["buildMap", (v) => { buildMap = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let DEMO_TEXT; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }]]); let buildContractLog; __link.imp("src/ui/prep.js", [["buildContractLog", (v) => { buildContractLog = v; }]]); let resurrectText, econLine; __link.imp("src/ui/ui-text.js", [["resurrectText", (v) => { resurrectText = v; }], ["econLine", (v) => { econLine = v; }]]); let flags; __link.imp("src/ui/engine-bridge.js", [["flags", (v) => { flags = v; }]]); let hints; __link.imp("src/ui/onboarding.js", [["hints", (v) => { hints = v; }]]); __link.exp({ "stableBag": () => stableBag, "createWindows": () => createWindows });
+let h, clear, fmtNum, moneyEl, pct, lv, lvLearn, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, slotIcon, talentIcon, icon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["slotIcon", (v) => { slotIcon = v; }], ["talentIcon", (v) => { talentIcon = v; }], ["icon", (v) => { icon = v; }]]); let drawHumanoid, HERO_LOOKS; __link.imp("src/ui/art-actors.js", [["drawHumanoid", (v) => { drawHumanoid = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }]]); let tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["talentTip", (v) => { talentTip = v; }], ["SLOT_NAMES", (v) => { SLOT_NAMES = v; }], ["hideIn", (v) => { hideIn = v; }]]); let dragSource, dropTarget; __link.imp("src/ui/hud.js", [["dragSource", (v) => { dragSource = v; }], ["dropTarget", (v) => { dropTarget = v; }]]); let buildMap; __link.imp("src/ui/screens.js", [["buildMap", (v) => { buildMap = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let DEMO_TEXT, demoOn; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }], ["demoOn", (v) => { demoOn = v; }]]); let buildContractLog; __link.imp("src/ui/prep.js", [["buildContractLog", (v) => { buildContractLog = v; }]]); let resurrectText, econLine; __link.imp("src/ui/ui-text.js", [["resurrectText", (v) => { resurrectText = v; }], ["econLine", (v) => { econLine = v; }]]); let flags; __link.imp("src/ui/engine-bridge.js", [["flags", (v) => { flags = v; }]]); let hints; __link.imp("src/ui/onboarding.js", [["hints", (v) => { hints = v; }]]); __link.exp({ "stableBag": () => stableBag, "createWindows": () => createWindows });
 yield;
 // Toggleable windows: character sheet, bags, spellbook, talents, quest log, settings, zone map. In a run with the start
 // camp the quest log is the contract tracker (docs/specs/expedition.md 9.3; prep.js); the settings hold "Expedition map
@@ -35556,7 +35596,7 @@ function createWindows(root, ctx) {
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',
             h('span.kbd', 'C B P'), 'Character, bags, spells', h('span.kbd', 'N L M'), 'Talents, quests, map')),
-        h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`));
+        demoOn(ctx) ? null : h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`)); // L4: not in the demo
       const win = frame('settings', 'Menu and settings', null, body);
       if (devRow) win.classList.add('dev');
       return win;
@@ -35838,7 +35878,7 @@ function timeline(events, prev, spells, scale = 1) {
 
 });
 __bundle.def("src/ui/director.js", function* (__ns, __link) {
-let wait, SkipToken, fmtNum, deepClone, lv, econShown; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }], ["lv", (v) => { lv = v; }], ["econShown", (v) => { econShown = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["freeActionText", (v) => { freeActionText = v; }], ["trainerWaiting", (v) => { trainerWaiting = v; }], ["econLine", (v) => { econLine = v; }]]); let capLevelText; __link.imp("src/ui/demo.js", [["capLevelText", (v) => { capLevelText = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); let CAST, themeToken; __link.imp("src/ui/theme.js", [["CAST", (v) => { CAST = v; }], ["token", (v) => { themeToken = v; }]]); let fillLine, rescueLeftLine; __link.imp("src/ui/onboarding.js", [["fillLine", (v) => { fillLine = v; }], ["rescueLeftLine", (v) => { rescueLeftLine = v; }]]); let arrivalLine; __link.imp("src/ui/heat.js", [["arrivalLine", (v) => { arrivalLine = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director, "hubWelcome": () => hubWelcome });
+let wait, SkipToken, fmtNum, deepClone, lv, econShown; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }], ["lv", (v) => { lv = v; }], ["econShown", (v) => { econShown = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine, goldLogLine, sellLogLine; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["freeActionText", (v) => { freeActionText = v; }], ["trainerWaiting", (v) => { trainerWaiting = v; }], ["econLine", (v) => { econLine = v; }], ["goldLogLine", (v) => { goldLogLine = v; }], ["sellLogLine", (v) => { sellLogLine = v; }]]); let capLevelText; __link.imp("src/ui/demo.js", [["capLevelText", (v) => { capLevelText = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); let CAST, themeToken; __link.imp("src/ui/theme.js", [["CAST", (v) => { CAST = v; }], ["token", (v) => { themeToken = v; }]]); let fillLine, rescueLeftLine; __link.imp("src/ui/onboarding.js", [["fillLine", (v) => { fillLine = v; }], ["rescueLeftLine", (v) => { rescueLeftLine = v; }]]); let arrivalLine; __link.imp("src/ui/heat.js", [["arrivalLine", (v) => { arrivalLine = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director, "hubWelcome": () => hubWelcome });
 yield;
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
 // The DoT preview (view `dot`, engine-api.md 6.1) is the next decision's: the views shown while a round plays carry none.
@@ -36299,13 +36339,13 @@ class Director {
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : themeToken('--accent-pale'), size: 20 });
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
-          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from the Furnace)` : ''}.`, 'lg-loot'); break;
+          case 'gold': hud.log(goldLogLine(e.amount, e.heat), 'lg-loot'); break;
           case 'msg': if (!e.quiet) ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break; // quiet: the log only
           case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest: health and mana restored.', 'lg-sys'); await W(500); break;
           case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, themeToken('--accent-pale'), 30, 160, { up: 80 }); await W(500); break;
           case 'trap': break;
           case 'buy': hud.log(`You buy ${e.name}.`, 'lg-loot'); break;
-          case 'sell': hud.log(`You sell ${e.name} for ${fmtNum(e.gold)} copper.`, 'lg-loot'); break;
+          case 'sell': hud.log(sellLogLine(e.name, e.gold), 'lg-loot'); break;
           case 'learn': scene.aura('player', '#c8a8ff'); ctx.ui.toast(`Learned ${e.name}`, 'good'); hud.log(`You learn ${e.name}.`, 'lg-sys'); break;
           case 'train': hud.log(`${e.name} trained to rank ${e.rank}.`, 'lg-sys'); break;
           case 'equip': hud.log(`Equipped ${e.name}.`, 'lg-sys'); break;
