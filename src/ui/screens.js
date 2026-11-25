@@ -224,7 +224,7 @@ function buildCreate(ctx) {
     tip(echoes, () => {
       const m = ctx.view.meta; if (!m) return null;
       const reach = m.offers.filter((o) => o.affordable).length;
-      return h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend Echoes on lasting unlocks: stats, items in the drop pools, skills and more.'),
+      return h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', d.demo ? 'Spend Echoes on lasting unlocks.' : 'Spend Echoes on lasting unlocks: stats, items in the drop pools, skills and more.'), // the demo: its hall sells none of the latter
         h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
     });
   }

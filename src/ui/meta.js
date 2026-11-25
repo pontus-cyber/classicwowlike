@@ -211,20 +211,22 @@ export function createMeta(ctx) {
   /** Run log: totals from the profile, and per class the runs, best level, furthest point, kills and first-kill bonus. */
   function history(m) {
     const D = ctx.data.meta; const d = ctx.data; const H = m.history;
-    const tot = h('div.mh-tot', h('span', 'Runs ', h('b', fmtNum(m.runs))), h('span', `${D.names.boss} defeated `, h('b', fmtNum(m.bossKills))));
+    // the demo (demo.md 4.1): no line about Oruvath (his kills, the first-kill bonus), whom no demo run meets
+    const demo = !!d.demo;
+    const tot = h('div.mh-tot', h('span', 'Runs ', h('b', fmtNum(m.runs))), demo ? null : h('span', `${D.names.boss} defeated `, h('b', fmtNum(m.bossKills))));
     if (H.logged < m.runs) tot.appendChild(h('span.muted', `${m.runs - H.logged} earlier ${plural(m.runs - H.logged, 'run')} before the log`));
-    tip(tot, () => h('div', h('div.tt-name', 'Your runs'), h('div.tt-line', `${fmtNum(m.runs)} ${plural(m.runs, 'run')} ended, ${fmtNum(m.bossKills)} with ${D.names.boss} defeated.`),
-      h('div.tt-line.desc', `Every run earns Echoes. The first victory with each class adds +${fmtNum(D.num.firstKill)} Echoes.`),
+    tip(tot, () => h('div', h('div.tt-name', 'Your runs'), h('div.tt-line', demo ? `${fmtNum(m.runs)} ${plural(m.runs, 'run')} ended.` : `${fmtNum(m.runs)} ${plural(m.runs, 'run')} ended, ${fmtNum(m.bossKills)} with ${D.names.boss} defeated.`),
+      h('div.tt-line.desc', demo ? 'Every run earns Echoes.' : `Every run earns Echoes. The first victory with each class adds +${fmtNum(D.num.firstKill)} Echoes.`),
       H.logged < m.runs ? h('div.tt-sub', 'Best levels and places are logged from the runs this game has seen.') : null));
     const chips = Object.entries(H.classes).map(([id, c]) => {
       const cd = d.classes[id] || { name: id, color: '#ccc' };
-      const fk = c.firstKill ? h('span.fk.good', 'First-kill bonus ✓') : h('span.fk.wait', 'First-kill bonus ', echoAmt(D.num.firstKill, '.plus'));
-      const body = c.runs ? `${c.runs} ${plural(c.runs, 'run')} · best level ${c.bestLevel}${c.best ? ` · ${c.best}` : ''} · slain ${c.kills}×` : 'No runs yet';
+      const fk = demo ? null : c.firstKill ? h('span.fk.good', 'First-kill bonus ✓') : h('span.fk.wait', 'First-kill bonus ', echoAmt(D.num.firstKill, '.plus'));
+      const body = c.runs ? `${c.runs} ${plural(c.runs, 'run')} · best level ${c.bestLevel}${c.best ? ` · ${c.best}` : ''}${demo ? '' : ` · slain ${c.kills}×`}` : 'No runs yet';
       const chip = h('div.mh-cls', { dataset: { cls: id }, style: { '--cc': cd.color } }, h('span.cn', cd.name), fk, h('span.cb', body));
       tip(chip, () => h('div', h('div.tt-name', { style: { color: cd.color } }, cd.name),
         h('div.tt-line', c.runs ? `${c.runs} ${plural(c.runs, 'run')} logged. Best level ${c.bestLevel}${c.best ? `; furthest: ${c.best}` : ''}.` : 'No run logged yet.'),
-        h('div.tt-line', `${D.names.boss} defeated ${c.kills} ${plural(c.kills, 'time')}.`),
-        h(c.firstKill ? 'div.tt-hint' : 'div.tt-line.use', c.firstKill ? `First-kill bonus claimed (+${fmtNum(D.num.firstKill)} Echoes).` : `The first ${cd.name} to defeat ${D.names.boss} earns +${fmtNum(D.num.firstKill)} Echoes.`)));
+        demo ? null : h('div.tt-line', `${D.names.boss} defeated ${c.kills} ${plural(c.kills, 'time')}.`),
+        demo ? null : h(c.firstKill ? 'div.tt-hint' : 'div.tt-line.use', c.firstKill ? `First-kill bonus claimed (+${fmtNum(D.num.firstKill)} Echoes).` : `The first ${cd.name} to defeat ${D.names.boss} earns +${fmtNum(D.num.firstKill)} Echoes.`)));
       return chip;
     });
     return h('div.mhist', tot, h('div.mh-chips', chips));
