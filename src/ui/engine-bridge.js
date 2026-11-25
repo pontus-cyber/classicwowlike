@@ -1430,7 +1430,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (e.u === 'player') { out.push({ t: 'death', dst: ref('player'), name: s.player.name }); if (s.phase === 'SUMMARY' || s.phase === 'ENDED') out.push({ t: 'defeat' }); }
           else { hp.set(key(e.u), 0); out.push({ t: 'death', dst: ref(e.u), name: e.name || enemyName(e.u) }); }
           break;
-        case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Boon of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
+        case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Ember of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
         // heat (rules 1.7.3): the extra XP and gold of a node entered Hot or Scorched, carried by the events as `heat`
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why, heat: e.heat || 0 }); break;
         // engine-2026-11-15 UI need 2: the trainer's offer as at this level (R.trainerView(state, level)), for its banner
@@ -1481,7 +1481,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         // Gorrak's bounty on a first run (content guide.dimBackLine, guide.bountyLine; draft)
         case 'dimBack': out.push({ t: 'msg', text: guideLine('dimBackLine') || 'The dark falls back.', kind: 'good' }); break;
         // D153 (engine-2026-11-17 UI need 2): the road's share (road: true, at zone 2's hub) has its own line, guide.bountyRoadLine
-        case 'bounty': out.push(e.road ? { t: 'msg', text: (guideLine('bountyRoadLine') || 'The Bellwrights pay for the road: +{xp} XP.').replace('{xp}', String(e.xp || 0)), kind: 'good', bountyRoad: true }
+        case 'bounty': out.push(e.road ? { t: 'msg', text: (guideLine('bountyRoadLine') || 'The Bellwrights pay Gorrak\'s bounty: +{xp} XP.').replace('{xp}', String(e.xp || 0)), kind: 'good', bountyRoad: true }
           : { t: 'msg', text: guideLine('bountyLine') || "Gorrak's bounty.", kind: 'good' }); break; // the XP and gold lines follow their own events
         case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;

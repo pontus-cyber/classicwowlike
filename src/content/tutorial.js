@@ -85,7 +85,7 @@ export const TUTORIAL = {
   // (mapView node `held`); dimBackLine, the log line of a rescue's fall-back of the Dimming (event `dimBack`); bountyLine,
   // the line of Gorrak's bounty on a first run (event `bounty`, his victory pays the guided Cull's reward).
   guide: {
-    rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
+    rescueLine: 'The Bellwrights ring you back to safety ({rescueTolls} tolls).',
     rescueCapLine: 'That was the last rescue: the guide ends here, and from now on a death ends the run.',
     rescueLeftLine: 'Rescues left before the guide ends: {rescuesLeft}.',
     skipLine: 'You skip the guide: new things get one hint each.',
@@ -93,11 +93,11 @@ export const TUTORIAL = {
     endLine: 'The guide ends here. New things get one hint each.',
     hubLine: 'Welcome to {zone}.',
     hubTrainerLine: 'Welcome to {zone}. The trainer has something new for you.',
-    holdLine: 'The Bellwrights keep the dark off this road until Gorrak\'s fight is over.',
-    dimBackLine: 'The Bellwrights ring the dark back.',
-    bountyLine: 'Gorrak\'s bounty: the Bellwrights pay for the Fieldbreaker.',
+    holdLine: 'The Bellwrights ring back the dark on this road until Gorrak\'s fight is over.',
+    dimBackLine: 'The Bellwrights ring their bells, and the dark falls back.',
+    bountyLine: 'Gorrak is beaten: the Bellwrights pay his bounty when you reach the next hub.',
     // M3 v3 (D153, changes-m3-v3.md 3, draft): the bounty's XP paid on arrival at zone 2's hub (event bounty `road`); {xp}
-    bountyRoadLine: 'The Bellwrights pay for the road you kept open: +{xp} XP.',
+    bountyRoadLine: 'The Bellwrights pay Gorrak\'s bounty: +{xp} XP.',
   },
 
   // The start camp of a lean first run (D152, changes-m3-v2.md 1.3, draft; prepView `first`): unspentFirst, over Set out
@@ -147,7 +147,7 @@ export const TUTORIAL = {
       line: 'Contract site: win this fight to count it.',
       alt: { done: 'Contract done: choose one reward.' } },
     { id: 'G11', name: 'Potions', hint: 'H09', anchor: 'item slot',
-      line: 'Low health: drink a Healing Draught ({key_item1}). It uses your turn.' },
+      line: 'Low health: drink a Healing Draught ({key_item1}).' },
     // G12 (D150 item 13, draft): its line once (the purple star is the Shardfall's icon on the map); road: once its line
     // has been shown and the Roads are open (they are closed until Gorrak's fight). The caught line is gone: there was
     // nowhere to walk.
@@ -161,7 +161,7 @@ export const TUTORIAL = {
     // onRoadFirst (D152, changes-m3-v2.md 2.4 `G13.road.first`, draft): on a Road in zone 1 of a first run, which has no
     // Bell yet (the engine's line id G13.onRoadFirst; the far line does not show then)
     { id: 'G13', name: 'Homeward Bell', hint: 'H19', anchor: 'Bell or Road button',
-      line: 'Far from a Road? Ring the Homeward Bell to reach the next hub.',
+      line: 'Far from a Road? Ring the Homeward Bell to leave the zone.',
       alt: {
         onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.',
         closed: 'Face Gorrak first: the Roads open once his fight is over.',
@@ -195,12 +195,12 @@ export const TUTORIAL = {
     { id: 'H04', system: 'Deathblow', perClass: true, line: null, retired: 'D150' },
     // alt.shield (D144, draft): the target's shield would absorb a whole hit (R.offBalance(...).absorbs): the big hit goes
     // into the shield (casual s0193: a crit for 0, 88 absorbed), so the line says to break the shield first
-    { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct}% damage. Spend your big hit now.',
+    { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct} % damage. Spend your big hit now.',
       alt: { shield: 'Off-balance, but its shield takes your hits first: break it, then spend your big hit.' } },
-    { id: 'H06', system: 'Maimed', line: 'Maimed: your healing is halved for this fight.' },
+    { id: 'H06', system: 'Maimed', line: 'Maimed: your healing is halved this fight. Drink early.' },
     { id: 'H07', system: 'Lethal', line: 'Lethal: this hit kills you. Stop it, heal, or kill first.' },
-    { id: 'H08', system: 'DoT preview', line: 'The marked end of a health bar is what damage over time will still take.' },
-    { id: 'H09', system: 'Potions', line: 'Low health: drink a Healing Draught ({key_item1}). It uses your turn.' },
+    { id: 'H08', system: 'DoT preview', line: 'The striped end of a health bar is what bleeds, burns and poisons take this round.' },
+    { id: 'H09', system: 'Potions', line: 'Low health: drink a Healing Draught ({key_item1}).' },
     { id: 'H10', system: 'Free potion', line: 'Packed Satchel: your first potion each fight costs no turn, at half strength.' },
     { id: 'H11', system: 'Loot', line: 'Green arrow means upgrade. Equip it in your bags {key_bags}.' },
     // H12 (D150): retired, no line: the level-up banner names what is new at the trainer
@@ -222,8 +222,8 @@ export const TUTORIAL = {
     { id: 'H27', system: 'Disrupt', line: 'Bosses resist control: {key_engage2} disrupts their first wind-up instead.' },
     { id: 'H28', system: 'Vendor', line: 'Sell what you do not need. Potions are always in stock.' },
     { id: 'H29', system: 'Rest', line: 'Rest: back to full health and mana, for tolls.' },
-    { id: 'H30', system: 'Pass', line: 'Waiting ({key_pass}) keeps them sapped: the wind-up never comes.' },
-    { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It answers Deathblows too.' },
+    { id: 'H30', system: 'Pass', line: 'Sapped: press Pass ({key_pass}) and it stays sapped, so its wind-up never comes.' },
+    { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It stops Deathblows too.' },
     { id: 'H32', system: 'Flee', line: 'You can flee ({key_flee}). The node stays open for later.' },
     { id: 'H33', system: 'Pet', perClass: true, line: 'Your pet fights beside you and draws some of the blows.' },
     // H34 (D150 item 11): retired, no line (it showed with no opener owned; the naming rule's word is Stealth)
@@ -253,12 +253,25 @@ export const TUTORIAL = {
     },
   },
 
+  // Demo wording (MD D.5, draft; docs/specs/demo.md 4.2 and question Q1): no demo run meets the final boss, so the
+  // Furnace lines that warn about him read this text while C.GATES.demo is on. Not wired yet: the content index binds
+  // `legacy` only (hand-off content-2026-11-25, for the UI engineer). Same placeholders as the line each replaces.
+  demo: {
+    beats: {
+      G5: { line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.' },
+    },
+    hints: {
+      H16: { line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.' },
+      H17: { line: 'Burning: more XP, gold and better drops. The Dimming still spreads with every toll.' },
+    },
+  },
+
   // The first-run nudge (spec 4.2-4.3). unlock: the META id the nudge points at. {satchelPotions}: META.satchel.potions.
   nudge: {
     unlock: 'satchel',
-    welcomeLabel: "The Bellwrights' welcome",
+    welcomeLabel: 'First-run welcome',
     summaryLine: 'Your first unlock is ready: Packed Satchel.',
-    hallLine: 'Buy Packed Satchel: {satchelPotions} potions every run, and your first potion each fight costs no turn.',
+    hallLine: 'Buy Packed Satchel: {satchelPotions} potions every run, and your first potion each fight costs no turn, at half strength.',
     later: 'Later',
   },
 };

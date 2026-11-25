@@ -97,7 +97,7 @@ export function boardTip(o, ctx, opts = {}) {
   const rw = o.reward || {};
   const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
-      : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
+      : `Win ${o.need} fights on Quest or Grind nodes that carry its mark, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
   // Economy v2 (engine-2026-11-19c UI need 7): the board's XP is what the contract pays (reward.xp), so no "about"
   const pay = [legacyShown() && typeof rw.xp === 'number' ? `${econShown() ? '' : 'about '}${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
@@ -113,7 +113,7 @@ function optionTip(o, ctx, key, why) {
   const r = ctx.data.rules.prep;
   const fl = prepFlavour(o.id, ctx.data.content);
   return h('div.tt-contract',
-    h('div.tt-row', h('div.tt-name', o.name), h('span.ctag', { dataset: { kind: o.kind } }, o.kind === 'vision' ? 'Sight' : 'Supply')),
+    h('div.tt-row', h('div.tt-name', o.name), h('span.ctag', { dataset: { kind: o.kind } }, o.kind === 'vision' ? 'Map' : 'Supply')),
     h('div.tt-line', prepOptionEffect(o, r, consName(ctx), ctx.data.content)),
     fl ? h('div.tt-line.flav', fl) : null,
     h('div.tt-sub', o.owned ? 'Owned already (Hall of Echoes or the run\'s options): nothing to buy.' : `${pts(o.price)}${o.kind === 'vision' ? ', for the whole run' : ', in effect when you set out'} · sold back for a full refund until you set out`),
@@ -178,7 +178,7 @@ export function createPrepScreen(v, ctx) {
     cards.appendChild(b);
     return b;
   });
-  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each gives its reward when its last site is won.'), reroll), cards);
+  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'Up to three at a time. Each gives its reward when its task is done.'), reroll), cards);
   // the options: small cards in one row
   const optEls = new Map();
   const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
@@ -267,7 +267,7 @@ export function createPrepScreen(v, ctx) {
       x.el.disabled = o.owned;
       x.el.setAttribute('aria-label', `${o.name}, ${o.owned ? 'owned' : o.bought ? 'bought' : pts(o.price)}`);
       clear(x.el).append(h('img', { src: optIcon(o.id), alt: '' }),
-        h('div.po-txt', h('div.po-nm', h('span.kbd', x.key), h('span.po-name', o.name)), h('div.po-kd', o.kind === 'vision' ? 'Sight' : 'Supply')),
+        h('div.po-txt', h('div.po-nm', h('span.kbd', x.key), h('span.po-name', o.name)), h('div.po-kd', o.kind === 'vision' ? 'Map' : 'Supply')),
         h('div.po-right', o.owned ? h('span.po-own', 'Owned') : [h('span.pc-price', String(o.price)), h('span.po-act', o.bought ? 'Sell' : 'Buy')]));
     }
   };
@@ -422,7 +422,7 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   tip(take, () => h('div', h('div.tt-name', econShown() ? 'Take it for camp points' : 'Take it from Reserve'), h('div.tt-line', econShown() ? `Pay ${pts(o.price)} of your ${cv.reserve}. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.` : `Pay ${pts(o.price)} of your ${cv.reserve} Reserve. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.`),
     o.reserve ? h('div.tt-hint', 'Click to take it') : h('div.tt-warn', ctx.bridge.why({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }) || 'Not now')));
   const swapBtn = h('button.btn.small' + (o.swap.length ? '' : '.disabled'), { type: 'button', dataset: { hub: 'swap' } }, state.swap ? 'Keep my contracts' : 'Swap…');
-  tip(swapBtn, () => h('div', h('div.tt-name', 'Swap'), h('div.tt-line', 'Give up one contract you hold and take this one for free. No refund; its progress is lost. Only before you leave this hub.')));
+  tip(swapBtn, () => h('div', h('div.tt-name', 'Swap'), h('div.tt-line', 'Give up one contract you hold and take this one for free. No refund; its progress is lost.')));
   const list = h('div.hc-swap' + (state.swap ? '' : '.hidden'), cv.contracts.filter((c) => o.swap.includes(c.id)).map((c) => {
     const b = h('button.hc-give', { type: 'button', dataset: { contract: c.id }, style: { '--cc': colors.get(c.id) || OFF_COLOR } }, h('i.dot'), h('span', `Give up: ${contractTitle(c, ctx.data.content)}`), h('span.muted', ` · zone ${c.z}, ${progressText(c)}`));
     b.addEventListener('click', () => { taken(); ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: c.id }); });

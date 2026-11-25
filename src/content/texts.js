@@ -14,7 +14,7 @@ export const TEXTS = {
   families: {
     outlaw: { singular: 'outlaw', plural: 'outlaws', done: 'Fewer outlaws on the roads. The carters will sleep easier.' },
     wild: { singular: 'wild beast', plural: 'wild beasts', done: 'The wild beasts keep their distance now. The herders thank you.' },
-    blight: { singular: 'blightborn', plural: 'blightborn', done: 'The blightborn are burnt back. The fields can breathe.' },
+    blight: { singular: 'blighted thing', plural: 'blighted things', done: 'The blighted things are burnt back. The fields can breathe.' },
     fenbeast: { singular: 'fen beast', plural: 'fen beasts', done: 'The fen beasts have gone quiet in the reeds. Good riddance.' },
     reedfolk: { singular: 'reedfolk', plural: 'reedfolk', done: 'The reedfolk have pulled back into the marsh. The boats can go out again.' },
     witchkin: { singular: 'witchkin', plural: 'witchkin', done: 'The witchkin\'s hexes are broken, and the wells taste clean.' },
@@ -56,11 +56,11 @@ export const TEXTS = {
     hub: '{hub} has work on the board: {contract}',
   },
   expedition: {
-    shardfall: 'Where a shard of Oruvath fell and cracked the rim. The dark starts here.',
+    shardfall: 'Where a falling shard struck the land. The dark spreads from here.',
     shardspawn: "Things that walked into the Dimming and came out hollow, lit only by the shard's cold glow.",
-    dimming: 'Darkness that spreads from the Shardfall. It takes the land hop by hop, and whoever stands in it.',
+    dimming: 'Darkness that spreads from the Shardfall, place by place. Whoever stands in it must fight.',
     homeward_bell: 'A small brass bell. Rung, it carries you on to the next zone\'s hub.',
-    dimming_pace: 'It takes at most {maxPerToll} places a toll, nearest the purple star first, from toll {grace} in the zone.',
+    dimming_pace: 'It spreads up to {maxPerToll} places for each toll, nearest the purple star first, once you have spent {grace} tolls in the zone.',
   },
   // The talent window's rule lines (newcomer check 2026-11-15, draft; ids C.PROGRESS_TEXT_IDS): {first} is
   // C.TALENT_FIRST_LEVEL, {step} C.TALENT_LEVEL_STEP (rules 6: one point at the first level, then one every step).
@@ -75,16 +75,16 @@ export const TEXTS = {
   // {spell} a spell's name; {key_talents} the talents key; {xp} HERO_XP_AT_MAX and {legacy} LEGACY_PER_LEVEL at level 25.
   economy: {
     camp_points: 'camp points',
-    camp_points_tip: 'Camp points buy contracts and supplies here. Points you keep can buy a contract at a hub on the way. They do not carry over to the next run.',
+    camp_points_tip: 'Points you keep can buy a contract at a hub on the way. They do not carry over to the next run.',
     set_out: 'You set out with {contracts} contracts and {points} camp points.',
     hub_offer: 'Take for {price} camp points (you have {points}).',
     tracker: '{points} camp points',
     first_run_lost: 'Camp points you do not spend are lost.',
-    second_camp: 'Your camp has grown: {points} camp points and a contract board. Contracts pay XP, gold and a choice of gear.',
+    second_camp: 'Your camp has grown: {points} camp points and a contract board. Contracts give XP, gold and a choice of gear.',
     run_kept: 'Kept: level {level} (was {was}) · spells and ranks · talents · Legacy unlocks',
-    run_left: "Left behind: gear, gold, potions and camp points. Your next run starts with the Wayfarer's kit.",
+    run_left: 'Left behind: gear, gold, potions and camp points. Your next run starts with new gear for your level.',
     run_balance: 'You have {legacy} Legacy points. Next in the hall: {next}, {cost}.',
-    abandon_confirm: 'Abandon this run? You keep your level, XP and spells. Gear, gold and camp points are lost. Legacy points pay only for what you did.',
+    abandon_confirm: 'End the run here? You keep your level, XP and spells; gear, gold and camp points are lost. Legacy points count only what you did.',
     level_title: 'Level {level}',
     level_title_multi: 'Level {level} (+{n})',
     level_health: 'Health {from} → {to}',
@@ -92,7 +92,7 @@ export const TEXTS = {
     level_new_spell: 'New spell: {spell}. Learn it at a trainer.',
     level_new_ranks: 'Better ranks for {n} spells at a trainer.',
     level_talent: 'Talent point to spend ({key_talents}).',
-    level_legacy: '+{legacy} Legacy points at the end of the run.',
+    level_legacy: '+{legacy} Legacy points when this run ends, to spend in the Legacy hall.',
     level_hero20: 'Level 20: your other talent trees can open in the Legacy hall.',
     level_hero25: 'Level 25, the highest. From now on every {xp} XP pays {legacy} Legacy points.',
     level_progress: 'Level {from} → {to}',

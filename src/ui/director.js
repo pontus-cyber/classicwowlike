@@ -95,7 +95,7 @@ export function makeInterim(prev, next) {
 /** The rescue banner's line (content guide.rescueLine, {rescueTolls} from the event / C.ONB_RESCUE_TOLLS). */
 function rescueLine(ctx, n) {
   const t = ctx.data.tutorial;
-  const raw = t && t.table.guide && t.table.guide.rescueLine ? t.table.guide.rescueLine : 'The Bellwrights pull you back ({rescueTolls} tolls).';
+  const raw = t && t.table.guide && t.table.guide.rescueLine ? t.table.guide.rescueLine : 'The Bellwrights ring you back to safety ({rescueTolls} tolls).';
   return raw.replace('{rescueTolls}', String(n ?? (t ? t.num.rescueTolls : 2)));
 }
 
@@ -332,7 +332,7 @@ export class Director {
             if (e.op === 'add' && label) await W(tm.wait);
             break;
           }
-          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(tm.wait); break;
+          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is stopped.`, 'lg-you'); await W(tm.wait); break;
           case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18, small: true }); await W(tm.wait); break;
           case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(tm.wait); break;
           case 'cleanse': scene.aura(ref(e.dst), themeToken('--ink-bright')); scene.float(ref(e.dst), 'Cleansed', { color: themeToken('--ink-bright'), size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(tm.wait); break;
@@ -367,7 +367,7 @@ export class Director {
           }
           // D150 section 7: a quest's, story's or contract's XP floats on its own window (its "+N XP"), not with the fight's:
           // the fight's floats add up to the spoils window's experience
-          case 'xp': if (e.amount > 0) { if (!OWN_WINDOW_XP.has(e.why)) scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-xp'); } break;
+          case 'xp': if (e.amount > 0) { if (!OWN_WINDOW_XP.has(e.why)) scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from the Furnace)` : ''}.`, 'lg-xp'); } break;
           case 'levelUp': {
             // Legacy (engine-api.md 15.2): the hero's own xpToNext (e.xpToNext; XP carries over, the next view's XP lands after)
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: e.xpToNext != null ? e.xpToNext : (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
@@ -405,12 +405,12 @@ export class Director {
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
           case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(e.signal ? `${e.names[0]} answers the signal!` : `${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
           // combat v2 (engine-api.md 5): what control, traps, Signal and Bolster do to the tracks, in the log (no extra wait)
-          case 'cancel': hud.log(`${cap(e.who)}: ${e.name} cancelled (${CONTROL_LOG[e.by] || 'controlled'})${e.offBalance ? ' → off-balance!' : '.'}`, e.offBalance ? 'lg-loot' : 'lg-you'); break;
+          case 'cancel': hud.log(`${cap(e.who)}: ${e.name} stopped (${CONTROL_LOG[e.by] || 'controlled'})${e.offBalance ? ' → off-balance!' : '.'}`, e.offBalance ? 'lg-loot' : 'lg-you'); break;
           case 'replace': hud.log(`${cap(e.who)}: ${e.fromName} → ${e.toName} (${e.reason}).`, 'lg-sys'); break;
           case 'offBalance': {
             const en = enemy(e.dst.idx); const ob = (statusSource(next, e.dst) || {}).offBalance;
             if (en && ob) { en.offBalance = deepClone(ob); push(); }
-            const why = { interrupt: 'its cast was interrupted', control: 'its big move was cancelled', avoided: `its ${e.name || 'heavy blow'} missed you` }[e.why] || 'its big move failed';
+            const why = { interrupt: 'its cast was interrupted', control: 'its big move was stopped', avoided: `its ${e.name || 'heavy blow'} missed you` }[e.why] || 'its big move failed';
             hud.log(`${cap(e.who)} is off-balance (${why}): ${ob ? `+${Math.round(ob.taken * 100)} % damage taken, +${Math.round(ob.crit * 100)} % crit` : 'hit it now'} for your next action.`, 'lg-loot');
             break;
           }
@@ -457,9 +457,9 @@ export class Director {
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : themeToken('--accent-pale'), size: 20 });
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
-          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-loot'); break;
+          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from the Furnace)` : ''}.`, 'lg-loot'); break;
           case 'msg': if (!e.quiet) ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break; // quiet: the log only
-          case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest. Health and mana restored; you feel rested.', 'lg-sys'); await W(500); break;
+          case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest: health and mana restored.', 'lg-sys'); await W(500); break;
           case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, themeToken('--accent-pale'), 30, 160, { up: 80 }); await W(500); break;
           case 'trap': break;
           case 'buy': hud.log(`You buy ${e.name}.`, 'lg-loot'); break;

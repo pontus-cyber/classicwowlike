@@ -400,7 +400,7 @@ export const pct2 = (x) => `${Math.round(x * 10000) / 100} %`;
  */
 export const strengthText = (mult) => (mult == null || mult >= 1 ? null : mult === 0.5 ? 'half strength' : `${pct1(mult)} strength`);
 /** "Free action (Packed Satchel)" with the strength when it is not full: "Free action, half strength (Packed Satchel)". */
-export const freeActionText = (mult) => `Free action${strengthText(mult) ? `, ${strengthText(mult)}` : ''} (Packed Satchel)`;
+export const freeActionText = (mult) => `Costs no turn${strengthText(mult) ? `, ${strengthText(mult)}` : ''} (Packed Satchel)`;
 
 /**
  * What a status does, in exact numbers (rules 7.4). s: a view status (engine-bridge.js `statuses`: the engine's status
@@ -464,7 +464,7 @@ export function statusEffect(s, r, info = {}) {
 }
 
 /** Resurrect sources of the view (player.resurrect): Second Breath is 'meta' (rules 9). */
-export const RES_NAME = { boon: 'Boon of Return', meta: 'Second Breath', ember: 'Ember of Return' };
+export const RES_NAME = { boon: 'Ember of Return', meta: 'Second Breath', ember: 'Ember of Return' };
 /**
  * Resurrect charges in words (rules 9, M2 v3). `p.resurrect` lists what a death would use now, in order (the engine's
  * resurrectCharges().now); `p.resurrectHeld` counts the charges held. In the end-boss fight Second Breath does not work:

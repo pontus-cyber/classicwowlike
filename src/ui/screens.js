@@ -322,7 +322,7 @@ function updateCreate(root, v, ctx) {
       drawPortrait(cv.getContext('2d'), 120, PET_LOOKS[id], 'beast', { bg1: '#2e3a26' });
       const el = h('div.pet' + (c.petId === id ? '.sel' : '') + (pd.locked ? '.locked' : ''), cv, h('div.pn', pd.name));
       const unlockName = pd.meta && d.meta && d.meta.entries[pd.meta] ? d.meta.entries[pd.meta].name : null;
-      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null), { avoid: '.pets .pet' }); // blind round 2 (tactician s0005-s0008): not over the other companions
+      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked in the Hall of Echoes.') : null), { avoid: '.pets .pet' }); // blind round 2 (tactician s0005-s0008): not over the other companions
       if (!pd.locked) el.addEventListener('click', () => ctx.act({ type: 'SELECT_PET', petId: id }));
       pets.appendChild(el);
     }
@@ -402,7 +402,7 @@ function buildHub(v, ctx) {
   if (offer) body.appendChild(offer);
   // blind panel 2026-11-13 (item 8): the offer just taken leaves a note of the same height, so the cards under it stay where
   // the pointer is (the next click hit the Inn instead of the Trainer)
-  else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
+  else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its marks are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   const trainerCard = svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0));
   // blind round 2 (casual re-run s0279): the card stands out while a new spell the gold covers waits there

@@ -113,7 +113,7 @@ function setBar(el, cur, max, text, wardVal = 0, dot = null) {
   el.querySelector('.txt').textContent = text;
   el.classList.toggle('low', el.classList.contains('hp') && f < 0.3);
 }
-const RESURRECT_NAME = { boon: 'your Boon of Return', second_breath: 'Second Breath', ember: 'an Ember of Return' };
+const RESURRECT_NAME = { boon: 'your Ember of Return', second_breath: 'Second Breath', ember: 'an Ember of Return' };
 /**
  * Tooltip of an HP bar with a DoT preview (engine-api.md 6.1): what the ticks at the end of this round do, tick by tick,
  * and whether they kill. who: 'player', 'pet' or 'enemy'; name: the unit's name. null without a preview.
@@ -842,9 +842,9 @@ export function createHud(root, ctx) {
     else if (c.engage) { els.turn.classList.add('hidden'); els.turn.dataset.kind = 'engage'; return; }
     else if (ans) parts = ['Wind-up now: stop it with ', kb(key(ans)), ` ${name(ans)}`];
     else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
-    else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
+    else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can stop it`];
     else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
-    else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in R${lethalHit.x.round}`}: ≈ ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
+    else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in round ${lethalHit.x.round}`}: about ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
     else if (pot) { const pi = els.items.indexOf(pot); const it = L.items && L.items[pi]; parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}${it && it.heal > 0 ? ` +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}` : ''}`]; }
     // D150 item 24: a wind-up stopped this round already says "hit it now" over the enemy: the prompt stays plain then
     else if (win && !c.enemies.some((e) => e.alive && !e.hidden && stoppedNow(e, ctx))) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];

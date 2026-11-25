@@ -100,7 +100,7 @@ test('one name, "camp points": the content lines, the Set out log line, the seco
     b.dispatch({ type: 'START_RUN' });
     assert.equal(b.view.phase, 'PREP');
     assert.equal(b.view.prep.secondCamp, true);
-    assert.equal(econLine(T, 'second_camp', { points: b.view.prep.points }), `Your camp has grown: ${b.view.prep.points} camp points and a contract board. Contracts pay XP, gold and a choice of gear.`);
+    assert.equal(econLine(T, 'second_camp', { points: b.view.prep.points }), `Your camp has grown: ${b.view.prep.points} camp points and a contract board. Contracts give XP, gold and a choice of gear.`);
     const r = b.dispatch({ type: 'SET_OUT' });
     const msg = r.events.find((e) => e.t === 'msg' && /^You set out/.test(e.text));
     assert.match(msg.text, /^You set out with \d+ contracts? and \d+ camp points?\.$/);

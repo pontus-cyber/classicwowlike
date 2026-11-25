@@ -123,7 +123,7 @@ test('D153 (engine-2026-11-17 UI needs 2, 3): Gorrak\'s victory window has no XP
     road = r.events.find((e) => e.t === 'msg' && e.bountyRoad) || null;
   }
   assert.ok(win, 'the bounty window'); assert.equal(win.xp, 0, 'no XP on the victory (bountyRoad)');
-  assert.ok(road, 'the road line'); assert.match(road.text, /^The Bellwrights pay for the road you kept open: \+\d+ XP\.$/);
+  assert.ok(road, 'the road line'); assert.match(road.text, /^The Bellwrights pay Gorrak's bounty: \+\d+ XP\.$/);
 });
 
 test('section 7, item 17: one damage line; out of a fight "per combo point", in one the engine\'s estimate on the target "with N combo points"', () => {

@@ -404,7 +404,7 @@ describe('changes-m3-v2.md 3.4: a rescue never lands in a mostly dark zone (GATE
     assert.ok(!events.some((e) => e.t === 'dimBack'));
   }));
   test('content line guide.dimBackLine (draft)', () => {
-    assert.equal(CONTENT.tutorial.guide.dimBackLine, 'The Bellwrights ring the dark back.');
+    assert.equal(CONTENT.tutorial.guide.dimBackLine, 'The Bellwrights ring their bells, and the dark falls back.');
   });
 });
 

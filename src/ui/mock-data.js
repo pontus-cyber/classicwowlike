@@ -45,7 +45,7 @@ export const PETS = {
   duskcat: { id: 'duskcat', name: 'Duskcat', hpPct: 0.4, armorMult: 0.8, dmgMult: 1.3, critBonus: 0.10, aggro: 0.20,
     text: 'Fragile and deadly. Hits hard with a higher critical chance.' },
   stormhawk: { id: 'stormhawk', name: 'Stormhawk', hpPct: 0.35, armorMult: 0.7, dmgMult: 0.8, critBonus: 0, aggro: 0.15, locked: true,
-    text: 'Meta unlock. Its attacks also strike a second enemy.' },
+    text: 'Its attacks also strike a second enemy.' },
 };
 
 // fx: dmg [school, b, l(tl), p, w] ; aoe ; hits ; cp ; fin (× CP) ; st (status on target) ; self (status on self)
@@ -230,7 +230,7 @@ export const CONSUMABLES = {
 };
 
 export const BOONS = {
-  return: { id: 'return', name: 'Boon of Return', w: 10, text: 'A resurrect charge that lasts until used.' },
+  return: { id: 'return', name: 'Boon of Return', w: 10, text: 'An extra Ember of Return, kept until you use it.' },
   insight: { id: 'insight', name: 'Boon of Insight', w: 20, text: '+20 % experience for the next 3 nodes.' },
   fury: { id: 'fury', name: 'Boon of Fury', w: 20, text: '+15 % damage for the next 3 nodes.' },
   plenty: { id: 'plenty', name: 'Boon of Plenty', w: 20, text: 'A pouch of gold, now.' },

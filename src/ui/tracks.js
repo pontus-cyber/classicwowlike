@@ -235,11 +235,11 @@ export function windupLines(e, x, ctx, st) {
     ? [h('div.tt-line.wu.db', h('img', { src: deathblowIcon(), alt: '' }), h('b', `Deathblow${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature${n.deathblowMult && isDamage(x) ? `, at ×${n.deathblowMult} damage` : ''}. It decides the fight.`),
       (w ? w.est : x.est) && isDamage(x) ? h('div.tt-line.num.db', `Estimated damage to ${targetWord(x, v) || 'you'}: about ${fmtNum(w ? w.est : x.est)}`) : null,
       h('div.tt-line.num', w ? deathblowStakes(w) : windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))]
-    : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature, telegraphed from the round it shows.`),
+    : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s strongest move, shown on its track ahead of time.`),
       h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
-    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'No answer ready: nothing you have now can stop it. Kill it first, or be ready to take it.'));
+    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'Nothing you have now can stop it. Kill it first, or be ready to take it.'));
     else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Stop it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
@@ -247,7 +247,7 @@ export function windupLines(e, x, ctx, st) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
   } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
-  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet it lands all the same (empowered, and you are maimed). Send the Pet makes your pet take it on purpose: stopped.'));
+  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet, it still lands (it is empowered and you are maimed). Send the Pet has your pet take it on purpose, which stops it.'));
   if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
   const soft = softPending(v, e, x, st);
   if (soft === 'wait') lines.push(h('div.tt-hint.ans', `${cap(answeredBy(st))}: ${SOFT_WORDS.wait} (press Pass); it will be staggered. ${SAP_BREAK_WARN}.`));
@@ -541,11 +541,11 @@ export function entryTip(e, x, ctx, o = {}) {
   const wu = o.wu !== undefined ? o.wu : windupState(e, x, o.cancel, o.preview);
   if (wu) lines.push(...windupLines(e, x, ctx, wu));
   else {
-    if (x.heavy) lines.push(h('div.tt-warn', 'Heavy: a telegraphed big hit. Stun or control it on that turn to cancel it (it is then off-balance), or let a shield, a dodge or your pet take it.'));
-    if (x.cast) lines.push(h('div.tt-hint', 'Cast: interrupt it or control the caster on that turn to cancel it; a cancelled cast leaves it off-balance.'));
+    if (x.heavy) lines.push(h('div.tt-warn', 'Heavy: a big hit, shown ahead. Stun or control the enemy on that turn to stop it (it is then off-balance), or let a shield, a dodge or your pet take it.'));
+    if (x.cast) lines.push(h('div.tt-hint', 'Cast: interrupt it or control the caster on that turn to stop it; a stopped cast leaves it off-balance.'));
   }
-  if (x.signature && !x.windup) lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, '★ Signature: its strongest ability, on a scripted turn.'));
-  else if (x.scripted && !x.boss && !x.windup) lines.push(h('div.tt-sub', 'Opening move: the same for every enemy of its role.'));
+  if (x.signature && !x.windup) lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, '★ Signature: its strongest ability, on a set turn.'));
+  else if (x.scripted && !x.boss && !x.windup) lines.push(h('div.tt-sub', 'Opening move: every enemy of its role opens this way.'));
   if (x.replaced) lines.push(h('div.tt-warn', `${x.replaced.from} → ${x.name}: ${x.replaced.reason}.`));
   if (o.cancel) {
     const word = CONTROL_WORD[o.cancel.by] || 'controlled';

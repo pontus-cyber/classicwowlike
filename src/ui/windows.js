@@ -151,7 +151,7 @@ export function createWindows(root, ctx) {
         const sp = d.spells[k.id];
         const slot = p.bar.indexOf(k.id);
         const row = h('div.sprow' + (slot >= 0 ? '.onbar' : ''), h('img', { src: spellIcon(k.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Rank ${k.rank}${sp.cd ? ` · ${sp.cd} round cooldown` : ''}`)), slot >= 0 ? h('span.pill', `Slot ${slot + 1}`) : h('span.pill.muted', 'Not on bar'));
-        tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7); right-click a bar slot to clear it. The bar order is also the autoplay priority.' : 'Bar changes only out of combat' }));
+        tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7); right-click a bar slot to clear it.' : 'Bar changes only out of combat' }));
         dragSource(row, ctx, () => (v.legal.outOfCombat ? { kind: 'spell', id: k.id, icon: spellIcon(k.id, sp) } : null));
         return row;
       }));
@@ -234,7 +234,7 @@ export function createWindows(root, ctx) {
       let abandonRow = null;
       if (canAbandon) {
         const ab = h('button.btn.small', { type: 'button', dataset: { abandon: 'ask' } }, 'Abandon run');
-        const note = h('div.muted', 'Ends this run where your hero stands, as a death. Your hero keeps its level and the run pays its Legacy points.');
+        const note = h('div.muted', 'Ends this run where your hero stands, as a death.');
         ab.addEventListener('click', () => {
           // Economy v2 (legacy.md 4.7 E6.3; content abandon_confirm, draft): the confirmation says what is kept and lost
           const ask = econShown() ? `${econLine(ctx.data.content && ctx.data.content.texts, 'abandon_confirm')} Click again to end it.` : 'Abandon this run? Click again to end it.';
@@ -263,7 +263,7 @@ export function createWindows(root, ctx) {
       }
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         abandonRow,
-        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
+        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays becomes your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
         h('div.setrow', h('div', 'Skip travel scenes'), tog('skipTravel')),
         h('div.setrow', h('div', h('div', 'Autoplay pace'), h('div.muted', 'Pause between autoplay rounds.')), seg('autoDelay', [[700, 'Calm'], [350, 'Normal'], [120, 'Quick'], [40, 'Rush']])),

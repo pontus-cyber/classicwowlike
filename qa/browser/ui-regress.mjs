@@ -889,7 +889,7 @@ function eTwin(profile) {
   E_TWIN = { start, map3, camp, bolt, known, boss, sources, outcome: sm.outcome, deathAt: sm.death ? sm.death.nodeType : null, metaLeft: s.player.res.meta };
   return E_TWIN;
 }
-const RES_NAMES = { boon: R.C.BOON.return.name, second_breath: R.C.META.second_breath.name, ember: R.C.CONSUMABLE.ember_of_return.name };
+const RES_NAMES = { boon: R.C.CONSUMABLE.ember_of_return.name, second_breath: R.C.META.second_breath.name, ember: R.C.CONSUMABLE.ember_of_return.name };
 const NOT_FINAL = `${RES_NAMES.second_breath} does not work in the final fight.`;
 /** The resurrect list for resurrectCharges().now: names in the engine's order, ×n for more than one, Second Breath marked. */
 function resList(now, bossFight) {
@@ -2994,13 +2994,13 @@ const M_SEED = 7;
 // CONTRACT_BOARD_SIZE offers and the Bell in zone 1 come from the third run (runs >= 2)
 const M_PROFILE = () => ({ ...R.newProfile(), runs: 2, welcome: true, guide: 'done' });
 /**
- * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 of its marked sites: ...,
+ * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 fights on Quest or Grind nodes that carry its mark,
  * most of them in <region>. Other fights do not count." (Legacy bugs 2026-11-19, s0133; a Bounty: "Hunt down <elite> in <region>.", a Delve: "Clear <dungeon>, its boss included."), "Reward: about
  * N levels of XP", "1 of N items." and "Cost: N points." (the gold is a coins element between them).
  */
 const boardTipWant = (o) => {
   const lv = o.reward.xpFrac; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
-  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName}. Other fights do not count.`;
+  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} fights on Quest or Grind nodes that carry its mark, most of them in ${o.regionName}. Other fights do not count.`;
   return [what, `Reward: about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, ...(o.reward.choices ? [`1 of ${o.reward.choices} items.`] : []), `Cost: ${o.price} ${o.price === 1 ? 'point' : 'points'}.`];
 };
 function mTwin(seed) {
@@ -6899,7 +6899,7 @@ async function partZ(browser, W, H) {
       check('Z-1', 'a Cull card says "Win N marked sites in <region>" (s0133: which nodes count)', culls.length > 0 && culls.every(([o, d]) => d === `Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`), JSON.stringify(dos));
       const ci = pv.board.findIndex((o) => o.kind === 'cull');
       const bt = await tipText(page, page.locator('#prep .pp-card').nth(ci));
-      check('Z-1', 'the Cull offer\'s tooltip says that only the marked Quest or Grind nodes count and other fights do not', /Win \d of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in .+\. Other fights do not count\./.test(bt), bt.replace(/\n/g, ' / '));
+      check('Z-1', 'the Cull offer\'s tooltip says that only the marked Quest or Grind nodes count and other fights do not', /Win \d fights on Quest or Grind nodes that carry its mark, most of them in .+\. Other fights do not count\./.test(bt), bt.replace(/\n/g, ' / '));
       await page.keyboard.press('Enter'); await idle(page);
       await auto(page, () => window.__ui.view().phase !== 'PREP', 10);
       const zn = await page.evaluate(() => window.__ui.view().zone.name);

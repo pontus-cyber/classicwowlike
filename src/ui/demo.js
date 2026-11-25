@@ -8,11 +8,11 @@ import { numWord } from './ui-text.js';
 export const DEMO_TEXT = {
   heading: 'End of the demo',
   madeIt: 'You made it through {zones}.',
-  runs: 'Runs: {n}',
+  runs: 'Runs so far: {n}',
   hero: '{who}, level {level}',
-  hall: 'Legacy hall: {owned} of {total} unlocks',
-  capReached: '{who} has reached level {cap}, the highest level in the demo.',
-  fullGame: 'The full game goes on past {last}: {more} more zones, the Camp and {boss}.',
+  hall: 'Legacy hall: {owned} of {total} unlocks owned',
+  capReached: '{who} has reached level {cap}, the demo\'s highest.',
+  fullGame: 'The full game goes on past {last}: {more} more zones and a final boss.',
   nextRun: 'Next run',
   hallButton: 'Legacy hall',
   leaveLine: 'Leaving {last} ends this demo run. You keep your levels and Legacy points.',
@@ -25,6 +25,9 @@ export const DEMO_TEXT = {
   capLevel: 'Level {cap}: the demo\'s highest',
   hallAllOwned: 'You own every unlock in the demo.',
   heroIntro: 'Your hero keeps its level from run to run, up to level {cap} in the demo.',
+  // MD D.5 (draft): demo variants of full-game lines that name what the demo never reaches. Not wired yet (hand-off
+  // content-2026-11-25, for the UI engineer): heat.js FURNACE_LINE in the demo.
+  furnaceLine: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.',
 };
 
 /** A line with its placeholders filled. */
