@@ -451,7 +451,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
   const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
   /** A new run on screen: the presentation state and the engine log start afresh. */
-  const resetLocal = () => { local.secondCamp = false; local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
+  const resetLocal = () => { local.ended = null; local.secondCamp = false; local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -1516,8 +1516,27 @@ function engineBackend(seedOpt, runOpts = {}) {
     // Legacy (legacy.md 1.5; UI need 5): the hero checkpoint at every zone and Camp arrival is stored at once, so a closed
     // browser loses at most the zone in progress (not a dev run: its profile stays as it was)
     if (st.legacy && !st.dev && st.profile && st.profile.v >= 3 && r.events.some((e) => e.t === 'zone' || e.t === 'camp')) saveProfile(st.profile);
+    storeRunEnd();
     heatSteps(before, action, r);
     return r;
+  }
+
+  /**
+   * D175 (BUG-QA-12; demo.md 5.3: the run end is a checkpoint): the step that ends the run (a death, Abandon, the demo's
+   * end, a victory) stores at once what END_RUN will store, before the summary shows: the profile of a dry END_RUN (hero
+   * levels and XP, Legacy points, the welcome, the guide) and the run in the run log. F5 or a closed tab on the summary
+   * keeps it; the summary's button (END_RUN) then stores the same profile again and does not log the run twice. Stored again
+   * if the run's state changes on the summary (the same profile; local.ended.of is the state it was computed from).
+   */
+  function storeRunEnd() {
+    if (st.phase !== 'SUMMARY' || (local.ended && local.ended.of === st)) return;
+    let r = null;
+    try { r = R.step(st, { type: 'END_RUN' }).state; } catch { return; }
+    if (!r.result || !r.result.profile) return;
+    const was = local.ended;
+    local.ended = { of: st, profile: r.result.profile, logged: !!(was && was.logged), guide: was ? was.guide : null };
+    saveProfile(local.ended.guide ? R.setGuide(r.result.profile, local.ended.guide) : r.result.profile);
+    if (!local.ended.logged && !r.result.summary.dev) { recordRun(r.result.summary); local.ended.logged = true; } // a dev run stays out of the log
   }
 
   /**
@@ -1656,8 +1675,11 @@ function engineBackend(seedOpt, runOpts = {}) {
           const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : {};
           if (st.result && st.result.profile) {
             const sum = st.result.summary;
-            profile = st.result.profile; saveProfile(profile); refreshPets();
-            if (!sum.dev) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
+            // D175: the run end was stored when the run ended (storeRunEnd): the same profile again (with "Play the guide
+            // again" if it was chosen on the summary), and the run is not logged twice
+            const ended = local.ended;
+            profile = ended && ended.guide ? R.setGuide(st.result.profile, ended.guide) : st.result.profile; saveProfile(profile); refreshPets();
+            if (!sum.dev && !(ended && ended.logged)) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
             // from: the hero's level at the run's start (Legacy; hero select's "Level 4 → 7", legacy.md 4.7 E6.4)
             local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.hero ? sum.hero.level : sum.level, from: sum.hero && sum.hero.start ? sum.hero.start.level : null,
               gained: st.result.echoes, before, after: balanceOf(profile), firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
@@ -1701,7 +1723,10 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'GUIDE_AGAIN': {
           // Settings, "Play the guide again" (2.2): the profile's guide back to 'todo'; the next run (at class select: this
           // one) is guided. The welcome is not paid again (the profile keeps welcome: true).
-          profile = R.setGuide(profile || R.newProfile(), 'todo'); saveProfile(profile); guideOn = true;
+          profile = R.setGuide(profile || R.newProfile(), 'todo'); guideOn = true;
+          // D175: on the summary the stored profile is already the run end's (storeRunEnd): the guide goes back on that one,
+          // and END_RUN keeps it
+          if (local.ended) { local.ended.guide = 'todo'; saveProfile(R.setGuide(local.ended.profile, 'todo')); } else saveProfile(profile);
           if (st.phase === 'CREATE') rebuildCreate();
           return { ok: true, events: [], now: st.phase === 'CREATE' };
         }
@@ -1892,6 +1917,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       return { ok: false, error: `Dev tools: ${(err && err.message) || err}` };
     }
     if (fresh) { local.spoils = null; local.hold = null; local.reward = null; } else afterStep(prev, events);
+    storeRunEnd(); // D175: a dev op that ends the run (or changes it on the summary) stores the run end as a step does
     const bad = R.debug.validate(st, { steps: false });
     if (bad.length) console.error(`[dev] ${op}: the state fails the engine's checks: ${bad.join('; ')}`);
     return { ok: true, note };
