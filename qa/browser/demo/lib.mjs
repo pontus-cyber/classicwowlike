@@ -122,7 +122,9 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
 
 /** Class card, then "Enter the world" (the real controls); the page must be on hero select. */
 export async function startRun(h, cls, { seed = null } = {}) {
-  await h.waitForSelector(`#create .ccard[data-cls="${cls}"]`, { state: 'visible' });
+  // a locator's wait, not waitForSelector: waitForSelector returns an element handle that is never disposed, and the handle
+  // kept each run's old hero select screen alive in the page (BUG-QA-13: the long session's node and listener growth)
+  await h.locator(`#create .ccard[data-cls="${cls}"]`).waitFor({ state: 'visible' });
   await h.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle(h);
   if (seed != null) await h.evaluate((s) => window.__ui.act({ type: 'SET_SEED', seed: String(s) }), seed);
   await h.getByRole('button', { name: 'Enter the world' }).click(); await idle(h);
