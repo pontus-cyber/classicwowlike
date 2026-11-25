@@ -14,7 +14,7 @@ import {
 } from '../constants.js';
 import { rnd, flr } from './util.js';
 import { refreshDerived } from './stats.js';
-import { isLegacy, powerOf, heroXpToNext, econV2, xpRef, campWaveXp } from './legacy.js';
+import { isLegacy, powerOf, heroXpToNext, econV2, xpRef, campWaveXp, heroCap, demoCapped } from './legacy.js';
 
 /** The levelling polynomial XP_A×L² + XP_B×L + XP_C (rules 4.3), defined for any level (event XP at CL 60). */
 export function xpCurve(L) {
@@ -108,6 +108,8 @@ export function gainXp(s, ev, amount, why, kill = false) {
   const p = s.player;
   const hero = isLegacy(s);
   if ((!hero && p.level >= MAX_LEVEL) || amount <= 0) return 0;
+  // demo.md 3.1: at the demo's cap the XP is not counted (no rested XP spent); the event says so (`capped`, amount 0)
+  if (hero && demoCapped(s)) { ev.push({ t: 'xp', amount: 0, rested: 0, why, capped: true }); return 0; }
   let rested = 0;
   if (kill && p.rested > 0) {
     rested = Math.min(p.rested, amount * (RESTED_MULT - 1));
@@ -156,7 +158,8 @@ export function gainXp(s, ev, amount, why, kill = false) {
  */
 function heroLevelUps(s, ev) {
   const p = s.player;
-  while (p.heroLevel < HERO_MAX_LEVEL && p.xp >= heroXpToNext(p.heroLevel)) {
+  const cap = heroCap(s); // demo.md 3.1: HERO_MAX_DEMO in a demo run
+  while (p.heroLevel < cap && p.xp >= heroXpToNext(p.heroLevel)) {
     p.xp -= heroXpToNext(p.heroLevel);
     const before = p.d;
     const hp0 = p.hp;
@@ -176,8 +179,10 @@ function heroLevelUps(s, ev) {
       t: 'levelUp', level: p.level, heroLevel: p.heroLevel, talentPoint: points > 0, talentPoints: points,
       hpGain: p.hp - hp0, manaGain: p.mana - mana0, petHpGain: p.pet ? p.pet.hp - pet0 : 0,
       maxHp: d.maxHp, maxMana: d.maxMana, petMaxHp: p.pet ? d.petMaxHp : 0,
+      ...(s.demo && p.heroLevel >= cap ? { cap: 'demo' } : {}), // demo.md 3.1: the level-up to the demo's highest level
     });
   }
+  if (demoCapped(s)) { p.xp = 0; return; } // demo.md 3.1: at the demo's cap the XP stays 0 into the next level
   while (p.heroLevel >= HERO_MAX_LEVEL && p.xp >= HERO_XP_AT_MAX) {
     p.xp -= HERO_XP_AT_MAX;
     s.hero.over += 1;

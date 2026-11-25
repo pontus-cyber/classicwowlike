@@ -504,7 +504,35 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * ratio, no diffMod; contracts at CONTRACT_CL_OFFSET_HERO) (E2); zone 1 trails the hero by ZONE_LAG (E3); HERO_XP_ECON2
  * (E4); a version 3 profile is sold the hall of 4.2 at the E5 prices (META_HERO) and a Legacy run reads its effects (E5).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false, economyV2: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false, economyV2: false, demo: false };
+// ---------------- The demo build (docs/specs/demo.md 1-4, 10; D170-D171, draft for the owner) ----------------
+/**
+ * demo.md 2.2: the switches R.applyDemo() sets (src/rules.js): every switch at its main default, plus legacy, oruvathLegacy
+ * (the Legacy class numbers, the D169 Hunter package included: it reads the same two switches), economyV2 and demo. With
+ * GATES.demo on, a run made then is a demo run (state.demo): leaving zone DEMO_LAST_ZONE ends it (outcome 'demo'), its
+ * hero stops at HERO_MAX_DEMO, the hall sells DEMO_HALL at rank DEMO_HALL_MAX_RANK and the board draws from
+ * CONTRACT_BOARD_BANDS_DEMO. Off (the default), nothing of it is read.
+ */
+export const DEMO_GATES = Object.freeze({ ...GATES, legacy: true, oruvathLegacy: true, economyV2: true, demo: true });
+/** demo.md 1.2: leaving this zone (a Road or the Bell) ends a demo run (event demoEnd, outcome 'demo'); zone 3 is never made. */
+export const DEMO_LAST_ZONE = 2;
+/** demo.md 3.1 [inference; DM1]: the hero level cap in a demo run (in place of HERO_MAX_LEVEL). */
+export const HERO_MAX_DEMO = 7;
+/** demo.md 3.2: the hall entries sold in the demo (META_HERO ids, hall v3d prices), in the planner's buying order. */
+export const DEMO_HALL = Object.freeze(['satchel', 'vigor', 'edge', 'quick_study', 'pockets', 'cartographer', 'quartermaster']);
+/** demo.md 3.2: the highest rank of each DEMO_HALL entry sold in the demo. */
+export const DEMO_HALL_MAX_RANK = 1;
+/** demo.md 4.3: the zone band of each board slot in a demo run from the third run (in place of CONTRACT_BOARD_BANDS). */
+export const CONTRACT_BOARD_BANDS_DEMO = [[1, 1], [1, 2], [2, 2]];
+/** demo.md 2.4: the storage keys of the demo build (tbwcr.* keys of the full game read as tbwcr.demo.*; src/ui/store.js). */
+export const DEMO_STORAGE_PREFIX = 'tbwcr.demo.';
+/** demo.md 1.4: words of the demo block on the demo-end screen, at most. */
+export const DEMO_END_MAX_WORDS = 80;
+/** demo.md 3.1 [inference]: hero XP of a later demo run, planner (a sim reference, not read by the engine). */
+export const DEMO_RUN_XP = 2000;
+/** demo.md 5.1 A2 and A5: random-action runs per class of the cut fuzz; seeds of the board check. */
+export const DEMO_FUZZ_RUNS = 200;
+export const DEMO_BOARD_SEEDS = 200;
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */

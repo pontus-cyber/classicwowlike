@@ -24,6 +24,7 @@ import {
   CONTRACT_SLOTS,  REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED,
   CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
   GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES, PREP_POINTS_FIRST,
+  CONTRACT_BOARD_BANDS_DEMO, DEMO_LAST_ZONE,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
@@ -105,10 +106,12 @@ function offerOdds(c, zs) {
 /**
  * The zone band [lo, hi] of board slot i (expedition.md 2.2): with GATES.boardAcrossRun (D132, on) CONTRACT_BOARD_BANDS[i];
  * off (the D128 board) the zone i + 1 alone while i < ZONE_COUNT; a slot past those draws from 1..ZONE_COUNT. first
- * (D150): a profile's first run, CONTRACT_BOARD_FIRST_BANDS[i] (zone 1) whatever the switch.
+ * (D150): a profile's first run, CONTRACT_BOARD_FIRST_BANDS[i] (zone 1) whatever the switch. demo (demo.md 4.3; a demo run,
+ * state.demo): CONTRACT_BOARD_BANDS_DEMO[i] from the third run.
  */
-export function boardBand(i, first = false) {
+export function boardBand(i, first = false, demo = false) {
   if (first) return CONTRACT_BOARD_FIRST_BANDS[i] || [1, 1];
+  if (demo) return CONTRACT_BOARD_BANDS_DEMO[i] || [1, DEMO_LAST_ZONE]; // demo.md 4.3: a demo run's board, zones 1-2 only
   if (GATES.boardAcrossRun) return CONTRACT_BOARD_BANDS[i] || [1, ZONE_COUNT];
   return i < ZONE_COUNT ? [i + 1, i + 1] : [1, ZONE_COUNT];
 }
@@ -142,7 +145,7 @@ export function drawBoard(s, k, kept = [], size = boardSize(s)) {
   const first = smallBoard(s);
   const out = [];
   for (let i = 0; i < size; i++) {
-    const [lo, hi] = boardBand(i, first);
+    const [lo, hi] = boardBand(i, first, !!s.demo);
     const z = lo === hi ? lo : lo + nextInt(rng, hi - lo + 1);
     let o = drawOffer(s.content, rng, z);
     if (kept[i]) { out.push(kept[i]); continue; }

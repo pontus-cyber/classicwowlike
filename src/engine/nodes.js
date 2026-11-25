@@ -19,6 +19,7 @@
 // its level, its bar), the Wayfarer's kit and START_GOLD_V × V gold; each zone arrival and the Camp fix their levels and
 // write the hero to the run's profile; the Camp's vendor and waves at its level; Oruvath at the hero's level
 // (legacy.js oruvathScale); a spell's rank is the hero level it was trained at; ABANDON_RUN ends the run as a death.
+// The demo (D171, demo.md 1.2; a run made under GATES.demo, state.demo): leaving zone DEMO_LAST_ZONE ends the run (demoCut).
 import {
   CLASS, PET, SPELL, TALENT, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -29,6 +30,7 @@ import {
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
   ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY, META_HERO, KEEN_RICOCHET,
+  DEMO_LAST_ZONE,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -378,6 +380,7 @@ export function travelOn(s, ev) {
   addTime(s, ev, TIME_TRAVEL, 'travel'); // every profile (M2 v4: Wayfinder removed)
   s.stats.zonesLeft += 1;
   ev.push({ t: 'travel', from: s.zone.z });
+  if (demoCut(s, ev, s.zone.z, 'travel')) return;
   enterZone(s, ev, s.zone.z + 1);
 }
 
@@ -731,7 +734,20 @@ function leaveZone(s, ev, by) {
   if (s.exp.prep) expireContracts(s, ev, from); // prep (expedition.md 3.1): this zone's held contracts expire
   s.stats.zonesLeft += 1;
   ev.push({ t: 'travel', from, by, node, road: by === 'road' ? roadNameOf(s, node) : null });
+  if (demoCut(s, ev, from, by)) return;
   enterZone(s, ev, from + 1);
+}
+
+/**
+ * The demo's cut (demo.md 1.2; engine-api.md 16): in a demo run (state.demo) leaving zone DEMO_LAST_ZONE, after its
+ * `travel` event, ends the run: event `demoEnd` { zone, by } and outcome 'demo' (the next zone is never made, so no Camp
+ * and no Oruvath). true when it ended the run.
+ */
+function demoCut(s, ev, from, by) {
+  if (!s.demo || from < DEMO_LAST_ZONE) return false;
+  ev.push({ t: 'demoEnd', zone: from, by });
+  endRun(s, ev, 'demo');
+  return true;
 }
 
 /**

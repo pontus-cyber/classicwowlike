@@ -1282,3 +1282,26 @@ Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` 
 - Clarity (E6): content `texts.economy` (ids `C.ECONOMY_TEXT_IDS`, placeholders `C.ECONOMY_TEXT_NEEDS`, SCHEMA.md 2.10) and,
   under the switch, `tutorial.prep.unspentFirst` reads "Camp points you do not spend are lost." The `levelUp` event already
   carries `heroLevel`, `talentPoints`, `maxHp`, `hpGain`, `maxMana`, `manaGain` for the banner.
+
+## 16. The demo (docs/specs/demo.md 1-4, 10; D170-D171, draft; `C.GATES.demo`, off)
+`C.GATES.demo` is off in the full game; nothing below is read then. The demo build turns it on with the Legacy set.
+- `R.applyDemo({ lock = false })`: `C.GATES` becomes exactly `C.DEMO_GATES` (every switch at its main default plus `legacy`,
+  `oruvathLegacy`, `economyV2`, `demo`; the D169 Hunter package reads `legacy` and `oruvathLegacy`). `lock: true` freezes
+  `C.GATES` (the demo page). `R.setGates(values)` sets the switches to exactly `values` (tests and the sim restore with it).
+- A run made while the switch is on is a demo run: `state.demo` true (with `state.legacy`), kept to its end.
+- The cut (demo.md 1.2): in a demo run, leaving zone `C.DEMO_LAST_ZONE` (2) by a Road, the Bell (or `TRAVEL_ON` on a rows
+  map) plays as before up to its `travel` event (zone 2's held contracts expire, `stats.zonesLeft` + 1), then event `demoEnd`
+  { zone: 2, by: 'road' | 'bell' | 'travel' }, `runEnd` { outcome: 'demo' } and phase SUMMARY. Zone 3 is never made. A Bell
+  rung on a Dimmed node plays its fight first; a death there is outcome `death`.
+- Outcome `demo` is an ending like any other (15.3): END_RUN pays the lines, writes the hero (`runs` + 1, `wins` unchanged),
+  `profile.runs` + 1, the welcome and the guide as before. `summary(state)` carries `demoRun: true` in every demo run and
+  `demo: { lastZone: 2 }` when the outcome is `demo`.
+- The cap (demo.md 3.1): in a demo run the hero stops at `C.HERO_MAX_DEMO` (7). The `levelUp` event to it carries
+  `cap: 'demo'`; then the hero XP is 0 and stays 0: every later award is an `xp` event `{ amount: 0, rested: 0, why,
+  capped: true }` (no rested XP spent, `stats.xpGained` unchanged); no `heroMax` and no level line past 7. `heroView` gives
+  `atMax: true, cap: 'demo'`; `heroesView(profile)` under the switch adds `atMax` (and `cap: 'demo'` at 7 or above).
+- The hall (demo.md 3.2): under the switch `metaOffers(profile)` lists exactly `C.DEMO_HALL` in its order, each with
+  `ranks` `C.DEMO_HALL_MAX_RANK` (1) at the v3d price; `buyMeta` refuses any other entry ("not in the demo") and a second
+  rank (not available).
+- The board (demo.md 4.3): from the third run a demo run's board draws slot i from `C.CONTRACT_BOARD_BANDS_DEMO[i]`
+  ([1, 1], [1, 2], [2, 2]); the first run's none and the second run's one zone 1 offer as before.

@@ -11,7 +11,7 @@ import {
   META, CLASS_IDS, ECHO_PER_LEVEL, LEGACY_PER_ZONE, LEGACY_PER_DUNGEON, LEGACY_PER_ELITE, LEGACY_PER_RARE, LEGACY_PER_QUEST,
   LEGACY_BOSS_REACHED, LEGACY_BOSS_PHASE, LEGACY_BOSS_KILL, LEGACY_SPEED_BONUS, LEGACY_FIRST_KILL_CLASS, LEGACY_OATH_BONUS,
   BOSS_TIME_PAR, OATH_HASTE_TIME, LEGACY_PER_HEAT_FIGHT, LEGACY_CONTRACT_MULT, LEGACY_PER_PREP_POINT, LEGACY_WELCOME,
-  ONB_GUIDE_STATES, LEGACY_PER_LEVEL, LEGACY_PER_ZONE_HERO,
+  ONB_GUIDE_STATES, LEGACY_PER_LEVEL, LEGACY_PER_ZONE_HERO, GATES, DEMO_HALL, DEMO_HALL_MAX_RANK,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
@@ -89,7 +89,7 @@ function reqMet(profile, req) {
  * entries of 4.2 at the E5 prices; legacy.js hallOf), and only those.
  */
 export function metaOffers(profile) {
-  return Object.values(hallOf(profile, META)).map((m) => {
+  return hallEntries(profile).map((m) => {
     const rank = Math.min(profile.unlocks[m.id] || 0, m.ranks);
     const maxed = rank >= m.ranks;
     const nextCost = maxed ? null : m.costs[rank];
@@ -101,9 +101,20 @@ export function metaOffers(profile) {
   });
 }
 
+/**
+ * The entries a profile is sold, in order: the hall of hallOf; in the demo (GATES.demo; demo.md 3.2) only DEMO_HALL, in
+ * its order, each with at most DEMO_HALL_MAX_RANK ranks (an entry left out is not listed at all).
+ */
+function hallEntries(profile) {
+  const hall = hallOf(profile, META);
+  if (!GATES.demo) return Object.values(hall);
+  return DEMO_HALL.filter((id) => hall[id]).map((id) => ({ ...hall[id], ranks: Math.min(hall[id].ranks, DEMO_HALL_MAX_RANK) }));
+}
+
 /** Buy one rank (Echoes, or Legacy points on a version 3 profile). Returns a new profile; throws IllegalActionError when not allowed. */
 export function buyMeta(profile, id) {
-  const m = hallOf(profile, META)[id];
+  const m = hallEntries(profile).find((x) => x.id === id);
+  if (!m && GATES.demo && hallOf(profile, META)[id]) throw new IllegalActionError(`meta unlock ${id}: not in the demo`); // demo.md 3.2
   if (!m) throw new IllegalActionError(`unknown meta unlock ${id}`);
   const offer = metaOffers(profile).find((o) => o.id === id);
   if (!offer.available) throw new IllegalActionError(`meta unlock ${id} is not available (rank ${offer.rank}/${m.ranks}, requires ${m.req.join(', ') || 'nothing'})`);

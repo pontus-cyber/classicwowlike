@@ -497,6 +497,7 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     contentVersion: content.version || null,
     mapMode,
     ...(C.GATES.legacy ? { legacy: true } : {}),
+    ...(C.GATES.demo ? { demo: true } : {}), // the demo (demo.md 1.2, 3; engine-api.md 16): a demo run, read from here on
     phase: 'CREATE',
     create: {
       classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [],
@@ -506,6 +507,28 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     profile: prof,
     autoplay: false,
   };
+}
+
+/**
+ * The demo (demo.md 2.1-2.2; engine-api.md 16): set C.GATES to C.DEMO_GATES (every switch at its main default plus legacy,
+ * oruvathLegacy, economyV2 and demo; no other key). The demo build's page calls it once before the profile loads, with
+ * `lock: true`, so nothing can change the switches afterwards in that page (C.GATES frozen). Tests and the simulator call
+ * it without the lock (or setGates) and restore the switches after. Returns C.GATES.
+ */
+export function applyDemo({ lock = false } = {}) {
+  setGates(C.DEMO_GATES);
+  if (lock) Object.freeze(C.GATES);
+  return C.GATES;
+}
+/**
+ * Set the rule switches to exactly `values` (C.GATES keeps its identity: every module reads the one object); a key of
+ * C.GATES missing from `values` is removed. Throws on a frozen C.GATES (the demo page). Returns C.GATES.
+ */
+export function setGates(values) {
+  if (Object.isFrozen(C.GATES)) throw new Error('setGates: the switches are locked in this page (applyDemo({ lock: true }))');
+  for (const k of Object.keys(C.GATES)) if (!(k in values)) delete C.GATES[k];
+  Object.assign(C.GATES, values);
+  return C.GATES;
 }
 
 /** Every concrete legal action (SET_NAME and SET_SEED take free values and are not listed). */

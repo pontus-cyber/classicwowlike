@@ -14,7 +14,7 @@ import {
   BOSS_HP_LEVEL, BOSS_DMG_LEVEL_BASE, BOSS_DMG_LEVEL_STEP, BOSS_DMG_LEVEL_MIN, BOSS_DMG_LEVEL_MAX, SHARD_HP_LEVEL_LOW,
   SHARD_HP_RAMP_FROM, SHARD_HP_RAMP_TO, FINAL_DARK_LEVEL_STEP, FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND, ZONE_DANGER_STEP,
   ZONE_DANGER_FROM, HERO_XP_ECON2, ZONE_LAG, LEGACY_PER_ZONE, LEGACY_PER_ZONE_HERO, LEGACY_PER_PREP_POINT,
-  LEGACY_PER_PREP_POINT_HERO, META_HERO,
+  LEGACY_PER_PREP_POINT_HERO, META_HERO, HERO_MAX_DEMO,
 } from '../constants.js';
 import { rnd, deepClone, clamp } from './util.js';
 
@@ -27,6 +27,16 @@ export const isLegacy = (s) => !!(s && s.legacy);
 export const legacyNumbersOn = () => !!(GATES.legacy && GATES.oruvathLegacy);
 /** D158: the 2.4.1 boss rules apply to this run: a Legacy run (state.legacy) with both switches on; never a level-60 run. */
 export const oruvathRules = (s) => isLegacy(s) && legacyNumbersOn();
+
+/** The demo (demo.md 1.2, 3; engine-api.md 16): a demo run (GATES.demo when newRun made the state). */
+export const isDemo = (s) => !!(s && s.demo);
+/**
+ * The hero level cap of run s (demo.md 3.1): HERO_MAX_DEMO in a demo run, else HERO_MAX_LEVEL. At the demo's cap the hero's
+ * XP stays 0 and further XP is not counted (progress.js gainXp: `xp` events with `capped`); no HERO_XP_AT_MAX line.
+ */
+export const heroCap = (s) => (isDemo(s) ? HERO_MAX_DEMO : HERO_MAX_LEVEL);
+/** At the demo's cap: a demo run whose hero is at HERO_MAX_DEMO or above. */
+export const demoCapped = (s) => isDemo(s) && !!s.player && s.player.heroLevel >= HERO_MAX_DEMO;
 
 /**
  * D159 (legacy.md 4.7 Economy v2, draft): the Economy v2 rules apply to this run: a Legacy run (state.legacy) with
@@ -290,8 +300,9 @@ export function heroView(s) {
   const p = s.player;
   const h = s.hero || {};
   return {
-    classId: p.classId, level: p.heroLevel, xp: p.xp, xpToNext: heroXpToNext(p.heroLevel), atMax: p.heroLevel >= HERO_MAX_LEVEL,
+    classId: p.classId, level: p.heroLevel, xp: p.xp, xpToNext: heroXpToNext(p.heroLevel), atMax: p.heroLevel >= heroCap(s),
     power: p.level, start: h.start ? { ...h.start } : null, gained: (h.gained || 0) + (h.over || 0),
+    ...(demoCapped(s) ? { cap: 'demo' } : {}), // demo.md 3.1: the demo's highest level
   };
 }
 
@@ -310,6 +321,8 @@ export function heroesView(profile) {
     return {
       classId: c, className: CLASS[c].name, name: h.name, level: h.level, xp: h.xp, xpToNext: heroXpToNext(h.level),
       power: powerOf(h.level), runs: h.runs || 0, wins: h.wins || 0, talents: perTree, tree: top > 0 ? CLASS[c].trees[perTree.indexOf(top)] : null,
+      // demo.md 3.1 (GATES.demo: hero select of the demo): a hero at HERO_MAX_DEMO is at the demo's highest level
+      ...(GATES.demo ? { atMax: h.level >= HERO_MAX_DEMO, ...(h.level >= HERO_MAX_DEMO ? { cap: 'demo' } : {}) } : {}),
     };
   });
 }
