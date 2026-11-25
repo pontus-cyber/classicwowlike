@@ -67,10 +67,10 @@ Done when a stranger can play the demo from first screen to the demo end without
 Scope (D170, draft for the owner): the guided first run, then zones 1-2 of the expedition with Legacy on (hero levels, the hall), ending at the zone 2 exit with a demo-end screen that keeps Legacy progress. About 60-90 minutes of play for several runs.
 | # | Task | Owner | Status |
 |---|---|---|---|
-| D.1 | Demo spec: cut line, demo-end screen, gates on, hero cap, what is hidden (docs/specs/demo.md) | Designer | doing |
+| D.1 | Demo spec: cut line, demo-end screen, gates on, hero cap, what is hidden (docs/specs/demo.md) | Designer | done (2e78760, D171) |
 | D.2 | Legacy ready to be on by default: Hunter package (D169), pace check on the D168 reading, B6 on fresh seeds | Engineer + Sim | doing |
 | D.3 | Demo build mode: zones 1-2 cut, demo-end screen, Legacy gates on, no dev switches visible | Engineer + UI | todo |
-| D.4 | Art: owner-led proof slice (D121), then the pass the demo needs | Owner + UI | waiting for the owner |
+| D.4 | Art: owner-led proof slice (D121), then the pass the demo needs | Owner + UI | doing: art directions being drawn for the owner to pick |
 | D.5 | Content approval: one review page with every draft line, name and number for the owner | Content + Lead | todo |
 | D.6 | Stability: browser matrix, save and reload, long sessions, performance, no console errors | QA | todo |
 | D.7 | Blind panel on the demo build (three personas) and fixes | QA + Lead | todo |
