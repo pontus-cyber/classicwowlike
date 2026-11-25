@@ -798,17 +798,17 @@ function buildExpMap(v, ctx, readOnly) {
   }
   const pace = dm.steady && mv.texts && mv.texts.dimming_pace ? mv.texts.dimming_pace.replace('{maxPerToll}', String(dm.maxPerToll)).replace('{grace}', String(dm.grace)) : null;
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
-    h('div.tt-line.xpace', pace || `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
-    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost. Leave by a Road or the Bell.')));
+    h('div.tt-line.xpace', pace || `It spreads ${dm.frontHops} steps every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
+    h('div.tt-sub', 'What a Dimmed place held is lost. Leave by a Road or the Bell before the dark reaches you.')));
   // blind round 2 (casual re-run s0014: the Key panel looked empty at rest, its rows only on hover): the node icons stay in
   // view as a row of pictures (no words, D150's budget), each named under the pointer; the fog rows on hover as before
   const kinds = ['quest', 'grind', 'elite', 'dungeon', 'treasure', 'shrine', 'rest', 'vendor', 'trainer'];
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
-    h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
+    h('div.xk', h('i.xk-seen'), 'In sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Seen from afar'), h('div.xk', h('i.xk-unk'), 'Unknown'),
     h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
-  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes within ${mv.vision.radius} ${plural(mv.vision.radius, 'hop')} of you are in full view; a node once seen stays on the map.`),
-    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types within ${mv.vision.typeRadius} hops.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
+  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
+    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types up to ${mv.vision.typeRadius} steps away.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
   const right = h('div.xside.xright');
@@ -1048,8 +1048,8 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   const ringText = `Ring ${n.ring}${n.guided ? ' · guided fight' : band && !(full && L) ? ` · levels ${lv(band[0])}–${lv(band[1])}` : ''}`;
   box.appendChild(h('div.tt-sub', [n.hub ? 'Zone hub: trainer, vendor and inn' : ringText, reg && reg.name ? reg.name : null].filter(Boolean).join(' · ')));
   const fog = fogState(n, mv);
-  if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring gives its level range.'));
-  else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Known from afar: its type only.'));
+  if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring (how far it is from the hub) gives its level range.'));
+  else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Seen from afar: its type only.'));
   else if (fog === 'remembered') box.appendChild(h('div.tt-line.muted', 'Remembered: seen before, out of sight now.'));
   if (full && !n.hub) {
     if (n.type === 'quest' && n.title) box.appendChild(h('div.tt-line', { style: { color: token('--accent-cream'), fontWeight: 700 } }, n.title));
@@ -1164,7 +1164,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it gave a bonus' : ''}`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
   else if (reach) box.appendChild(h('div.tt-hint', 'Click to travel here'));
-  else box.appendChild(h('div.tt-warn', 'Not reachable from your position'));
+  else box.appendChild(h('div.tt-warn', 'Not next to you'));
   return box;
 }
 

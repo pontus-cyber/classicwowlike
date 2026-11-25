@@ -46,11 +46,11 @@ test('the draft lines read as written', () => {
   assert.equal(countsLine({ node: { state: 'clear' } }), 'This place counts as Calm');
   assert.equal(countsLine({ node: null }), '');
   const hv = (carried, share = 20, z = 2) => ({ z, heat: carried - share, carry: { cumulative: true, carried, share } });
-  assert.equal(arrivalLine(hv(-10)), 'Zone 2 adds 20 tolls; you saved 10: 30 to spare.');
-  assert.equal(arrivalLine(hv(5)), 'Zone 2 adds 20 tolls; you overspent 5: 15 to spare.');
-  assert.equal(arrivalLine(hv(20)), 'Zone 2 adds 20 tolls; you overspent 20: none to spare.');
-  assert.equal(arrivalLine(hv(25, 20, 3)), 'Zone 3 adds 20 tolls; you overspent 25: still 5 overspent.');
-  assert.equal(arrivalLine(hv(0)), 'Zone 2 adds 20 tolls: 20 to spare.');
+  assert.equal(arrivalLine(hv(-10)), 'Zone 2 gives you 20 tolls, plus the 10 you saved: 30 to spare.');
+  assert.equal(arrivalLine(hv(5)), 'Zone 2 gives you 20 tolls, less the 5 you overspent: 15 to spare.');
+  assert.equal(arrivalLine(hv(20)), 'Zone 2 gives you 20 tolls, less the 20 you overspent: none to spare.');
+  assert.equal(arrivalLine(hv(25, 20, 3)), 'Zone 3 gives you 20 tolls, less the 25 you overspent: still 5 overspent.');
+  assert.equal(arrivalLine(hv(0)), 'Zone 2 gives you 20 tolls: 20 to spare.');
   assert.equal(arrivalLine(hv(0, 20, 1)), '', 'zone 1: nothing carried');
   assert.equal(arrivalLine(hv(-3, 0, 7)), '', 'the Camp: no share');
   assert.equal(atArrival(hv(-10)), true);
@@ -95,7 +95,7 @@ for (const [arm, legacy] of [['Legacy on', true], ['Legacy off', false]]) {
           assert.ok(atArrival(hv), `${arm}: the meter reads the arrival figure`);
           const line = arrivalLine(hv);
           const left = hv.carry.carried - hv.carry.share;
-          assert.match(line, new RegExp(`^Zone ${hv.z} adds ${hv.carry.share} tolls`));
+          assert.match(line, new RegExp(`^Zone ${hv.z} gives you ${hv.carry.share} tolls`));
           assert.ok(line.endsWith(left < 0 ? `${-left} to spare.` : left === 0 ? 'none to spare.' : `still ${left} overspent.`), line);
           assert.equal(hv.heat, left);
           arrivals += 1;

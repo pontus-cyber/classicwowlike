@@ -28,7 +28,7 @@ test('nearestRoad: fewest hops along the paths, tolls = hops x walk + the Road; 
   assert.equal(nearestRoad(toy({ 3: { closed: true }, 5: { barred: true } })), null);
   // standing on a Road: none
   assert.equal(nearestRoad({ ...toy(), pos: 3 }), null);
-  assert.equal(hopsText(1), '1 hop'); assert.equal(hopsText(2), '2 hops');
+  assert.equal(hopsText(1), '1 step'); assert.equal(hopsText(2), '2 steps');
 });
 
 test('nearestRoad on a real zone 1 mapView: a reachable open Road, its hops the BFS distance', () => {
@@ -45,7 +45,7 @@ test('U01 and U02 lines (draft): their placeholders filled; the "Take a Road" ta
   const T = CONTENT.tutorial;
   assert.deepEqual(UI_HINT_IDS, ['U01', 'U02']);
   assert.equal(rawLine(T, 'U01'), UI_HINTS.U01);
-  assert.equal(fill(rawLine(T, 'U01'), { hops: '2 hops', tolls: '4 tolls' }).text, 'Nearest Road: 2 hops, 4 tolls.');
+  assert.equal(fill(rawLine(T, 'U01'), { hops: '2 steps', tolls: '4 tolls' }).text, 'Nearest Road: 2 steps, 4 tolls.');
   assert.equal(fill(rawLine(T, 'U02'), { passTolls: '1 toll' }).text, 'Pass through a place for 1 toll X.');
   assert.equal(fill(NEAREST_ROAD_TAIL, { hops: '1 hop', tolls: '3 tolls' }).text, 'Nearest: 1 hop, 3 tolls.');
 });
@@ -73,8 +73,8 @@ test('engine-2026-11-15 UI needs 5 and 8: the cost line split by heatPreview par
   assert.equal(costText({ time: 5, dimFight: true, parts: [{ why: 'quest', tolls: 3 }, { why: 'dimFight', tolls: 2 }] }), 'Costs 5 tolls: 3 for the quest, +2 for a fight in the Dimming (it dims before you finish).');
   assert.equal(costText({ time: 2, dimFight: true, parts: [{ why: 'walk', tolls: 1 }, { why: 'dimFight', tolls: 1, escape: true }] }), 'Costs 2 tolls: 1 for the walk, +1 for a fight in the Dimming.');
   assert.equal(costText({ time: 3, parts: [{ why: 'quest', tolls: 3 }] }), 'Costs 3 tolls.');
-  assert.equal(carryLine({ carry: { cumulative: true, carried: 3, share: 20 } }), 'Tolls carry over: 3 overspent before this zone, which adds 20.');
-  assert.equal(carryLine({ carry: { cumulative: true, carried: -4, share: 20 } }), 'Tolls carry over: 4 saved before this zone, which adds 20.');
+  assert.equal(carryLine({ carry: { cumulative: true, carried: 3, share: 20 } }), 'Tolls carry over: 3 overspent before this zone; this zone gives 20.');
+  assert.equal(carryLine({ carry: { cumulative: true, carried: -4, share: 20 } }), 'Tolls carry over: 4 saved before this zone; this zone gives 20.');
   assert.equal(carryLine({ carry: { cumulative: true, carried: 0, share: 20 } }), '');
   assert.equal(carryLine({}), '');
 });

@@ -167,8 +167,8 @@ test('zone danger in a Legacy run: zoneDanger × tierDmg - 1 (mapView.tierDmg; R
     assert.equal(z.tierDmg, mv.tierDmg); assert.equal(mv.tierDmg, C.ZONE_TIER_DMG[s.zone.z - 1]);
     assert.ok(Math.abs(z.danger - (R.zoneDanger(z.exitLevel, 'normal') * mv.tierDmg - 1)) < 1e-12, `${z.danger}`);
     const r = b.data.rules;
-    assert.equal(dangerRule(r, z), z.danger > 0 ? `Enemies here deal up to +${Math.round(z.danger * 1000) / 10} % damage.` : null);
-    assert.equal(dangerBanner(r, z), z.danger > 0 ? `Enemies here deal up to +${Math.round(z.danger * 1000) / 10} % damage` : null);
+    assert.equal(dangerRule(r, z), z.danger > 0 ? `Enemies here deal up to ${Math.round(z.danger * 1000) / 10} % more damage than their level alone.` : null);
+    assert.equal(dangerBanner(r, z), z.danger > 0 ? `Enemies here deal up to ${Math.round(z.danger * 1000) / 10} % more damage than their level alone` : null);
     assert.equal(dangerRule(r, { ...z, danger: -0.04 }), null, 'zoneDanger × tierDmg at or below 1: no line');
     // the Camp: zone 6's factor (R.zoneTierDmg), Oruvath and his Shards not
     const r2 = b.dev('camp', {}); assert.ok(r2.ok, r2.error);

@@ -278,7 +278,7 @@ export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\
 // {family}, {familyOne}, {region}, {zone}, {levels}, {elite}, {dungeon}, {hub}, {contract}. Without them: the id in
 // words ("wild foes") and the lines below. Every price, count and reward comes from R.prepView / R.contractView; radii
 // and limits from the rules table (data.rules.prep).
-export const CONTRACT_KIND = { cull: 'Cull', bounty: 'Bounty', delve: 'Delve' };
+export const CONTRACT_KIND = { cull: 'Cull', bounty: 'Wanted', delve: 'Delve' };
 const CONTRACT_KIND_TEXT = {
   cull: 'Win fights at its sites: Quest and Grind nodes, most of them in one region.',
   bounty: 'Hunt down one named elite that roams one region.',
@@ -303,7 +303,7 @@ export function contractTarget(c, content) {
 /** A contract in a few words (tracker, toasts, map marks): "Cull wild beasts in Barleyreach Verge", "Bounty: Grosk". */
 export function contractTitle(c, content) {
   if (c.kind === 'cull') return `Cull ${contractTarget(c, content)}`;
-  if (c.kind === 'bounty') return `Bounty: ${c.name || 'a named elite'}`;
+  if (c.kind === 'bounty') return `Wanted: ${c.name || 'a named elite'}`;
   return `${CONTRACT_KIND[c.kind] || humanize(c.kind)}: ${contractTarget(c, content)}`;
 }
 const fill = (tpl, vals) => tpl.replace(/\{(\w+)\}/g, (m, k) => (vals[k] != null && vals[k] !== '' ? String(vals[k]) : m));
@@ -345,7 +345,7 @@ export function contractSitesText(c, r, has = {}) {
   // content-2026-11-20 (blind Legacy v2 s0255, draft): the region and the dungeon are in the sentence above, so these lines
   // give only the rule and when the map shows the marks
   if (c.kind === 'delve') return `While you hold it, ${c.dungeon || "the zone's dungeon"} shows on the zone map.`;
-  const see = `Marks show within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, even on nodes you have not seen` : ''}.`;
+  const see = `Marks show up to ${r.vision} ${plural(r.vision, 'step')} away${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes up to ${r.tracker} steps, even on nodes you have not seen` : ''}.`;
   if (c.kind === 'bounty') return `It can be found at ${numWord(r.bountyPlaced)} Elite nodes away from the hub; beat it at either. ${see}`;
   // Legacy bugs 2026-11-19 (s0133): which nodes count, exactly (contracts.js placeSites, siteWon): the marked ones only
   return `Only Quest or Grind nodes with its mark count; other fights do not. ${see}`;
@@ -375,8 +375,8 @@ export function prepOptionEffect(o, r, name = (id) => humanize(id), content = nu
     case 'prep_bell': return `+${o.bell} Homeward Bell charge: one more way out of a zone.`;
     case 'prep_mule': return `+${o.slots} bag slots for the whole run.`;
     case 'prep_charts': return "Every node's region and every dungeon shown on each zone map.";
-    case 'prep_tracker': return `Contract sites marked within ${r.tracker} hops of you, even on nodes you have not seen yet.`;
-    case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'hop')} further on every zone map.`;
+    case 'prep_tracker': return `Contract sites marked up to ${r.tracker} steps away, even on nodes you have not seen yet.`;
+    case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'step')} further on every zone map.`;
     case 'prep_spyglass': return `${o.charges} looks on the map: any node and its neighbours in full view, no tolls.`;
     default: { const g = group(content, 'prep'); const x = g && g[o.id]; return (x && x.rule) || ''; }
   }
@@ -492,14 +492,14 @@ export const DANGER_LEVELS = 10;
  * band (draft line); null when that is no extra damage.
  */
 export function dangerRule(r, z = null) {
-  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage.` : null;
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to ${pct1(z.danger)} more damage than their level alone.` : null;
   if (r.dangerStep == null || r.dangerFrom == null) return null;
   const dungeon = r.dangerStepDungeon != null && r.dangerStepDungeon !== r.dangerStep ? ` (in dungeons +${pct1(r.dangerStepDungeon)})` : '';
   return `Enemies above level ${lv(r.dangerFrom)} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
 }
 /** Short line for the zone banner when the zone's enemies take zone danger (z.danger > 0), else null. */
 export function dangerBanner(r, z) {
-  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage` : null; // Legacy (draft)
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to ${pct1(z.danger)} more damage than their level alone` : null; // Legacy (draft)
   return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${lv(r.dangerFrom)} hit harder` : null;
 }
 
@@ -723,7 +723,7 @@ export const UI_HINTS = {
 };
 export const NEAREST_ROAD_TAIL = 'Nearest: {hops}, {tolls}.';
 /** "2 hops", "1 hop". */
-export const hopsText = (n) => `${n} ${n === 1 ? 'hop' : 'hops'}`;
+export const hopsText = (n) => `${n} ${n === 1 ? 'step' : 'steps'}`;
 /**
  * The nearest open Road from the player's node on an expedition map (pure; mapView): { id, hops, tolls }, or null when the
  * player stands on a Road or none can be reached. Hops count the fewest steps along the paths, through nodes that are not

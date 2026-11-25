@@ -94,7 +94,7 @@ export const DIM_NEAR_WORDS = 'The Dimming is near';
 export function dimTipLine(x) {
   const n = Math.abs(x.heat || 0);
   const mine = x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}. ` : '';
-  return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
+  return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The dark near you sets the Furnace now.`;
 }
 /**
  * engine-2026-11-15 UI need 8 (newcomer check s0142: does overspending carry over?): the tooltip's line from heatView.carry
@@ -104,10 +104,10 @@ export function dimTipLine(x) {
 export function carryLine(hv) {
   const c = hv && hv.carry; if (!c || !c.cumulative || !c.share) return '';
   const n = Math.abs(Math.round(c.carried || 0)); if (!n) return '';
-  return `Tolls carry over: ${n} ${c.carried > 0 ? 'overspent' : 'saved'} before this zone, which adds ${c.share}.`;
+  return `Tolls carry over: ${n} ${c.carried > 0 ? 'overspent' : 'saved'} before this zone; this zone gives ${c.share}.`;
 }
 /** Newcomer check 2026-11-15 (s0017-s0133, draft): the tooltip's one line on the diamond (the Dimming's marker). */
-export const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further right sets the state.';
+export const DIM_MARK_LINE = '◆ The dark near you. The marker further right sets the state.';
 /**
  * D163 (engine-2026-11-20b recommendation 1; draft): the tag on the meter's label that names the clock that sets the state,
  * shown where two clocks run (an expedition zone: the run clock and the Dimming of the place the player stands on). Its
@@ -141,10 +141,10 @@ export function arrivalLine(hv) {
   const c = hv && hv.carry;
   if (!c || !c.cumulative || !(c.share > 0) || !(hv.z > 1)) return '';
   const n = Math.abs(Math.round(c.carried || 0));
-  const was = !n ? '' : c.carried > 0 ? `; you overspent ${n}` : `; you saved ${n}`;
+  const was = !n ? '' : c.carried > 0 ? `, less the ${n} you overspent` : `, plus the ${n} you saved`;
   const left = c.carried - c.share;
   const end = left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`;
-  return `Zone ${hv.z} adds ${tolls(c.share)}${was}: ${end}.`;
+  return `Zone ${hv.z} gives you ${tolls(c.share)}${was}: ${end}.`;
 }
 /**
  * D163 (engine-2026-11-20b recommendation 3; draft): a node tooltip's line on the places the Dimming takes while the player is
@@ -464,7 +464,7 @@ export function heatBadge(state, ctx, kind = 'node') {
   if (!H || !state || !(H.gain[state] > 0 || H.rarityUp[state] > 0)) return null;
   const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? `▲ ${HW.Name}` : `${HEAT_NAME[state]} bonus`);
   tip(el, () => h('div', h('div.tt-name', kind === 'item' ? `Raised by ${HW.name}` : `Entered ${HEAT_NAME[state]}`),
-    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: ${HW.name} raised this item one rarity.` : `${payText(state, H)}.`)));
+    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: one rarity better than it dropped.` : `${payText(state, H)}.`)));
   return el;
 }
 
@@ -494,7 +494,7 @@ export function buildHeatSummary(sum, ctx) {
   // share a row, and the chart is lower (HT), so the summary fits without a scroll in the common case
   card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
     h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`))))));
-  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} per zone: above 0 overspent, below 0 to spare`), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-sub', h('div.hc-cap', 'Per zone: above 0 overspent, below 0 to spare'), h('span.hc-end', endLine)));
   card.appendChild(heatChart(recs, H, zc));
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
   // Legacy bugs 2026-11-19 (blind returning player s0059: "0 Infernal" after the meter had shown Infernal): a node counts in

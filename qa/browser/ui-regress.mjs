@@ -2041,7 +2041,7 @@ async function partIExp(browser, W, H) {
     check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.time - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · ${stand(hv)}" (D150 item 25), its marker in ${hv.stateDim} and marked as the clock that sets it`,
       !diff.length && hv.by === 'dim' && d.by === 'dim', diff.join(' | ') || JSON.stringify(d));
     // D152 (changes-m3-v2.md 4): the tolls figure moves to the tooltip's first line
-    const tipWant = `Tolls: ${hv.heat > 0 ? `${hv.heat} overspent` : hv.heat < 0 ? `${-hv.heat} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
+    const tipWant = `Tolls: ${hv.heat > 0 ? `${hv.heat} overspent` : hv.heat < 0 ? `${-hv.heat} to spare` : 'none to spare'}. The dark near you sets the Furnace now.`;
     check('M2b-heat-exp', `the meter's tooltip, first line under the name: "${tipWant}" (D152); no "Raised by"`, tip.includes(tipWant) && tip.indexOf(tipWant) < tip.indexOf('Every move costs tolls') && !/Raised by|hotter clock/.test(tip), tip);
     await partIExpD163(page, twin);
   } catch (e) {
@@ -2106,7 +2106,7 @@ async function partIExpD163(page, twin) {
   if (!arrived || arrived.phase !== 'ZONE_HUB' || arrived.z !== 2) { check('M2b-heat-exp', 'D163: zone 2 reached by the Road', false, JSON.stringify(arrived)); return; }
   const s = await twin.sync(page); const hv = R.heatView(s); const c = hv.carry;
   const n = Math.abs(c.carried); const left = c.carried - c.share;
-  const want = `Zone 2 adds ${tolls(c.share)}${!n ? '' : c.carried > 0 ? `; you overspent ${n}` : `; you saved ${n}`}: ${left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`}.`;
+  const want = `Zone 2 gives you ${tolls(c.share)}${!n ? '' : c.carried > 0 ? `, less the ${n} you overspent` : `, plus the ${n} you saved`}: ${left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`}.`;
   const got = await page.evaluate(() => ({ hub: (document.querySelector('#screens .hubcarry') || {}).textContent || null, log: [...document.querySelectorAll('#combatlog .lg-sys')].map((x) => x.textContent).slice(-6) }));
   await shot(page, 'I-exp-arrival');
   check('M2b-heat-exp', `D163: on arrival in zone 2 the hub and the log say "${want}" (heatView.carry; the meter reads ${standText0(hv.heat)})`,
@@ -6630,7 +6630,7 @@ async function partY0(browser, W, H) {
       const want = R.zoneDanger(exitL, 'normal') * mv.tierDmg - 1;
       const mm = await tipOf(page, page.locator('#minimap .disc'));
       check('Y-5', 'the minimap\'s zone danger line in a Legacy zone: zoneDanger × mapView.tierDmg - 1 at its highest level (legacy.md 2.2)',
-        mv.tierDmg === R.C.ZONE_TIER_DMG[s.zone.z - 1] && (want > 0 ? mm.includes(`Enemies here deal up to +${pct1(want)} damage.`) : !/hit harder|deal up to/.test(mm)) && !/per 10 levels/.test(mm), `${mm} want ${pct1(want)} (tier ${mv.tierDmg})`);
+        mv.tierDmg === R.C.ZONE_TIER_DMG[s.zone.z - 1] && (want > 0 ? mm.includes(`Enemies here deal up to ${pct1(want)} more damage than their level alone.`) : !/hit harder|deal up to/.test(mm)) && !/per 10 levels/.test(mm), `${mm} want ${pct1(want)} (tier ${mv.tierDmg})`);
       // the spellbook: learn levels from R.learnLevel
       await page.keyboard.press('KeyP'); await idle(page);
       const nextLine = await page.evaluate(() => { const e = [...document.querySelectorAll('#win-spellbook .muted')].find((x) => /Next at a trainer/.test(x.innerText)); return e ? e.innerText : null; });
