@@ -5,7 +5,7 @@
 // reminder (Ambush "Gutting Jab at ×1.5. +2 combo points."), no par or Ascendancy in the Oaths' lines; "hidden" is only
 // Stealth (Tracker's Notes: "nodes you have not seen yet").
 import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS } from './mock-data.js';
-import { lv, lvLearn, legacyShown, econShown, fmtNum as fmtN } from './util.js'; // Legacy (D154 phase 1): the hero scale and words, identities off
+import { lv, lvLearn, legacyShown, econShown, fmtNum as fmtN, moneyText } from './util.js'; // Legacy (D154 phase 1): the hero scale and words, identities off
 
 /**
  * Economy v2 (D159, legacy.md 4.7 E6; content texts.economy, ids C.ECONOMY_TEXT_IDS, draft): line `id` of the content table
@@ -28,6 +28,9 @@ export const BAGS_FULL = 'Your bags are full: equip, sell or discard something (
  * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
  * "You sell 7 junk items for 42 c." (L5: money as gold, silver and copper) Draft, for the owner and content.
  */
+/** L5 (MD D.5, draft): the log's gold and sell lines, money as gold, silver and copper as the summary has it ("1 g 20 s 5 c"). */
+export const goldLogLine = (amount, heat) => `You receive ${moneyText(amount)}${heat ? ` (+${moneyText(heat)} from the Furnace)` : ''}.`;
+export const sellLogLine = (name, gold) => `You sell ${name} for ${moneyText(gold)}.`;
 export const junkSoldName = (n) => `${n} junk ${n === 1 ? 'item' : 'items'}`;
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 export const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;

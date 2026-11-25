@@ -406,7 +406,7 @@ async function partA(browser, W, H) {
     await mine('Trail Rations').getByRole('button', { name: 'Sell' }).click(); await idle(page);
     log = await logLines(page);
     const sold = log.find((l) => /^You sell /.test(l)) || '';
-    check('BUG-QA-03', 'log names the item sold and the copper received', /^You sell Trail Rations for [1-9][\d ]* copper\.$/.test(sold) && !log.some((l) => /^You receive \d/.test(l)), log.filter((l) => /sell|receive/i.test(l)).join(' | '));
+    check('BUG-QA-03', 'log names the item sold and the money received (gold, silver, copper)', new RegExp(`^You sell Trail Rations for ${MONEY_RE}\\.$`).test(sold) && !/ for 0 c\./.test(sold) && !log.some((l) => /^You receive \d/.test(l)), log.filter((l) => /sell|receive/i.test(l)).join(' | '));
     await stock('Trail Rations').getByRole('button', { name: 'Buy' }).click(); await idle(page);
     log = await logLines(page);
     check('BUG-QA-04', 'food (out of combat only) stays off the item bar', log.includes('You buy Trail Rations.') && (await page.getByRole('button', { name: 'Empty item slot 9' }).count()) === 1, (await view(page)).itemBar.join(','));
@@ -890,11 +890,15 @@ function eTwin(profile) {
   return E_TWIN;
 }
 const RES_NAMES = { boon: R.C.CONSUMABLE.ember_of_return.name, second_breath: R.C.META.second_breath.name, ember: R.C.CONSUMABLE.ember_of_return.name };
+/** L5: copper as the UI's money text (util.js moneyText): "1 g 20 s 5 c", "12 s 34 c", "42 c". */
+const moneyTxt = (copper) => { const c = Math.max(0, Math.round(copper || 0)); const g = Math.floor(c / 10000); const sv = Math.floor((c % 10000) / 100); return [g ? `${g} g` : '', g || sv ? `${sv} s` : '', `${c % 100} c`].filter(Boolean).join(' '); };
+const MONEY_RE = '(?:\\d+ g )?(?:\\d+ s )?\\d+ c';
 const NOT_FINAL = `${RES_NAMES.second_breath} does not work in the final fight.`;
 /** The resurrect list for resurrectCharges().now: names in the engine's order, ×n for more than one, Second Breath marked. */
 function resList(now, bossFight) {
-  const counts = new Map(); for (const k of now) counts.set(k, (counts.get(k) || 0) + 1);
-  const items = [...counts].map(([k, n]) => `${RES_NAMES[k]}${n > 1 ? ` ×${n}` : ''}${k === 'second_breath' ? ' (not in the final fight)' : ''}`);
+  // L6: the boon's charge and an Ember share a name: one count
+  const counts = new Map(); for (const k of now) counts.set(RES_NAMES[k], (counts.get(RES_NAMES[k]) || 0) + 1);
+  const items = [...counts].map(([nm, n]) => `${nm}${n > 1 ? ` ×${n}` : ''}${nm === RES_NAMES.second_breath ? ' (not in the final fight)' : ''}`);
   return items.length ? items.join(', ') : bossFight ? 'None in this fight' : 'None';
 }
 const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
@@ -5085,7 +5089,7 @@ async function partS(browser, W, H) {
       // need 6: the unguarded chest: nothing of it in the log before "Open the chest"; its gold and loot after, once
       const logLines = () => page.evaluate(() => [...document.querySelectorAll('#combatlog .lines > div')].map((e) => e.textContent));
       const fmtN = (x) => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // util.js fmtNum (part S's fmt is for boxes)
-      const inChest = (x) => /^You receive [\d\s\u202f\u00a0,.]+ copper/.test(x) || /^You receive loot:/.test(x) || /Needle trap/.test(x);
+      const inChest = (x) => new RegExp(`^You receive ${MONEY_RE}`).test(x) || /^You receive loot:/.test(x) || /Needle trap/.test(x);
       const n0 = (await logLines()).length;
       await page.evaluate((id) => window.__ui.act({ type: 'MOVE', nodeId: id }), chest.id); await idle(page);
       const held = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, step: v.node && v.node.step }; });
@@ -5096,7 +5100,7 @@ async function partS(browser, W, H) {
       const spoils = await page.evaluate(() => { const l = window.__ui.view().loot; return l ? { title: l.title, gold: l.gold, items: l.items.length } : null; });
       check('D144-6', `an unguarded chest: no gold, loot or trap in the log while it waits for "Open the chest" (${before.length} lines); after it, its gold once and one line per item (${spoils ? spoils.items : '?'})`,
         held.phase === 'NODE' && held.step === 'chest' && !before.some(inChest) && !!spoils && spoils.title === 'Treasure chest'
-        && after.filter((x) => x === `You receive ${fmtN(spoils.gold)} copper.`).length === 1 && after.filter((x) => /^You receive loot:/.test(x)).length === spoils.items && after.filter((x) => /Needle trap/.test(x)).length <= 1,
+        && after.filter((x) => x === `You receive ${moneyTxt(spoils.gold)}.`).length === 1 && after.filter((x) => /^You receive loot:/.test(x)).length === spoils.items && after.filter((x) => /Needle trap/.test(x)).length <= 1,
         JSON.stringify({ held, before, after, spoils }));
       await auto(page);
       // need 8: the Grind's fight: the tracker says the wave being fought ("Wave 1 of 1", not "Wave 0 of 1"); its spoils, the wave done
@@ -6010,7 +6014,7 @@ async function partV(browser, W, H) {
           const o = await page.evaluate(() => { const v = window.__ui.view(); return { gold: v.player.gold, loot: v.loot ? v.loot.gold : null }; });
           const purse2 = await page.locator('.goldline').first().innerText();
           const lines = await logLines(page);
-          const line = `You receive ${o.loot != null ? o.loot.toLocaleString('en-US') : '?'} copper.`;
+          const line = `You receive ${o.loot != null ? moneyTxt(o.loot) : '?'}.`;
           chest = { closed: v.gold, engine: st.player.gold, purse, logged: before.slice(-3).includes(line), opened: o, purse2, line: lines.slice(-4).includes(line) ? line : null };
           break;
         }
@@ -7230,7 +7234,7 @@ async function partAA0(browser, W, H) {
       await page.evaluate(() => window.__ui.act({ type: 'HUB_SERVICE', service: 'vendor' })); await idle(page);
       const v = await page.evaluate(() => ({ log: [...document.querySelectorAll('#combatlog .lines div')].map((x) => x.innerText).filter((t) => /^You sell/.test(t)), bag: window.__ui.view().player.bag.filter((x) => x && x.kind === 'junk').length, sellBtn: [...document.querySelectorAll('#screens button')].some((b) => /Sell junk/.test(b.innerText)) }));
       await shot(page, 'AA5-vendor-auto-sold');
-      check('AA-5', 'opening a vendor sells the junk at once: one log line with the total, no junk left, no Sell junk button', v.log.length === 1 && /^You sell 4 junk items for [\d\s]+ copper\.$/.test(v.log[0]) && v.bag === 0 && !v.sellBtn, JSON.stringify(v));
+      check('AA-5', 'opening a vendor sells the junk at once: one log line with the total, no junk left, no Sell junk button', v.log.length === 1 && new RegExp(`^You sell 4 junk items for ${MONEY_RE}\\.$`).test(v.log[0]) && v.bag === 0 && !v.sellBtn, JSON.stringify(v));
     } catch (e) { await shot(page, 'AA5-error'); check('AA-5', 'part AA5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('AA-5', 'part AA5: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();

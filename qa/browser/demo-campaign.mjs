@@ -18,6 +18,9 @@
  *     today's (no data-art / data-theme on <html>); a Hunter shows no Stormhawk
  *   - the Legacy hall lists exactly seven cards and no level-20 wing
  *   - Start over: the profile is new (no runs, no Legacy points, no heroes), and the next run is the guided one
+ *   - text logic (hand-off content-2026-11-25 L1, L3, L4): the Furnace meter's tooltip at the first hub is the demo line (no
+ *     "final boss") and its "Boss +N %" is never shown; the hall's five stat and kit cards read one rank; Settings has no
+ *     "Engine: ... build ..." line
  *   - storage: every key the page wrote starts with tbwcr.demo.
  *   - no request besides the file, no console error or page error; the file holds no <a href> and no window.open
  * Screenshots (--shots): the demo-end screen and the Legacy hall. Exit 1 on any failure.
@@ -96,15 +99,26 @@ check(!devOp || devOp.ok === false, 'a dev op ran in the demo');
 check(!(await page.evaluate(() => /\bSeed\b/.test(document.body.innerText))), 'hero select shows the word Seed');
 
 const CLASSES = ['rogue', 'mage', 'hunter'];
-let shotEnd = false; let shotHall = false;
+let shotEnd = false; let shotHall = false; let hubTip = null;
+/** L1: the Furnace meter's tooltip text (hover #heat), or '' when it could not be hovered. */
+async function heatTipText() {
+  try {
+    await page.locator('#heat').hover({ timeout: 3000 });
+    const t = await page.getByRole('tooltip').innerText({ timeout: 3000 });
+    await page.mouse.move(2, 2);
+    return t;
+  } catch { return ''; }
+}
 async function oneRun(n, cls) {
   await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle();
   if (cls === 'hunter') check(!(await page.evaluate(() => [...document.querySelectorAll('#create .pets .pet .pn')].some((x) => /stormhawk/i.test(x.textContent)))), 'hero select offers Stormhawk');
   await page.getByRole('button', { name: 'Enter the world' }).click(); await idle();
   let maxZone = 0; let steps = 0;
   for (; steps < 6000; steps++) {
-    const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, z: x.zone ? x.zone.idx : 0, camp: !!(x.zone && x.zone.camp), boss: !!(x.combat && x.combat.isBoss) }; });
+    const v = await page.evaluate(() => { const x = window.__ui.view(); const bt = document.querySelector('#heat .ht-boss'); return { phase: x.phase, z: x.zone ? x.zone.idx : 0, camp: !!(x.zone && x.zone.camp), boss: !!(x.combat && x.combat.isBoss), bossTxt: bt ? bt.textContent.trim() : '' }; });
     if (v.phase === 'SUMMARY') break;
+    if (v.bossTxt) { check(false, `run ${n}: the Furnace meter shows "${v.bossTxt}" in the demo`); }
+    if (v.phase === 'ZONE_HUB' && !hubTip) hubTip = await heatTipText();
     maxZone = Math.max(maxZone, v.z);
     if (v.z > 2 || v.camp || v.boss || v.phase === 'CAMP' || v.phase === 'BOSS') { check(false, `run ${n}: zone ${v.z}, camp ${v.camp}, boss ${v.boss}`); break; }
     const r = await page.evaluate(() => window.__ui.act({ type: 'AUTO' }));
@@ -149,6 +163,21 @@ async function hall() {
   log(`hall: ${h.cards.join(', ')} (wing cards ${h.wing})`);
   check(h.cards.length === R.C.DEMO_HALL.length && R.C.DEMO_HALL.every((id) => h.cards.includes(id)), `the hall lists ${h.cards.join(', ')}`);
   check(h.wing === 0, 'the hall shows the level-20 wing');
+  // L3: the five stat and kit entries read one rank: the card's line and the tooltip's long line, as the hand-off gives them
+  const ONE = {
+    vigor: ['+3 % max health', 'Every hero starts with 3 % more maximum health.'],
+    edge: ['+2 % Power', 'Every hero has 2 % more Power: more damage from every attack and spell.'],
+    quick_study: ['+5 % experience', 'Every hero earns 5 % more experience: levels come sooner.'],
+    pockets: ['+8 bag slots', 'Your bags hold 8 more items.'],
+    quartermaster: ['+2 camp points', 'On the expedition map you have two more camp points to spend at the start camp.'],
+  };
+  for (const [id, [short, long]] of Object.entries(ONE)) {
+    const fx = page.locator(`#meta .mcard[data-id="${id}"] .mc-fx`);
+    const card = (await fx.innerText()).replace(/\s+/g, ' ').trim();
+    await fx.hover(); const tt = (await page.getByRole('tooltip').innerText()).replace(/\s+/g, ' ');
+    await page.mouse.move(2, 2);
+    check(card === short && tt.includes(long) && !/per rank|each rank|rank I\b|in all/.test(`${card} ${tt}`), `hall card ${id}: "${card}" / "${tt}" (want "${short}" / "${long}")`);
+  }
   if (!shotHall) { await page.screenshot({ path: path.join(SHOTS, `demo-hall-${W}x${H}.png`) }); shotHall = true; }
   await page.keyboard.press('Escape'); await idle();
 }
@@ -160,9 +189,14 @@ async function campaign(label) {
   return outs;
 }
 const c1 = await campaign('A');
+// L1: the meter's tooltip at the first hub
+log(`hub tooltip: ${hubTip && hubTip.replace(/\n/g, ' | ').slice(0, 160)}`);
+check(!!hubTip && hubTip.includes('Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.') && !/final boss|\bboss\b/i.test(hubTip), `the Furnace tooltip at the hub: "${hubTip}"`);
 const before = await page.evaluate(() => window.__ui.view().meta);
 // Start over (demo.md 2.4): Settings, two clicks
 await page.evaluate(() => window.__ui.openWin('settings')); await idle();
+const setText = await page.evaluate(() => document.querySelector('#win-settings').innerText);
+check(!/Engine:|\bbuild\b/i.test(setText), `Settings shows the engine and build line: ${setText.replace(/\n/g, ' | ').slice(-120)}`);
 const so = page.locator('#win-settings [data-startover]');
 check(await so.count() === 1, 'Settings has no Start over');
 await so.click(); await so.click(); await idle();
