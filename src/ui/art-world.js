@@ -324,6 +324,7 @@ function cairn(ctx, x, y, s, color, light) {
  * Each layer: { canvas, y, factor } drawn tiled at x = -(scroll * factor) mod width.
  */
 export function buildBackdrop(themeId, W, H, opts = {}) {
+  if (opts.lantern && LANTERN_THEMES[themeId]) return buildLanternBackdrop(themeId, W, H, opts);
   const c = THEMES[themeId] || THEMES.farmland;
   const seed = opts.seed || 1234;
   const SW = Math.max(1600, Math.ceil(W * 1.25 / 64) * 64);
@@ -653,3 +654,379 @@ export function drawForeground(ctx, bd, scroll, alpha = 1) {
 }
 
 export const themeForZone = (zone) => (zone ? zone.theme || ['farmland', 'wetlands', 'highlands', 'ruins', 'haunted', 'scorched', 'observatory'][clamp((zone.idx || 1) - 1, 0, 6)] : 'farmland');
+
+// ================================================================== Lantern Gouache (proof slice, draft)
+// docs/art/README.md direction A; docs/art/proof-slice-2026-11-25.md; D120, D121. Built only when scene.js asks with
+// opts.lantern (data-art="lantern" on <html>); without it nothing below runs and buildBackdrop is as before.
+// Opaque gouache at a low sun: hand-cut shapes (jittered outlines, no ink lines), a limited earthy palette, one warm key
+// light low on the horizon (key.x: where it stands, in viewport widths) against cool distance, a mist band between depth
+// layers, visible brush strokes. The proof slice paints zone 1 (farmland, Amberfold Downs), zone 2 (wetlands, Greywater
+// Fens) and the camp at dusk; every other theme keeps the current backdrop. Same layer structure as buildBackdrop, so the
+// scene scrolls and fades it as before; built once per theme and size (no cost per frame).
+// Palette: dusk slate #27313b, fen green #5d7a5a, moss #8a9a5b, ochre #d9a441, lantern #f2c56b, paper #f1e3c0, umber #3d2c20,
+// ink #2b2118, water #4f8a8b. Madder red is danger's alone (D120) and is not used here.
+export const LANTERN_THEMES = {
+  farmland: {
+    sky: ['#5d7489', '#9fb0a7', '#efd9a8'], sun: { x: 0.86, y: 0.55, r: 0.07, color: '#fbe8b8', glow: '#f2c56b' },
+    cloud: '#e9dcc0', cloudLit: '#f8ecd0', cloudShade: '#a7a69a', clouds: 5,
+    far: '#8497a0', mid: '#8a9a5b', midDark: '#5d7a5a', near: '#4a6446', ground: '#7f8c4c', groundDark: '#5c6a38', path: '#bf9a62', pathDark: '#8c6a3e',
+    leaf: '#6f8a4e', trunk: '#3d2c20', accent: '#d9a441', light: '#f2c56b', fog: '#f1e3c0', fogA: 0.3, mist: '#efe0bc', ink: '#2b2118',
+    particles: 'pollen', grade: 'rgba(242,197,107,0.06)', ui: { tint: '#d9a441' },
+    key: { x: 0.86, lit: '#f6d48a', shade: '#3a2638' },
+  },
+  wetlands: {
+    sky: ['#4c5f68', '#8a9e98', '#d8d3b6'], sun: { x: 0.12, y: 0.56, r: 0.075, color: '#f3e7c2', glow: '#e2cf96' },
+    cloud: '#c9cbbb', cloudLit: '#e8e4cc', cloudShade: '#7f8c88', clouds: 6,
+    far: '#6f8580', mid: '#5d7a5a', midDark: '#435e4c', near: '#33493d', ground: '#536a49', groundDark: '#3b4d35', path: '#76684c', pathDark: '#4f4532',
+    leaf: '#5f7d58', trunk: '#2f2a22', water: '#4f8a8b', accent: '#a9c49a', light: '#efd9a0', fog: '#d9dcc8', fogA: 0.42, mist: '#dfe1cf', ink: '#2b2118',
+    particles: 'motes', grade: 'rgba(120,150,140,0.06)', ui: { tint: '#7fae96' },
+    key: { x: 0.12, lit: '#efdca6', shade: '#2e2a3c' },
+  },
+  dusk: { // the start camp and class select: farmland after sunset, the fire is the key light
+    sky: ['#232c38', '#4f4458', '#c7814c'], sun: { x: 0.8, y: 0.66, r: 0.05, color: '#f6c47a', glow: '#d98e4f', set: true },
+    cloud: '#5a4c5c', cloudLit: '#c98a64', cloudShade: '#2e2a38', clouds: 5, stars: 46,
+    far: '#4e4a5c', mid: '#46503c', midDark: '#323a2c', near: '#262c22', ground: '#3d3a26', groundDark: '#2a281b', path: '#6e5236', pathDark: '#4a3622',
+    leaf: '#3c4a32', trunk: '#1f1812', accent: '#d9a441', light: '#f2c56b', fog: '#8a6a6a', fogA: 0.26, mist: '#6e5a66', ink: '#1c1612',
+    particles: 'pollen', grade: 'rgba(217,142,79,0.05)', ui: { tint: '#d9a441' },
+    key: { x: 0.635, lit: '#f6c47a', shade: '#241a2c', fire: true },
+  },
+};
+
+/** A hand-cut closed outline round (x, y): an ellipse whose radius wobbles a little (no ink line, gouache edge). */
+function cutBlob(ctx, x, y, rx, ry, rnd, jit = 0.12, n = 11, rot = 0) {
+  const r0 = []; for (let i = 0; i < n; i++) r0.push(1 + (rnd() - 0.5) * 2 * jit);
+  ctx.moveTo(x + Math.cos(rot) * rx * r0[0], y + Math.sin(rot) * ry * r0[0]);
+  for (let i = 1; i <= n; i++) {
+    const a0 = rot + ((i - 0.5) / n) * Math.PI * 2; const a1 = rot + (i / n) * Math.PI * 2; const k = r0[i % n]; const km = (r0[i - 1] + k) / 2 * 1.04;
+    ctx.quadraticCurveTo(x + Math.cos(a0) * rx * km, y + Math.sin(a0) * ry * km, x + Math.cos(a1) * rx * k, y + Math.sin(a1) * ry * k);
+  }
+  ctx.closePath();
+}
+
+/** Short opaque brush strokes along a ridge line (pts), on its lit side: the dry-brush edge of a painted hill. */
+function dryRidge(ctx, pts, color, rnd, w, alpha, every = 3) {
+  ctx.save(); ctx.lineCap = 'round';
+  for (let i = 0; i < pts.length - 1; i += every) {
+    const [x, y] = pts[i]; const [x2, y2] = pts[Math.min(pts.length - 1, i + every)];
+    ctx.strokeStyle = rgba(color, alpha * (0.55 + rnd() * 0.6)); ctx.lineWidth = w * (0.5 + rnd());
+    const dy = 1.5 + rnd() * w * 0.8;
+    ctx.beginPath(); ctx.moveTo(x, y + dy); ctx.lineTo(x2 + (rnd() - 0.5) * 4, y2 + dy + (rnd() - 0.5) * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Gouache strokes clipped to the current clip: longer, more opaque and fewer than brush(). */
+function strokes(ctx, rnd, x0, y0, w, hgt, colors, count, len, alpha, width, tilt = 0.25) {
+  ctx.save(); ctx.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    const x = x0 + rnd() * w; const y = y0 + rnd() * hgt; const a = (rnd() - 0.5) * tilt; const l = len * (0.5 + rnd());
+    ctx.strokeStyle = rgba(colors[Math.floor(rnd() * colors.length)], alpha * (0.5 + rnd() * 0.8)); ctx.lineWidth = width * (0.6 + rnd() * 0.8);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + Math.cos(a) * l * 0.5, y + Math.sin(a) * l * 0.5 + (rnd() - 0.5) * width, x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** A soft paper-coloured mist band from y0 (clear) down to y1 (alpha a). */
+function mistBand(ctx, SW, y0, y1, color, a) {
+  const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, rgba(color, 0)); g.addColorStop(0.7, rgba(color, a * 0.8)); g.addColorStop(1, rgba(color, a));
+  ctx.fillStyle = g; ctx.fillRect(0, y0, SW, y1 - y0);
+}
+
+/** A painted tree: canopy of hand-cut blobs in the shade value, a smaller lit mass toward the key light, a few dabs. */
+function oakL(ctx, x, y, s, c, rnd, side) {
+  ctx.fillStyle = c.trunk;
+  ctx.beginPath(); ctx.moveTo(x - 5 * s, y); ctx.quadraticCurveTo(x - 2 * s, y - 28 * s, x - 3 * s, y - 50 * s); ctx.lineTo(x + 4 * s, y - 50 * s); ctx.quadraticCurveTo(x + 2 * s, y - 26 * s, x + 6 * s, y); ctx.fill();
+  const blobs = []; const n = 5 + Math.floor(rnd() * 3);
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + rnd() * 0.6; blobs.push([x + Math.cos(a) * 20 * s, y - 72 * s + Math.sin(a) * 13 * s, (20 + rnd() * 10) * s]); }
+  blobs.push([x, y - 78 * s, 26 * s]);
+  ctx.beginPath(); for (const [bx, by, r] of blobs) cutBlob(ctx, bx, by, r, r * 0.86, rnd, 0.1, 9);
+  ctx.fillStyle = shade(c.leaf, -0.22); ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.beginPath(); for (const [bx, by, r] of blobs) cutBlob(ctx, bx + side * r * 0.32, by - r * 0.28, r * 0.78, r * 0.66, rnd, 0.14, 9);
+  ctx.fillStyle = c.leaf; ctx.fill();
+  for (let i = 0; i < 4; i++) { const [bx, by, r] = blobs[Math.floor(rnd() * blobs.length)]; ctx.beginPath(); cutBlob(ctx, bx + side * r * (0.35 + rnd() * 0.3), by - r * (0.35 + rnd() * 0.3), r * 0.34, r * 0.14, rnd, 0.25, 7, -side * 0.35); ctx.fillStyle = rgba(mix(c.leaf, c.light, 0.35), 0.6); ctx.fill(); }
+  ctx.restore();
+}
+
+/** A fen willow: a low dome of fen green with long hanging strands, lit on the key side. */
+function willowL(ctx, x, y, s, c, rnd, side) {
+  ctx.fillStyle = c.trunk;
+  ctx.beginPath(); ctx.moveTo(x - 6 * s, y); ctx.quadraticCurveTo(x - 1 * s, y - 34 * s, x - 7 * s, y - 62 * s); ctx.lineTo(x + 5 * s, y - 62 * s); ctx.quadraticCurveTo(x + 3 * s, y - 30 * s, x + 8 * s, y); ctx.fill();
+  const w = (38 + rnd() * 14) * s; const top = y - (92 + rnd() * 16) * s; const hem = y - (14 + rnd() * 10) * s;
+  ctx.beginPath(); cutBlob(ctx, x, top + 22 * s, w, 26 * s, rnd, 0.08, 10);
+  ctx.fillStyle = shade(c.leaf, -0.18); ctx.fill();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 22; i++) {
+    const sx = x - w + (i + 0.5) * (2 * w / 22); const len = (hem - top) * (0.55 + rnd() * 0.45) * (1 - Math.abs(sx - x) / (w * 1.6));
+    const lit = (sx - x) * side > w * 0.15;
+    ctx.strokeStyle = lit ? mix(c.leaf, c.light, 0.18) : i % 2 ? shade(c.leaf, -0.2) : shade(c.leaf, -0.32);
+    ctx.lineWidth = (4 + rnd() * 3) * s;
+    ctx.beginPath(); ctx.moveTo(sx, top + 26 * s); ctx.quadraticCurveTo(sx + (rnd() - 0.5) * 4 * s, top + 26 * s + len * 0.6, sx + (rnd() - 0.5) * 6 * s, top + 26 * s + len); ctx.stroke();
+  }
+  ctx.beginPath(); cutBlob(ctx, x + side * w * 0.3, top + 14 * s, w * 0.55, 13 * s, rnd, 0.12, 9);
+  ctx.fillStyle = rgba(mix(c.leaf, c.light, 0.35), 0.8); ctx.fill();
+}
+
+/** A reed-thatched hut on stilts over the fen (Greywater Fens), with one warm window. */
+function stiltHut(ctx, x, y, s, c, rnd) {
+  ctx.strokeStyle = c.trunk; ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+  for (const dx of [-16, -5, 6, 17]) { ctx.beginPath(); ctx.moveTo(x + dx * s, y + 4 * s); ctx.lineTo(x + dx * s * 0.9, y - 26 * s); ctx.stroke(); }
+  ctx.fillStyle = shade(c.path, -0.25); ctx.fillRect(x - 24 * s, y - 30 * s, 48 * s, 5 * s);
+  ctx.fillStyle = mix(c.path, '#8a7550', 0.4); ctx.fillRect(x - 18 * s, y - 52 * s, 36 * s, 22 * s);
+  ctx.fillStyle = '#f2c56b'; ctx.fillRect(x + 2 * s, y - 46 * s, 7 * s, 8 * s);
+  ctx.fillStyle = mix(c.accent, '#b8a46a', 0.5);
+  ctx.beginPath(); ctx.moveTo(x - 27 * s, y - 50 * s); ctx.quadraticCurveTo(x - 6 * s, y - 80 * s, x + 2 * s, y - 84 * s); ctx.quadraticCurveTo(x + 10 * s, y - 78 * s, x + 28 * s, y - 50 * s); ctx.closePath(); ctx.fill();
+  strokes(ctx, rnd, x - 22 * s, y - 78 * s, 44 * s, 26 * s, [shade(c.accent, -0.35)], 10, 10 * s, 0.35, 1.4 * s, 1.4);
+  ctx.fillStyle = rgba(c.water || '#4f8a8b', 0.6); ctx.fillRect(x - 30 * s, y + 3 * s, 60 * s, 2.5 * s);
+}
+
+/** A hub cottage: limewashed wall in two values, a thatch or reed roof lit on the key side, two warm windows. */
+function cottageL(ctx, x, y, s, c, rnd, side) {
+  const w = (62 + rnd() * 26) * s; const hh = (40 + rnd() * 14) * s;
+  const wall = mix(c.fog, c.path, 0.35);
+  ctx.fillStyle = shade(wall, -0.12); ctx.fillRect(x - w / 2, y - hh, w, hh);
+  ctx.fillStyle = shade(wall, 0.06); ctx.fillRect(side > 0 ? x : x - w / 2, y - hh, w / 2, hh);
+  ctx.fillStyle = c.trunk; ctx.fillRect(x - w / 2, y - hh, w, 3 * s); ctx.fillRect(x - w / 2, y - 3 * s, w, 3 * s);
+  for (const fx of [-0.5, 0, 0.5]) ctx.fillRect(x + fx * w - 1.5 * s - (fx > 0 ? 1.5 * s : 0), y - hh, 3 * s, hh);
+  ctx.fillStyle = shade(c.accent, -0.3);
+  ctx.beginPath(); ctx.moveTo(x - w / 2 - 9 * s, y - hh + 2 * s); ctx.quadraticCurveTo(x - w * 0.2, y - hh - 30 * s, x, y - hh - 38 * s); ctx.quadraticCurveTo(x + w * 0.2, y - hh - 30 * s, x + w / 2 + 9 * s, y - hh + 2 * s); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.clip(); ctx.beginPath(); cutBlob(ctx, x + side * w * 0.28, y - hh - 16 * s, w * 0.42, 22 * s, rnd, 0.1, 9); ctx.fillStyle = mix(c.accent, c.light, 0.25); ctx.fill();
+  strokes(ctx, rnd, x - w / 2 - 9 * s, y - hh - 38 * s, w + 18 * s, 40 * s, [shade(c.accent, -0.45)], 18, 12 * s, 0.35, 1.3 * s, 2.2); ctx.restore();
+  for (const wx of [-w / 4, w / 4]) { ctx.fillStyle = '#f2c56b'; ctx.fillRect(x + wx - 5 * s, y - hh * 0.72, 10 * s, 10 * s); ctx.fillStyle = c.trunk; ctx.fillRect(x + wx - 0.8 * s, y - hh * 0.72, 1.6 * s, 10 * s); }
+  ctx.fillStyle = c.trunk; ctx.fillRect(x - 6 * s, y - 19 * s, 12 * s, 19 * s);
+}
+
+/** The camp's bell frame: a timber A-frame, a crossbeam, a bronze bell lit on its fire side, a pull rope. */
+function bellFrame(ctx, x, y, s, c) {
+  ctx.strokeStyle = c.trunk; ctx.lineCap = 'round'; ctx.lineWidth = 6 * s;
+  for (const dx of [-38, 38]) { ctx.beginPath(); ctx.moveTo(x + dx * s, y); ctx.lineTo(x + dx * 0.55 * s, y - 112 * s); ctx.stroke(); }
+  ctx.lineWidth = 7 * s; ctx.beginPath(); ctx.moveTo(x - 32 * s, y - 108 * s); ctx.lineTo(x + 32 * s, y - 108 * s); ctx.stroke();
+  ctx.strokeStyle = rgba(c.light, 0.45); ctx.lineWidth = 1.6 * s; ctx.beginPath(); ctx.moveTo(x - 30 * s, y - 111 * s); ctx.lineTo(x + 30 * s, y - 111 * s); ctx.stroke();
+  ctx.fillStyle = '#6e4a24';
+  ctx.beginPath(); ctx.moveTo(x - 6 * s, y - 104 * s); ctx.quadraticCurveTo(x - 20 * s, y - 92 * s, x - 22 * s, y - 64 * s); ctx.lineTo(x + 22 * s, y - 64 * s); ctx.quadraticCurveTo(x + 20 * s, y - 92 * s, x + 6 * s, y - 104 * s); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(242,197,107,0.55)'; ctx.beginPath(); ctx.moveTo(x + 4 * s, y - 102 * s); ctx.quadraticCurveTo(x + 17 * s, y - 90 * s, x + 19 * s, y - 66 * s); ctx.lineTo(x + 10 * s, y - 66 * s); ctx.quadraticCurveTo(x + 10 * s, y - 88 * s, x + 2 * s, y - 100 * s); ctx.fill();
+  ctx.fillStyle = '#4a3018'; ctx.fillRect(x - 24 * s, y - 66 * s, 48 * s, 4 * s);
+  ctx.strokeStyle = '#a8945c'; ctx.lineWidth = 1.6 * s; ctx.beginPath(); ctx.moveTo(x, y - 62 * s); ctx.quadraticCurveTo(x + 4 * s, y - 40 * s, x + 2 * s, y - 22 * s); ctx.stroke();
+}
+/** A post with a hanging lantern: a warm pane and a small halo (the camp's second light). */
+function lampPost(ctx, x, y, s, c) {
+  ctx.fillStyle = c.trunk; ctx.fillRect(x - 2.5 * s, y - 86 * s, 5 * s, 86 * s); ctx.fillRect(x - 2.5 * s, y - 86 * s, 18 * s, 3.5 * s);
+  const g = ctx.createRadialGradient(x + 14 * s, y - 70 * s, 1, x + 14 * s, y - 70 * s, 42 * s); g.addColorStop(0, 'rgba(242,197,107,0.55)'); g.addColorStop(1, 'rgba(242,197,107,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + 14 * s, y - 70 * s, 42 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.trunk; ctx.fillRect(x + 9 * s, y - 79 * s, 10 * s, 15 * s); ctx.fillStyle = '#f2c56b'; ctx.fillRect(x + 10.5 * s, y - 77 * s, 7 * s, 11 * s);
+}
+/** Supply crates and a sack, umber with a lit edge. */
+function crates(ctx, x, y, s, c) {
+  for (const [dx, dy, w, h] of [[-30, 0, 34, 28], [6, 0, 30, 24], [-16, -28, 28, 24]]) {
+    ctx.fillStyle = '#5a4030'; ctx.fillRect(x + dx * s, y + (dy - h) * s, w * s, h * s);
+    ctx.fillStyle = '#3d2c20'; ctx.fillRect(x + dx * s, y + (dy - h / 2 - 1.5) * s, w * s, 3 * s);
+    ctx.fillStyle = 'rgba(242,197,107,0.35)'; ctx.fillRect(x + dx * s, y + (dy - h) * s, 3 * s, h * s);
+  }
+  ctx.fillStyle = '#a8946a'; ctx.beginPath(); ctx.ellipse(x + 46 * s, y - 13 * s, 12 * s, 14 * s, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(242,197,107,0.3)'; ctx.beginPath(); ctx.ellipse(x + 40 * s, y - 16 * s, 5 * s, 9 * s, 0.1, 0, Math.PI * 2); ctx.fill();
+}
+/** A rack of three spears. */
+function spearRack(ctx, x, y, s, c) {
+  ctx.fillStyle = c.trunk; ctx.fillRect(x - 22 * s, y - 40 * s, 44 * s, 4 * s); ctx.fillRect(x - 22 * s, y - 40 * s, 4 * s, 40 * s); ctx.fillRect(x + 18 * s, y - 40 * s, 4 * s, 40 * s);
+  for (const dx of [-12, 0, 12]) { ctx.strokeStyle = '#5a4030'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(x + dx * s, y); ctx.lineTo(x + (dx + 4) * s, y - 92 * s); ctx.stroke(); ctx.fillStyle = '#a9a596'; ctx.beginPath(); ctx.moveTo(x + (dx + 2.5) * s, y - 90 * s); ctx.lineTo(x + (dx + 5) * s, y - 106 * s); ctx.lineTo(x + (dx + 7) * s, y - 90 * s); ctx.fill(); }
+}
+
+/** A haystack of two values and a stroke or two of straw. */
+function hayL(ctx, x, y, s, c, rnd, side) {
+  ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.quadraticCurveTo(x - 21 * s, y - 32 * s, x, y - 35 * s); ctx.quadraticCurveTo(x + 21 * s, y - 32 * s, x + 22 * s, y); ctx.closePath();
+  ctx.fillStyle = shade(c.accent, -0.22); ctx.fill();
+  ctx.save(); ctx.clip(); ctx.beginPath(); cutBlob(ctx, x + side * 9 * s, y - 22 * s, 18 * s, 22 * s, rnd, 0.1, 9); ctx.fillStyle = mix(c.accent, c.light, 0.3); ctx.fill();
+  strokes(ctx, rnd, x - 20 * s, y - 34 * s, 40 * s, 34 * s, [shade(c.accent, -0.4), shade(c.accent, 0.3)], 16, 10 * s, 0.4, 1.2 * s, 2.6); ctx.restore();
+}
+
+/** A field fence in umber: posts and two rails with a lit top edge. */
+function fenceL(ctx, x, y, s, c, len) {
+  ctx.fillStyle = c.trunk; ctx.strokeStyle = c.trunk; ctx.lineWidth = 3.4 * s; ctx.lineCap = 'round';
+  for (let i = 0; i <= len; i++) ctx.fillRect(x + i * 26 * s - 2 * s, y - 24 * s, 4.5 * s, 24 * s);
+  ctx.beginPath(); ctx.moveTo(x, y - 18 * s); ctx.lineTo(x + len * 26 * s, y - 16 * s); ctx.moveTo(x, y - 9 * s); ctx.lineTo(x + len * 26 * s, y - 10 * s); ctx.stroke();
+  ctx.strokeStyle = rgba(c.light, 0.35); ctx.lineWidth = 1.1 * s;
+  ctx.beginPath(); ctx.moveTo(x, y - 19.5 * s); ctx.lineTo(x + len * 26 * s, y - 17.5 * s); ctx.stroke();
+}
+
+/** Reeds in two values with a few seed heads. */
+function reedsL(ctx, x, y, s, c, rnd) {
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 11; i++) {
+    const bx = x + (rnd() - 0.5) * 30 * s; const hgt = (30 + rnd() * 44) * s; const lean = (rnd() - 0.4) * 12 * s;
+    ctx.strokeStyle = i % 3 ? shade(c.near, 0.18) : mix(c.near, c.light, 0.3); ctx.lineWidth = 2.4 * s;
+    ctx.beginPath(); ctx.moveTo(bx, y); ctx.quadraticCurveTo(bx + lean * 0.3, y - hgt * 0.6, bx + lean, y - hgt); ctx.stroke();
+    if (rnd() < 0.35) { ctx.fillStyle = c.trunk; ctx.beginPath(); ctx.ellipse(bx + lean * 0.92, y - hgt * 0.9, 2.6 * s, 7.5 * s, lean / hgt, 0, Math.PI * 2); ctx.fill(); }
+  }
+}
+
+/** A flat-bottomed gouache cloud: body, a lit crown toward the key light, a flat shade underside; dry-brush rim. */
+function cloudL(ctx, x, y, s, c, rnd, side) {
+  const n = 5 + Math.floor(rnd() * 4); const span = (150 + rnd() * 120) * s; const parts = [];
+  for (let i = 0; i < n; i++) { const f = i / (n - 1); parts.push([x + (f - 0.5) * span, y - Math.sin(f * Math.PI) * (16 + rnd() * 18) * s, (16 + Math.sin(f * Math.PI) * (20 + rnd() * 18)) * s]); }
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x - span * 2, y - 240 * s, span * 4, 248 * s); ctx.clip(); // the flat underside
+  ctx.beginPath(); for (const [bx, by, r] of parts) cutBlob(ctx, bx, by, r, r * 0.8, rnd, 0.1, 9);
+  cutBlob(ctx, x, y + 2 * s, span * 0.58, 12 * s, rnd, 0.08, 11);
+  ctx.fillStyle = c.cloud; ctx.fill();
+  ctx.clip();
+  ctx.beginPath(); for (const [bx, by, r] of parts) cutBlob(ctx, bx + side * r * 0.25, by - r * 0.35, r * 0.75, r * 0.5, rnd, 0.14, 9); ctx.fillStyle = c.cloudLit; ctx.fill();
+  const g = ctx.createLinearGradient(0, y - 22 * s, 0, y + 8 * s); g.addColorStop(0, rgba(c.cloudShade, 0)); g.addColorStop(0.55, rgba(c.cloudShade, 0.55)); g.addColorStop(1, rgba(c.cloudShade, 0.85));
+  ctx.fillStyle = g; ctx.fillRect(x - span, y - 22 * s, span * 2, 30 * s);
+  ctx.restore();
+}
+
+/** Lantern backdrop: the same layers and the same return shape as buildBackdrop (sky static; strips that tile). */
+export function buildLanternBackdrop(themeId, W, H, opts = {}) {
+  const c = LANTERN_THEMES[themeId];
+  const seed = opts.seed || 1234;
+  const SW = Math.max(1600, Math.ceil(W * 1.25 / 64) * 64);
+  const u = H / 768;
+  const side = c.key.x >= 0.5 ? 1 : -1; // the key light's side: lit edges face it
+  const layers = [];
+  const mk = (y0, y1) => { const cv = document.createElement('canvas'); cv.width = SW; cv.height = Math.max(1, Math.ceil(y1 - y0)); return cv; };
+  const gy = H * GROUND_Y;
+
+  // sky: slate to cream, the low sun as flat painted discs, long painted streaks; stars at dusk
+  const sky = document.createElement('canvas'); sky.width = Math.ceil(W); sky.height = Math.ceil(H);
+  {
+    const ctx = sky.getContext('2d'); const rnd = prng(seed + 11);
+    ctx.fillStyle = vgrad(ctx, 0, H * 0.7, c.sky); ctx.fillRect(0, 0, W, H);
+    strokes(ctx, rnd, -60, 0, W + 120, H * 0.62, [shade(c.sky[0], 0.06), c.sky[1]], 90, 220 * u, 0.06, 16 * u, 0.04);
+    if (c.stars) for (let i = 0; i < c.stars; i++) { const x = rnd() * W; const y = rnd() * H * 0.42; ctx.fillStyle = rgba('#f1e3c0', 0.25 + rnd() * 0.5); ctx.beginPath(); ctx.arc(x, y, (0.6 + rnd() * 0.9) * u, 0, Math.PI * 2); ctx.fill(); }
+    const sx = c.sun.x * W; const sy = c.sun.y * H; const sr = c.sun.r * H;
+    for (const [k, a] of [[7, 0.1], [4.2, 0.14], [2.4, 0.2], [1.5, 0.28]]) { ctx.beginPath(); cutBlob(ctx, sx, sy, sr * k, sr * k * 0.92, rnd, 0.04, 14); ctx.fillStyle = rgba(c.sun.glow, a); ctx.fill(); }
+    if (!c.sun.set) { ctx.beginPath(); cutBlob(ctx, sx, sy, sr, sr, rnd, 0.03, 14); ctx.fillStyle = c.sun.color; ctx.fill(); }
+    // long cloud streaks lit from below by the low sun
+    for (let i = 0; i < 7; i++) {
+      const y = H * (0.12 + rnd() * 0.34); const x = rnd() * W; const w = (160 + rnd() * 260) * u;
+      ctx.beginPath(); cutBlob(ctx, x, y, w, (4 + rnd() * 5) * u, rnd, 0.25, 9); ctx.fillStyle = rgba(mix(c.cloud, c.sky[1], 0.35), 0.55); ctx.fill();
+      ctx.beginPath(); cutBlob(ctx, x + side * w * 0.12, y + 2.5 * u, w * 0.7, 2.2 * u, rnd, 0.25, 9); ctx.fillStyle = rgba(c.cloudLit, c.stars ? 0.3 : 0.5); ctx.fill();
+    }
+    const hz = ctx.createLinearGradient(0, H * 0.42, 0, H * 0.72); hz.addColorStop(0, rgba(c.sky[2], 0)); hz.addColorStop(1, rgba(c.sky[2], 0.7));
+    ctx.fillStyle = hz; ctx.fillRect(0, H * 0.42, W, H * 0.3);
+  }
+
+  // clouds (slow drift)
+  {
+    const y1 = H * 0.5; const cv = mk(0, y1); const ctx = cv.getContext('2d'); const rnd = prng(seed + 12);
+    for (let i = 0; i < c.clouds; i++) { const x = rnd() * SW; const y = (0.1 + rnd() * 0.24) * H; const s = (0.5 + rnd() * 0.55) * u; wrap(SW, x, 200 * s, (xx) => cloudL(ctx, xx, y, s, c, prng(seed + 40 + i), side)); }
+    layers.push({ canvas: cv, y: 0, factor: 0.04, drift: 5 * u });
+  }
+
+  // far range: cool and low-contrast, a lit ridge, a mist band at its foot
+  {
+    const y0 = H * 0.3; const y1 = H * 0.68; const cv = mk(y0, y1); const ctx = cv.getContext('2d'); const rnd = prng(seed + 13);
+    const f = periodic(rnd, 5); const base = H * 0.6 - y0; const amp = (themeId === 'wetlands' ? 0.06 : 0.14) * H;
+    const col = mix(c.far, c.sky[2], 0.22);
+    const pts = []; for (let x = 0; x <= SW; x += 8) pts.push([x, base - amp * (0.5 + 0.5 * f(x / SW)) + (rnd() - 0.5) * 1.5 * u]);
+    ctx.beginPath(); ctx.moveTo(0, y1 - y0); for (const [x, y] of pts) ctx.lineTo(x, y); ctx.lineTo(SW, y1 - y0); ctx.closePath();
+    ctx.fillStyle = vgrad(ctx, base - amp, y1 - y0, [col, mix(col, c.sky[2], 0.35)]); ctx.fill();
+    ctx.save(); ctx.clip(); strokes(ctx, rnd, 0, base - amp, SW, amp + 60 * u, [shade(col, 0.1), shade(col, -0.08)], 260, 40 * u, 0.16, 6 * u, 0.2); ctx.restore();
+    dryRidge(ctx, pts, mix(c.light, c.sky[2], 0.4), rnd, 2.2 * u, 0.35, 2);
+    if (themeId === 'wetlands') for (let x = 0; x < SW; x += 7 * u) { const y = base - amp * (0.5 + 0.5 * f(x / SW)) + 2; const hh = (6 + rnd() * 12) * u; ctx.beginPath(); cutBlob(ctx, x, y - hh * 0.4, 4 * u, hh * 0.6, rnd, 0.2, 7); ctx.fillStyle = shade(col, -0.04); ctx.fill(); }
+    mistBand(ctx, SW, base - amp * 0.2, y1 - y0, c.mist, 0.42);
+    layers.push({ canvas: cv, y: y0, factor: 0.08 });
+  }
+
+  // mid range: moss and fen green hills, painted fields or pools, trees in two values, a mist band
+  {
+    const y0 = H * 0.36; const y1 = H * 0.77; const cv = mk(y0, y1); const ctx = cv.getContext('2d'); const rnd = prng(seed + 14);
+    const f = periodic(rnd, 4); const base = H * 0.67 - y0; const amp = (themeId === 'wetlands' ? 0.035 : 0.1) * H;
+    const col = mix(c.mid, c.sky[2], 0.16);
+    const pts = []; for (let x = 0; x <= SW; x += 8) pts.push([x, base - amp * (0.5 + 0.5 * f(x / SW))]);
+    ctx.beginPath(); ctx.moveTo(0, y1 - y0); for (const [x, y] of pts) ctx.lineTo(x, y); ctx.lineTo(SW, y1 - y0); ctx.closePath();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = vgrad(ctx, base - amp, y1 - y0, [shade(col, 0.06), col, shade(col, -0.1)]); ctx.fillRect(0, 0, SW, y1 - y0);
+    if (themeId !== 'wetlands') for (let i = 0; i < 26; i++) {
+      const x = rnd() * SW; const y = base - amp * 0.3 + rnd() * amp * 1.1; const w = (50 + rnd() * 110) * u;
+      ctx.beginPath(); cutBlob(ctx, x, y, w, (5 + rnd() * 9) * u, rnd, 0.12, 10, (rnd() - 0.5) * 0.08);
+      ctx.fillStyle = rgba([c.accent, mix(c.mid, c.light, 0.3), shade(c.mid, -0.12), '#b9a55a'][i % 4], 0.55); ctx.fill();
+    }
+    strokes(ctx, rnd, 0, base - amp, SW, amp + 80 * u, [shade(col, 0.14), shade(col, -0.16), c.midDark], 520, 22 * u, 0.16, 3 * u, 0.25);
+    ctx.restore();
+    dryRidge(ctx, pts, c.light, rnd, 2.4 * u, 0.4, 2);
+    const tc = { ...c, leaf: mix(c.midDark, c.sky[2], 0.12), trunk: mix(c.trunk, c.sky[2], 0.2) };
+    for (let i = 0; i < 22; i++) {
+      const x = rnd() * SW; const y = base - amp * (0.5 + 0.5 * f(x / SW)) + 6 * u + rnd() * 10 * u; const s = (0.32 + rnd() * 0.26) * u;
+      const r2 = prng(seed + 100 + i);
+      wrap(SW, x, 70 * s, (xx) => { if (themeId === 'wetlands') { if (i % 4 === 3) stiltHut(ctx, xx, y, s * 1.5, tc, r2); else willowL(ctx, xx, y, s, tc, r2, side); } else oakL(ctx, xx, y, s, tc, r2, side); });
+    }
+    if (c.water) for (let i = 0; i < 7; i++) {
+      const x = rnd() * SW; const w = (80 + rnd() * 170) * u; const y = base + 14 * u + rnd() * 30 * u;
+      wrap(SW, x, w, (xx) => { ctx.beginPath(); cutBlob(ctx, xx, y, w, 6 * u, rnd, 0.1, 10); ctx.fillStyle = mix(c.water, c.sky[1], 0.35); ctx.fill(); ctx.strokeStyle = rgba('#f1e3c0', 0.55); ctx.lineWidth = 1.4 * u; ctx.beginPath(); ctx.moveTo(xx - w * 0.45, y - 1.5 * u); ctx.lineTo(xx + w * 0.2, y - 1.5 * u); ctx.stroke(); });
+    }
+    mistBand(ctx, SW, base - amp * 0.1, y1 - y0, c.mist, c.fogA);
+    layers.push({ canvas: cv, y: y0, factor: 0.22 });
+  }
+
+  // near layer: a bank behind the road with the zone's props
+  {
+    const y0 = H * 0.16; const y1 = H * 0.8; const cv = mk(y0, y1); const ctx = cv.getContext('2d'); const rnd = prng(seed + 15);
+    const by = H * 0.735 - y0; const f = periodic(rnd, 3);
+    const pts = []; for (let x = 0; x <= SW; x += 8) pts.push([x, by + 4 * u - 16 * u * (0.5 + 0.5 * f(x / SW))]);
+    ctx.beginPath(); ctx.moveTo(0, y1 - y0); for (const [x, y] of pts) ctx.lineTo(x, y); ctx.lineTo(SW, y1 - y0); ctx.closePath();
+    ctx.fillStyle = vgrad(ctx, by - 20 * u, y1 - y0, [shade(c.near, 0.1), c.near]); ctx.fill();
+    dryRidge(ctx, pts, mix(c.near, c.light, 0.35), rnd, 2.6 * u, 0.5, 2);
+    const props = Math.round(SW / (200 * u));
+    const nc = { ...c, leaf: shade(c.leaf, -0.04) };
+    for (let i = 0; i < props; i++) {
+      const x = (i + 0.2 + rnd() * 0.6) * (SW / props); const s = (0.85 + rnd() * 0.45) * u; const y = by + 8 * u * rnd(); const kind = rnd();
+      const r2 = prng(seed + 200 + i);
+      wrap(SW, x, 150 * s, (xx) => {
+        if (opts.hub && i % 3 === 0) { cottageL(ctx, xx, y + 4 * u, s * 1.1, c, prng(seed + i), side); return; }
+        if (themeId === 'dusk' && kind < 0.35) { oakL(ctx, xx, y, s * 1.2, nc, r2, side); return; }
+        if (themeId === 'dusk') return; // the muster yard's pieces stand where the camp's actors leave room (below)
+        if (themeId === 'wetlands') { if (kind < 0.45) willowL(ctx, xx, y, s * 1.25, nc, r2, side); else if (kind < 0.62) stiltHut(ctx, xx, y, s * 1.2, nc, r2); else reedsL(ctx, xx, y, s * 1.4, nc, r2); }
+        else if (kind < 0.5) oakL(ctx, xx, y, s * 1.2, nc, r2, side); else if (kind < 0.75) hayL(ctx, xx, y, s, nc, r2, side); else fenceL(ctx, xx - 40 * s, y, s, nc, 3);
+      });
+    }
+    if (themeId === 'dusk') { // the muster yard round the start camp: the bell frame, supply crates, a spear rack, lamp posts
+      const yy = by + 6 * u; const s = 0.95 * u;
+      bellFrame(ctx, W * 0.13, yy, s * 1.1, c);
+      lampPost(ctx, W * 0.27, yy, s, c); lampPost(ctx, W * 0.93, yy, s, c);
+      crates(ctx, W * 0.86, yy, s, c); spearRack(ctx, W * 0.205, yy, s, c);
+    }
+    layers.push({ canvas: cv, y: y0, factor: 0.55 });
+  }
+
+  // ground: flat painted earth, a worn road with ragged edges, puddles in the fen, grass strokes in two values
+  {
+    const y0 = H * 0.7; const y1 = H; const cv = mk(y0, y1); const ctx = cv.getContext('2d'); const rnd = prng(seed + 16); const hgt = y1 - y0;
+    const top = 0.04 * H; const fe = periodic(rnd, 3);
+    ctx.beginPath(); ctx.moveTo(0, hgt); for (let x = 0; x <= SW; x += 8) ctx.lineTo(x, top + fe(x / SW) * 5 * u + (rnd() - 0.5) * 2 * u); ctx.lineTo(SW, hgt); ctx.closePath();
+    ctx.fillStyle = vgrad(ctx, top - 6 * u, hgt, [mix(c.near, c.ground, 0.55), c.ground, c.groundDark]); ctx.fill(); ctx.save(); ctx.clip();
+    strokes(ctx, rnd, 0, 0, SW, hgt, [shade(c.ground, 0.18), c.groundDark, mix(c.ground, c.light, 0.2)], 900, 26 * u, 0.2, 3 * u, 0.12);
+    ctx.restore();
+    const ry = gy - y0 - 14 * u; const rh = 40 * u;
+    ctx.beginPath(); ctx.moveTo(0, ry);
+    for (let x = 0; x <= SW; x += 14 * u) ctx.lineTo(x, ry + (rnd() - 0.5) * 5 * u);
+    for (let x = SW; x >= 0; x -= 14 * u) ctx.lineTo(x, ry + rh + (rnd() - 0.5) * 6 * u);
+    ctx.closePath(); ctx.fillStyle = vgrad(ctx, ry, ry + rh, [c.path, mix(c.path, c.pathDark, 0.6)]); ctx.fill();
+    strokes(ctx, rnd, 0, ry, SW, rh, [shade(c.path, 0.18), c.pathDark, mix(c.path, c.light, 0.3)], 700, 30 * u, 0.24, 2.4 * u, 0.06);
+    for (let i = 0; i < 70; i++) { const x = rnd() * SW; const y = ry + rnd() * rh; ctx.beginPath(); cutBlob(ctx, x, y, (2 + rnd() * 4) * u, (1.2 + rnd() * 1.8) * u, rnd, 0.2, 7); ctx.fillStyle = rgba(c.pathDark, 0.7); ctx.fill(); ctx.beginPath(); cutBlob(ctx, x + side * 1.2 * u, y - 0.8 * u, (1 + rnd() * 2) * u, 0.8 * u, rnd, 0.2, 7); ctx.fillStyle = rgba(c.light, 0.45); ctx.fill(); }
+    if (c.water) for (let i = 0; i < 16; i++) { const x = rnd() * SW; const y = ry + rh * (0.15 + rnd() * 0.8); const w = (16 + rnd() * 34) * u; ctx.beginPath(); cutBlob(ctx, x, y, w, 3.2 * u, rnd, 0.15, 9); ctx.fillStyle = mix(c.water, c.sky[1], 0.3); ctx.fill(); ctx.fillStyle = rgba('#f1e3c0', 0.5); ctx.fillRect(x - w * 0.4, y - 1 * u, w * 0.45, 1.1 * u); }
+    for (let i = 0; i < SW / (8 * u); i++) {
+      const x = rnd() * SW; const top = rnd() < 0.5; const y = top ? ry - rh * 0.25 + rnd() * 8 * u : ry + rh * 1.05 + rnd() * (hgt - ry - rh) * 0.9;
+      const lit = rnd() < 0.4; ctx.strokeStyle = lit ? mix(c.ground, c.light, 0.35) : shade(c.groundDark, -0.1); ctx.lineWidth = 1.8 * u; ctx.lineCap = 'round';
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(x + k * 2.4 * u, y); ctx.lineTo(x + k * 2.4 * u + (rnd() - 0.5) * 6 * u, y - (5 + rnd() * 8) * u); ctx.stroke(); }
+      if (themeId === 'farmland' && rnd() < 0.07) { ctx.fillStyle = ['#f1e3c0', '#d9a441', '#c9b6d8'][Math.floor(rnd() * 3)]; ctx.beginPath(); ctx.arc(x, y - 8 * u, 2 * u, 0, Math.PI * 2); ctx.fill(); }
+    }
+    layers.push({ canvas: cv, y: y0, factor: 1 });
+  }
+
+  // foreground: ink-green grass and reed silhouettes passing fast
+  {
+    const y0 = H * 0.82; const y1 = H; const cv = mk(y0, y1); const ctx = cv.getContext('2d'); const rnd = prng(seed + 17); const hgt = y1 - y0;
+    const fg = mix(c.ink, c.near, 0.35);
+    for (let i = 0; i < 7; i++) {
+      const x = rnd() * SW; const s = (0.9 + rnd() * 0.8) * u;
+      wrap(SW, x, 120 * s, (xx) => {
+        ctx.lineCap = 'round';
+        for (let k = 0; k < 13; k++) { ctx.strokeStyle = k % 4 ? rgba(fg, 0.95) : rgba(mix(fg, c.light, 0.18), 0.95); ctx.lineWidth = (3.5 + rnd() * 3) * s; ctx.beginPath(); const bx = xx + (k - 6) * 6 * s; ctx.moveTo(bx, hgt + 4); ctx.quadraticCurveTo(bx + (rnd() - 0.5) * 26 * s, hgt - 40 * s, bx + (rnd() - 0.3) * 36 * s, hgt - (46 + rnd() * 58) * s); ctx.stroke(); }
+      });
+    }
+    layers.push({ canvas: cv, y: y0, factor: 1.6, foreground: true });
+  }
+
+  return { theme: c, themeId, sky, layers, W, H, SW, lantern: true };
+}

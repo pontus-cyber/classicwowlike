@@ -34,7 +34,7 @@
 // is named by its source ("Ember of Return"), never "Resurrect charges".
 import { h, add, clear, fmtNum, moneyEl, clamp, rgba, lv as shownLv } from './util.js'; // shownLv: Legacy's hero scale (identity off)
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
-import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
+import { drawPortrait, heroLook, petLook, foeLook, foeBeastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
@@ -42,7 +42,7 @@ import { linkedText, resurrectText, dangerRule, freeActionText } from './ui-text
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt } from './tracks.js';
 import { createHeatMeter, bossText } from './heat.js';
 import { trackerContracts } from './prep.js';
-import { CON, token } from './theme.js';
+import { CON, token, artStyle } from './theme.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
@@ -173,14 +173,16 @@ function portrait(key, draw) {
   cv.getContext('2d').drawImage(src, 0, 0);
   return cv;
 }
-export function heroPortrait(classId) { return portrait('hero:' + classId, (c, s) => drawPortrait(c, s, HERO_LOOKS[classId], 'humanoid', { bg1: '#4a3a26' })); }
-export function petPortrait(petId) { return portrait('pet:' + petId, (c, s) => drawPortrait(c, s, PET_LOOKS[petId], 'beast', { bg1: '#2e3a26' })); }
+// the art style is part of the key: the Lantern proof slice (data-art) draws its own portraits (art-actors.js)
+const artKey = () => (artStyle() === 'lantern' ? ':lantern' : '');
+export function heroPortrait(classId) { return portrait('hero:' + classId + artKey(), (c, s) => drawPortrait(c, s, heroLook(classId), 'humanoid', { bg1: '#4a3a26' })); }
+export function petPortrait(petId) { return portrait('pet:' + petId + artKey(), (c, s) => drawPortrait(c, s, petLook(petId), 'beast', { bg1: '#2e3a26' })); }
 function enemyPortrait(e, theme) {
-  return portrait(`en:${e.arch}:${e.rank}:${theme}:${e.name}`, (c, s) => {
+  return portrait(`en:${e.arch}:${e.rank}:${theme}:${e.name}${artKey()}`, (c, s) => {
     if (e.rank === 'boss') drawPortrait(c, s, null, 'boss', { bg1: '#2a2048', bg2: '#05040a' });
     else if (e.rank === 'shard' || e.arch === 'shard') drawPortrait(c, s, null, 'shard', { bg1: '#2a2048', bg2: '#05040a' });
-    else if (e.arch === 'beast') drawPortrait(c, s, beastLook(theme, e.name, e.rank), 'beast', { bg1: '#4a2a22' });
-    else drawPortrait(c, s, enemyLook(e.arch, theme, e.rank, e.name), 'humanoid', { bg1: '#4a2a22' });
+    else if (e.arch === 'beast') drawPortrait(c, s, foeBeastLook(theme, e.name, e.rank), 'beast', { bg1: '#4a2a22' });
+    else drawPortrait(c, s, foeLook(e.arch, theme, e.rank, e.name), 'humanoid', { bg1: '#4a2a22' });
   });
 }
 

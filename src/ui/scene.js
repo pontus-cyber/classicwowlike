@@ -15,8 +15,12 @@
 // Track R5 (2026-11-12): the drawing moved to the art modules (set pieces to art-props.js; telegraphs, status marks,
 // effects, floats, motes and the grade to art-fx.js). This file keeps layout and animation state: actors and where they
 // stand, poses, effect records and their lifetimes, particle motion, the floats' lanes, slam and rise.
+// Lantern Gouache proof slice (docs/art/proof-slice-2026-11-25.md, draft; D121): while data-art="lantern" is on <html>
+// (theme.js artStyle) backdrops are built with art-world.js's Lantern pass (zones 1-2 and the camp), actors take the
+// Lantern looks (art-actors.js heroLook, foeLook...) and are drawn through a scratch canvas and painted (paintActor) with
+// the key light of the backdrop; a switch of the attribute rebuilds the backdrops and the looks at once (restyle()).
 import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine } from './art-world.js';
-import { drawHumanoid, drawBeast, drawBoss, drawShard, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
+import { drawHumanoid, drawBeast, drawBoss, drawShard, heroLook, petLook, foeLook, foeBeastLook, paintActor, makeGrain } from './art-actors.js';
 import { drawProp as drawSetPiece, drawQuestMark } from './art-props.js';
 import {
   floatFont, drawShadow, drawTargetRing, drawRankAura, drawWard, drawStun, burnSpark, drawFrozen, drawHex, drawSleep, drawOffBalance,
@@ -24,7 +28,7 @@ import {
 } from './art-fx.js';
 import { clamp, lerp, ease, rgba, shade, prng } from './util.js';
 import { settings } from './settings.js';
-import { IMPACT, token } from './theme.js';
+import { IMPACT, token, artStyle, onTheme } from './theme.js';
 
 // floating text lanes (UX pass 2026-11-11): a damage or heal number (NUM_RE) slams in on the body and rises; every other
 // float is a word in its own lane under the number: WORD_ROWS rows from WORD_DY0, WORD_ROW apart (px at 768 high), a
@@ -60,7 +64,23 @@ export class Scene {
     this.mode = 'create';
     this.target = null; this.hover = null;
     this.desat = 0;
+    this.art = artStyle();
     this.resize();
+    onTheme(() => this.restyle());
+  }
+
+  /** The art style changed (data-art on <html>): rebuild the backdrops and give every actor the look of the new style. */
+  restyle() {
+    const art = artStyle(); if (art === this.art) return;
+    this.art = art;
+    this.backdrops.clear(); this.bd = this.getBackdrop(this.theme, this.hub); this.prevBd = null; this.fade = 1;
+    const hero = this.actors.get('player');
+    if (hero && hero.classId) this.setHero(hero.classId, this.petId);
+    for (const a of this.actors.values()) {
+      if (!a.id.startsWith('enemy:') || !a.lookArgs) continue;
+      const [arch, theme, rank, name] = a.lookArgs;
+      a.look = arch === 'beast' ? foeBeastLook(theme, name, rank) : foeLook(arch, theme, rank, name);
+    }
   }
 
   resize() {
@@ -78,8 +98,9 @@ export class Scene {
   }
 
   getBackdrop(theme, hub) {
-    const key = `${theme}|${hub ? 1 : 0}`;
-    if (!this.backdrops.has(key)) this.backdrops.set(key, buildBackdrop(theme, this.W, this.H, { hub, seed: hub ? 991 : 1234 + theme.length * 7 }));
+    const lantern = artStyle() === 'lantern';
+    const key = `${theme}|${hub ? 1 : 0}${lantern ? '|lantern' : ''}`;
+    if (!this.backdrops.has(key)) this.backdrops.set(key, buildBackdrop(theme, this.W, this.H, { hub, seed: hub ? 991 : 1234 + theme.length * 7, ...(lantern ? { lantern } : {}) }));
     return this.backdrops.get(key);
   }
 
@@ -94,16 +115,20 @@ export class Scene {
   }
 
   get groundY() { return this.H * GROUND_Y; }
+  /** The paint of the backdrop on screen: art-world.js THEMES[theme], or its Lantern palette while that is built. */
+  palette() { return (this.bd && this.bd.lantern && this.bd.theme) || THEMES[this.theme] || THEMES.farmland; }
 
   // ------------------------------------------------------------------ actors
   setHero(classId, petId) {
     const s = 1.5 * this.u;
     const a = this.actors.get('player') || { id: 'player', x: this.W * 0.5, act: null, flashT: 0, alpha: 1 };
-    Object.assign(a, { kind: 'humanoid', look: HERO_LOOKS[classId] || HERO_LOOKS.rogue, scale: s, flip: false, classId, visible: true, dead: 0, deadT0: 0 });
+    Object.assign(a, { kind: 'humanoid', look: heroLook(classId), scale: s, flip: false, classId, visible: true, dead: 0, deadT0: 0 });
     this.actors.set('player', a);
-    if (petId && PET_LOOKS[petId]) {
+    this.petId = petId;
+    const pl = petId ? petLook(petId) : null;
+    if (pl) {
       const p = this.actors.get('pet') || { id: 'pet', x: this.W * 0.4, act: null, flashT: 0, alpha: 1 };
-      Object.assign(p, { kind: PET_LOOKS[petId].kind === 'hawk' ? 'hawk' : 'beast', look: PET_LOOKS[petId], scale: s * 0.95, flip: false, visible: true, dead: 0, deadT0: 0 });
+      Object.assign(p, { kind: pl.kind === 'hawk' ? 'hawk' : 'beast', look: pl, scale: s * 0.95, flip: false, visible: true, dead: 0, deadT0: 0 });
       this.actors.set('pet', p);
     } else this.actors.delete('pet');
     this.layout();
@@ -120,8 +145,8 @@ export class Scene {
         a = { id, uid: e.uid, act: null, flashT: 0, alpha: 1, x: opts.enterFromRight ? this.W + 120 * this.u : null, dead: e.alive ? 0 : 1, deadT0: 0, born: this.time };
         if (e.rank === 'boss') { a.kind = 'boss'; a.scale = 1.05 * this.u; }
         else if (e.rank === 'shard' || e.arch === 'shard') { a.kind = 'shard'; a.scale = 1.1 * this.u; }
-        else if (e.arch === 'beast') { a.kind = 'beast'; a.look = beastLook(theme, e.name, e.rank); a.scale = 1.45 * this.u; }
-        else { a.kind = 'humanoid'; a.look = enemyLook(e.arch, theme, e.rank, e.name); a.scale = 1.42 * this.u; }
+        else if (e.arch === 'beast') { a.kind = 'beast'; a.look = foeBeastLook(theme, e.name, e.rank); a.scale = 1.45 * this.u; a.lookArgs = ['beast', theme, e.rank, e.name]; }
+        else { a.kind = 'humanoid'; a.look = foeLook(e.arch, theme, e.rank, e.name); a.scale = 1.42 * this.u; a.lookArgs = [e.arch, theme, e.rank, e.name]; }
         a.rank = e.rank; a.name = e.name; a.flip = true; a.visible = !e.hidden;
         this.actors.set(id, a);
       }
@@ -497,7 +522,7 @@ export class Scene {
     ctx.restore();
 
     // grade + vignette, desaturation, dim and the screen flash (art-fx.js drawGrade); the flash ends here
-    const th = THEMES[this.theme] || THEMES.farmland;
+    const th = this.palette();
     let flash = null;
     if (this.flash) {
       const k = (this.time - this.flash.t0) / this.flash.life;
@@ -551,7 +576,8 @@ export class Scene {
       else if (a.kind === 'shard') drawShard(c, x, gy, a.scale, anim);
     };
     // the hit flash tints only the actor's own pixels (drawn on a scratch canvas), not the scene behind it
-    if (flash > 0.02 && a.kind !== 'boss') this.drawFlashed(ctx, a, x, gy, flash, draw);
+    if (a.look && a.look.lantern && a.kind !== 'boss' && a.kind !== 'shard') this.drawPainted(ctx, a, x, gy, flash, draw);
+    else if (flash > 0.02 && a.kind !== 'boss') this.drawFlashed(ctx, a, x, gy, flash, draw);
     else draw(ctx);
     ctx.restore();
     // ward bubble / status visuals (art-fx.js); a burning actor throws an ember now and then
@@ -583,12 +609,41 @@ export class Scene {
     ctx.drawImage(oc, 0, 0, pw, ph, left, top, bw, bh);
   }
 
+  /**
+   * Lantern: draw an actor alone on a scratch canvas, paint it (art-actors.js paintActor: glaze, edges, grain) with the
+   * key light of the backdrop on screen, tint it by `flash` as drawFlashed does, and lay it on the scene.
+   */
+  drawPainted(ctx, a, x, gy, flash, draw) {
+    const u = this.u; const L = a.look || {}; const k = Math.max(L.size || 1, (L.build || 1) / 1.15);
+    const bw = 340 * u * k; const bh = 380 * u * k; const left = x - bw / 2; const top = gy - bh + 30 * u;
+    const dpr = this.dpr; const pw = Math.ceil(bw * dpr); const ph = Math.ceil(bh * dpr);
+    const oc = this.paintCanvas || (this.paintCanvas = document.createElement('canvas'));
+    const tmp = this.paintTmp || (this.paintTmp = document.createElement('canvas'));
+    if (!this.grain) this.grain = makeGrain();
+    if (oc.width < pw || oc.height < ph) { oc.width = Math.max(oc.width, pw); oc.height = Math.max(oc.height, ph); }
+    const o = oc.getContext('2d');
+    o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1; o.clearRect(0, 0, pw, ph);
+    o.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
+    draw(o);
+    const key = (this.bd && this.bd.lantern && this.bd.theme.key) || null;
+    const kx = key ? key.x * this.W : this.W * 0.85;
+    const span = (a.kind === 'beast' || a.kind === 'hawk' ? 46 : 26) * a.scale * (L.size || 1) * (L.build || 1) * dpr;
+    paintActor(o, pw, ph, { tmp, grain: this.grain, dir: kx >= x ? 1 : -1, cx: (x - left) * dpr, feet: (gy - top) * dpr, span, px: u * dpr,
+      heavy: a.rank === 'elite' || a.rank === 'rare' || a.rank === 'dboss', lit: key && key.lit, shade: key && key.shade });
+    if (flash > 0.02) {
+      o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-atop';
+      o.fillStyle = rgba(token('--fx-light'), 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
+      o.globalCompositeOperation = 'source-over';
+    }
+    ctx.drawImage(oc, 0, 0, pw, ph, left, top, bw, bh);
+  }
+
   /** A set piece (art-props.js), an NPC (art-actors.js) or a tree (art-world.js) on the ground line; an arriving one slides in. */
   drawProp(ctx, pr) {
     const u = this.u; const gy = this.groundY; const t = this.time;
     const x = pr.x != null ? pr.x : this.W * (pr.at || 0.66);
     if (pr.tx != null) pr.x = lerp(pr.x ?? pr.tx, pr.tx, Math.min(1, 0.06));
-    const th = THEMES[this.theme] || THEMES.farmland;
+    const th = this.palette();
     if (pr.kind === 'npc') {
       drawHumanoid(ctx, x, gy, 1.4 * u, pr.look, { t: t + 3, flip: true });
       if (pr.mark) drawQuestMark(ctx, pr.mark, x, gy, u, t); // floating quest mark

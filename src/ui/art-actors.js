@@ -1,7 +1,13 @@
 // Characters drawn in code: a small 2D rig for humanoids (heroes, humanoid enemies, NPCs), a
 // quadruped rig (pets, beasts), the hawk, the end boss and its shards. Facing right; feet at (0,0);
 // about 100 units tall before scaling.
-import { shade, rgba, mix, clamp, ease, glowBall } from './util.js';
+// Lantern Gouache proof slice (docs/art/proof-slice-2026-11-25.md, draft; D120, D121): with data-art="lantern" on <html>
+// (theme.js artStyle) the look selectors heroLook, petLook, foeLook and foeBeastLook give painted looks (lantern: true:
+// the direction's palette, an elite 1.3x with one oversized feature, no glowing eyes, red left to danger), and scene.js
+// passes those actors through paintActor (shadow-side glaze, darker edge away from the key light, warm lit edge toward
+// it, gouache grain). Without the attribute the selectors give the looks below and nothing painted is drawn.
+import { shade, rgba, mix, clamp, ease, glowBall, prng } from './util.js';
+import { artStyle } from './theme.js';
 
 const SKIN = '#d9a77f';
 
@@ -84,7 +90,7 @@ function pose(look, a) {
   if (look.weapon === 'bow') { fs = 0.3 + (walk ? 0.1 * Math.sin(ph) : 0); fe = 0.35; }
   if (look.weapon === 'dagger') { ne = 0.9; fe = 0.8; }
   if (look.off === 'shield') { fs = 0.7; fe = 0.9; }
-  if (look.weapon === 'club' || look.weapon === 'sword') { ns = 0.35; ne = 0.9; }
+  if (look.weapon === 'club' || look.weapon === 'sword' || look.weapon === 'post') { ns = 0.35; ne = 0.9; }
   if (look.handGlow) { ns = 0.6 + Math.sin(t * 2) * 0.05; ne = 0.9; fs = 0.4; fe = 1.0; }
   // actions
   const act = a.act; const p = act ? clamp(act.p, 0, 1) : 0;
@@ -151,7 +157,8 @@ export function drawHumanoid(ctx, x, y, s, look, anim) {
   const dark = (c, k = 0.3) => shade(c, -k);
   const lit = (c, k = 0.18) => rgba(shade(c, 0.45), k);
 
-  // back: cloak / quiver / scarf tail
+  // back: a waterlogged cape (Lantern: Bargh), cloak / quiver / scarf tail
+  if (C.cape) drownedCape(ctx, P, C, anim, b);
   if (C.cloak) {
     const sway = Math.sin((anim.t || 0) * 2 + P.ph) * 3 + (P.walk ? 8 : 0);
     ctx.fillStyle = dark(C.cloak, 0.1);
@@ -246,6 +253,8 @@ export function drawHumanoid(ctx, x, y, s, look, anim) {
   hand(ctx, P.armN.hand, C.bare ? C.skin : (C.gloves || C.skin), b);
   if (C.weapon === 'dagger') dagger(ctx, P.armN.hand, P.ns + P.ne, C, b, false);
   if (C.weapon === 'club') club(ctx, P.armN.hand, P.ns + P.ne, C, b);
+  if (C.weapon === 'post') mooringPost(ctx, P.armN.hand, P.ns + P.ne, C, b);
+  if (C.straw) for (const hnd of [P.armN.hand, P.armF.hand]) strawTuft(ctx, hnd, C, b);
   if (C.weapon === 'sword') sword(ctx, P.armN.hand, P.ns + P.ne, C, b);
   if (C.handGlow) for (const hnd of [P.armN.hand, P.armF.hand]) glowBall(ctx, hnd[0] + 2, hnd[1], 7 + Math.sin((anim.t || 0) * 5) * 1.5, C.handGlow);
 
@@ -272,6 +281,8 @@ function hand(ctx, h, col, b) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(h[
 
 function head(ctx, P, C, anim, b) {
   const [x, y] = P.head; const r = 10.6 * Math.sqrt(b);
+  if (C.sack) { sackHead(ctx, x, y, r, C, anim); return; }
+  if (C.crown || C.jaw) { bruteHeadL(ctx, x, y, r, C); return; }
   if (C.helm) {
     const g = ctx.createLinearGradient(x - r, 0, x + r, 0);
     g.addColorStop(0, shade(C.metal, -0.35)); g.addColorStop(0.6, C.metal); g.addColorStop(1, shade(C.metal, 0.2));
@@ -429,6 +440,7 @@ export function drawBeast(ctx, x, y, s, look, anim) {
   if (look.spikes || k === 'boar') { ctx.fillStyle = shade(look.fur, -0.45); for (let i = 0; i < 7; i++) { const sx = -bodyLen * 0.3 + i * 8; ctx.beginPath(); ctx.moveTo(sx - 3, by - bodyH * 0.45); ctx.lineTo(sx + 1, by - bodyH * (0.85 + (i % 2) * 0.15)); ctx.lineTo(sx + 4, by - bodyH * 0.45); ctx.fill(); } }
   if (look.glowCracks) { ctx.strokeStyle = rgba(look.glowCracks, 0.8); ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-10, by - 4); ctx.lineTo(-2, by + 2); ctx.lineTo(8, by - 3); ctx.moveTo(-18, by + 5); ctx.lineTo(-10, by + 8); ctx.stroke(); }
   ctx.fillStyle = rgba('#ffffff', 0.08); ctx.beginPath(); ctx.ellipse(4, by - bodyH * 0.3, bodyLen * 0.35, bodyH * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+  if (look.ruff) beastRuff(ctx, k, bodyLen, bodyH, by, look);
   // near legs
   for (const [lx, off] of legs) leg(ctx, lx + 3, by + bodyH * 0.3, L, walk ? Math.sin(ph + off) * 0.5 : -0.04, look.fur, k);
   // head
@@ -459,8 +471,10 @@ export function drawBeast(ctx, x, y, s, look, anim) {
   // eye
   const ex = k === 'boar' || k === 'bear' ? 6 : k === 'lizard' ? 8 : 6; const ey = k === 'boar' ? -2 : -2;
   ctx.fillStyle = look.eye; ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI * 2); ctx.fill();
-  const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, 8); eg.addColorStop(0, rgba(look.eye, 0.5)); eg.addColorStop(1, rgba(look.eye, 0));
-  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, 8, 0, Math.PI * 2); ctx.fill();
+  if (!look.lantern) {
+    const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, 8); eg.addColorStop(0, rgba(look.eye, 0.5)); eg.addColorStop(1, rgba(look.eye, 0));
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, 8, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
   if (anim.flash > 0) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = rgba('#ffffff', anim.flash * 0.75); ctx.fillRect(-80, -90, 160, 100); }
   ctx.restore();
@@ -573,6 +587,7 @@ export function drawShard(ctx, x, y, s, anim) {
 // ------------------------------------------------------------------ portraits
 /** Draw a head-and-shoulders portrait of a look into a square canvas context. */
 export function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
+  if (look && look.lantern && typeof document !== 'undefined') { lanternPortrait(ctx, size, look, kind, extra); return; }
   ctx.save();
   const bg = ctx.createRadialGradient(size * 0.5, size * 0.35, size * 0.1, size * 0.5, size * 0.5, size * 0.75);
   bg.addColorStop(0, extra.bg1 || '#3a3328'); bg.addColorStop(1, extra.bg2 || '#0d0b09');
@@ -584,4 +599,242 @@ export function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
   else if (kind === 'shard') drawShard(ctx, size * 0.5, size * 1.15, size / 90, { t: 1 });
   else drawHumanoid(ctx, size * 0.44, size * 2.05, size / 50, look, { t: 1.3 });
   ctx.restore();
+}
+
+// ================================================================== Lantern Gouache (proof slice, draft)
+// docs/art/README.md direction A; docs/art/proof-slice-2026-11-25.md. Palette: dusk slate #27313b, fen green #5d7a5a,
+// moss #8a9a5b, ochre #d9a441, lantern #f2c56b, paper #f1e3c0, umber #3d2c20, ink #2b2118, water #4f8a8b. No madder red:
+// it is danger's alone (D120), so the Rogue's scarf is ochre and no enemy wears red. Faces stay hidden or simple; eyes
+// are small and do not glow. Rank is drawn: an elite is 1.3x (1.18 today) with one oversized feature, and scene.js gives
+// it a heavier shadow edge. Looks carry lantern: true; the features they add (cape, crown, jaw, sack, straw, ruff, the
+// mooring post) exist only on these looks, so the current looks draw exactly as before.
+export const LANTERN_HERO_LOOKS = {
+  rogue: { lantern: true, cloth: '#33404c', cloth2: '#4a5866', trim: '#d9a441', skin: '#d2a47c', hood: 'hood', scarf: '#8e6232', boots: '#211c1c', pants: '#2b3039',
+    weapon: 'dagger', off: 'dagger', build: 0.98, metal: '#d9d6c6', eyes: '#f1e3c0', pauldron: '#4f5d6b', cloak: '#2b3640' },
+  mage: { lantern: true, cloth: '#2f4f63', cloth2: '#4f8a8b', trim: '#d9a441', skin: '#d2a47c', hat: true, hair: '#ece2cc', beard: true, robe: true, boots: '#2b2118', pants: '#283c4c',
+    weapon: 'staff', orb: '#f2c56b', build: 0.95, eyes: '#f1e3c0', wood: '#5e4128', pauldron: '#3c6474' },
+  hunter: { lantern: true, cloth: '#7d8a4f', cloth2: '#6b4a2e', trim: '#d9a441', skin: '#d2a47c', hood: 'hood', cloak: '#4c6a4a', boots: '#3d2c20', pants: '#54432e',
+    weapon: 'bow', quiver: true, build: 1.02, eyes: '#f1e3c0', wood: '#6b4a2e', pauldron: '#6b4a2e' },
+};
+export const LANTERN_PET_LOOKS = {
+  ridgewolf: { lantern: true, kind: 'wolf', fur: '#8a8c8e', belly: '#d8cfba', eye: '#f2c56b', size: 0.82, ruff: '#b9b4a6' },
+  thornback: { lantern: true, kind: 'boar', fur: '#6b4a2e', belly: '#9a7a56', eye: '#f2c56b', size: 0.86, spikes: true },
+  duskcat: { lantern: true, kind: 'cat', fur: '#33384a', belly: '#4f566a', eye: '#d9c48a', size: 0.84 },
+  stormhawk: { lantern: true, kind: 'hawk', fur: '#5b6f7c', belly: '#d8d4c4', eye: '#f2c56b', size: 0.9 },
+};
+// zone paint for enemies: farmland (zone 1: outlaws in umber leather, blight in straw and sackcloth, warm wild beasts) and
+// wetlands (zone 2: reedfolk in fen green and reed straw, witchkin in water and dusk, fenbeasts in murk); other zones keep
+// today's tints in the Lantern palette's values (the proof slice paints zones 1-2 only)
+const LANTERN_ZONE = {
+  farmland: { cloth: '#6b5236', cloth2: '#8a6a44', trim: '#d9a441', skin: '#b8916a', metal: '#a9a596', wood: '#5a3f28', eyes: '#f1e3c0', glow: '#c9c46a', fur: '#8a7258' },
+  wetlands: { cloth: '#3f5a4c', cloth2: '#5d7a5a', trim: '#b8a46a', skin: '#8a9a7a', metal: '#8a9a94', wood: '#3d3226', eyes: '#e8e4c8', glow: '#9fc7b4', fur: '#4f5a46' },
+};
+
+/** The hero's look for the art style on screen (theme.js artStyle): Lantern's or today's. */
+export function heroLook(classId) {
+  const L = artStyle() === 'lantern' ? LANTERN_HERO_LOOKS : HERO_LOOKS;
+  return L[classId] || L.rogue;
+}
+/** The pet's look for the art style on screen (undefined for an unknown pet, as PET_LOOKS[id]). */
+export function petLook(petId) { return (artStyle() === 'lantern' ? LANTERN_PET_LOOKS : PET_LOOKS)[petId]; }
+/** A humanoid enemy's look for the art style on screen (enemyLook today). */
+export function foeLook(arch, theme, rank, name = '') { return artStyle() === 'lantern' ? lanternEnemyLook(arch, theme, rank, name) : enemyLook(arch, theme, rank, name); }
+/** A beast enemy's look for the art style on screen (beastLook today). */
+export function foeBeastLook(theme, name = '', rank = 'normal') { return artStyle() === 'lantern' ? lanternBeastLook(theme, name, rank) : beastLook(theme, name, rank); }
+
+/** Lantern enemy look: today's archetype rig in the zone's paint, the families of zones 1-2 drawn apart, the elite's feature. */
+export function lanternEnemyLook(arch, theme, rank, name = '') {
+  const Z = LANTERN_ZONE[theme];
+  const old = enemyLook(arch, theme, rank, name);
+  const big = rank === 'elite' || rank === 'rare' ? 1.3 : rank === 'dboss' ? 1.45 : 1;
+  const base0 = { ...old, lantern: true, build: (old.build || 1) / (rank === 'elite' || rank === 'rare' ? 1.18 : rank === 'dboss' ? 1.42 : 1) * big };
+  if (!Z) return { ...base0, eyes: '#f1e3c0', glow: mix(old.glow || '#ffffff', '#f1e3c0', 0.5), handGlow: old.handGlow ? mix(old.handGlow, '#f1e3c0', 0.4) : undefined };
+  const n = name.toLowerCase();
+  const base = { ...base0, skin: Z.skin, eyes: Z.eyes, glow: Z.glow, metal: Z.metal, wood: Z.wood, boots: shade(Z.cloth, -0.45), pants: shade(Z.cloth, -0.3) };
+  switch (arch) {
+    case 'brute': {
+      const b = { ...base, cloth: shade(Z.cloth, -0.1), cloth2: Z.cloth2, trim: shade(Z.cloth2, -0.25), weapon: theme === 'farmland' ? 'post' : 'club', jaw: true, postLen: theme === 'farmland' ? 0.85 : 1 };
+      if (/king|drowned/.test(n)) return { ...b, skin: '#7f8f70', crown: true, cape: '#2f4a4c', weapon: 'post', postLen: 1.25, rope: true, trim: '#6b4a2e' };
+      return b;
+    }
+    case 'skulker': return { ...base, cloth: shade(Z.cloth, -0.25), cloth2: Z.cloth, trim: Z.trim, cloak: shade(Z.cloth2, -0.2) };
+    case 'caster':
+      if (/scarecrow|hexer|marrow|straw/.test(n)) return { ...base, cloth: '#5e4a34', cloth2: '#7a6446', trim: '#c9a85a', hood: null, sack: '#cdb98e', straw: '#d9b45a', handGlow: '#c9c46a', robe: true, float: false, crouch: 0.06 };
+      return { ...base, cloth: theme === 'wetlands' ? '#2f4a52' : shade(Z.cloth, -0.2), cloth2: theme === 'wetlands' ? '#4f6a7a' : Z.cloth2, trim: Z.trim, handGlow: Z.glow };
+    case 'guardian': return { ...base, cloth: mix(Z.metal, Z.cloth, 0.4), cloth2: Z.metal, trim: Z.trim };
+    case 'mender': return { ...base, cloth: mix(Z.cloth2, '#f1e3c0', 0.35), cloth2: mix(Z.cloth2, '#f1e3c0', 0.55), trim: Z.trim, orb: '#f2c56b' };
+    default: return { ...base, cloth: Z.cloth, cloth2: Z.cloth2, trim: Z.trim };
+  }
+}
+
+/** Lantern beast look: warm or murky fur by zone, a lit ruff on wolves and hounds, eyes that do not glow. */
+export function lanternBeastLook(theme, name = '', rank = 'normal') {
+  const old = beastLook(theme, name, rank); const Z = LANTERN_ZONE[theme];
+  const n = name.toLowerCase();
+  const big = rank === 'elite' || rank === 'rare' ? 1.3 : rank === 'dboss' ? 1.5 : 1; const oldBig = rank === 'elite' || rank === 'rare' ? 1.25 : rank === 'dboss' ? 1.5 : 1;
+  let fur = Z ? Z.fur : old.fur;
+  if (/wolf|hound/.test(n)) fur = theme === 'wetlands' ? '#5f6660' : '#8a857a';
+  if (/boar|hog/.test(n)) fur = '#6b4a2e';
+  return { ...old, lantern: true, fur, belly: mix(fur, '#f1e3c0', 0.35), eye: '#f2c56b', size: old.size / oldBig * big, ruff: old.kind === 'wolf' ? mix(fur, '#f1e3c0', 0.3) : null, glowCracks: null };
+}
+
+// ------------------------------------------------------------------ Lantern features (on Lantern looks only)
+/** Bargh's waterlogged cape: long, heavy, a ragged hem that drips; it hangs behind the body. */
+function drownedCape(ctx, P, C, anim, b) {
+  const t = anim.t || 0; const sway = Math.sin(t * 1.4 + P.ph) * 2 + (P.walk ? 5 : 0);
+  const footY = Math.max(P.legN.foot[1], P.legF.foot[1]);
+  const top = [P.sh[0] - 4 * b, P.sh[1] - 2];
+  ctx.fillStyle = C.cape;
+  ctx.beginPath(); ctx.moveTo(top[0] + 10 * b, top[1] - 2);
+  ctx.quadraticCurveTo(P.hip[0] - 22 * b - sway, P.hip[1] - 10, P.hip[0] - 26 * b - sway * 1.3, footY - 6);
+  const hem = [[-26, -6], [-21, 1], [-16, -4], [-11, 2], [-6, -5], [-1, 0], [4, -6]];
+  for (const [dx, dy] of hem) ctx.lineTo(P.hip[0] + dx * b - sway * (1 - (dx + 26) / 30), footY + dy);
+  ctx.quadraticCurveTo(P.hip[0] + 2 * b, P.hip[1], top[0] + 12 * b, top[1]);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = rgba(shade(C.cape, 0.25), 0.55);
+  ctx.beginPath(); ctx.moveTo(top[0] + 6 * b, top[1]); ctx.quadraticCurveTo(P.hip[0] - 12 * b - sway, P.hip[1] - 8, P.hip[0] - 14 * b - sway, footY - 14); ctx.lineTo(P.hip[0] - 9 * b - sway, footY - 12); ctx.quadraticCurveTo(P.hip[0] - 6 * b, P.hip[1] - 8, top[0] + 10 * b, top[1]); ctx.fill();
+  ctx.fillStyle = rgba('#4f8a8b', 0.8);
+  for (let i = 0; i < 4; i++) { const dx = -24 + i * 7; const k = ((t * 0.7 + i * 0.37) % 1); ctx.beginPath(); ctx.ellipse(P.hip[0] + dx * b - sway, footY + 3 + k * 7, 1.3, 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+/** A mooring post as a club: a squared timber with an iron band and, on Bargh's, a coil of rope. */
+function mooringPost(ctx, h, ang, C, b) {
+  const L = 44 * b * (C.postLen || 1); const w = 6.5 * b * Math.sqrt(C.postLen || 1);
+  ctx.save(); ctx.translate(h[0], h[1]); ctx.rotate(-ang + Math.PI);
+  ctx.fillStyle = shade(C.wood, -0.15); ctx.beginPath(); ctx.moveTo(-w * 0.55, 6); ctx.lineTo(-w, -L); ctx.lineTo(w * 0.9, -L - 2); ctx.lineTo(w * 0.5, 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = shade(C.wood, 0.12); ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(w * 0.1, -L); ctx.lineTo(w * 0.9, -L - 2); ctx.lineTo(w * 0.5, 6); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = rgba('#2b2118', 0.45); ctx.lineWidth = 1; for (const k of [0.3, 0.55, 0.8]) { ctx.beginPath(); ctx.moveTo(-w * 0.7, -L * k); ctx.lineTo(-w * 0.2, -L * k - 6); ctx.stroke(); }
+  ctx.fillStyle = '#56504a'; ctx.fillRect(-w * 1.05, -L * 0.78, w * 2, 4.5 * b);
+  ctx.fillStyle = rgba('#d9d0b8', 0.35); ctx.fillRect(-w * 1.05, -L * 0.78, w * 2, 1.2);
+  if (C.rope) {
+    ctx.fillStyle = '#a8945c'; for (let i = 0; i < 4; i++) { ctx.save(); ctx.translate(0, -L * 0.6 + i * 3.4 * b); ctx.rotate(-0.25); ctx.fillRect(-w * 1.02, -1.3 * b, w * 2.04, 2.4 * b); ctx.restore(); }
+    ctx.strokeStyle = '#8a7848'; ctx.lineWidth = 2 * b; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(w * 0.8, -L * 0.5); ctx.quadraticCurveTo(w * 2.6, -L * 0.42, w * 2.2, -L * 0.22); ctx.quadraticCurveTo(w * 1.8, -L * 0.1, w * 2.8, -L * 0.02); ctx.stroke();
+  }
+  ctx.restore();
+}
+/** A brute's head in Lantern: a heavy jaw with tusks, a brow in shade, and on Bargh a rusted crown. */
+function bruteHeadL(ctx, x, y, r, C) {
+  ctx.fillStyle = C.skin; ctx.beginPath(); ctx.ellipse(x, y, r * 1.02, r, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - r * 0.6, y + r * 0.3); ctx.quadraticCurveTo(x - r * 0.1, y + r * 1.3, x + r * 0.75, y + r * 1.0); ctx.quadraticCurveTo(x + r * 1.1, y + r * 0.8, x + r * 1.02, y + r * 0.2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = shade(C.skin, -0.3); ctx.beginPath(); ctx.moveTo(x - r * 0.1, y - r * 0.45); ctx.quadraticCurveTo(x + r * 0.6, y - r * 0.7, x + r * 1.08, y - r * 0.3); ctx.lineTo(x + r * 1.0, y - r * 0.1); ctx.quadraticCurveTo(x + r * 0.5, y - r * 0.35, x - r * 0.1, y - r * 0.2); ctx.fill();
+  ctx.fillStyle = '#1e1812'; ctx.beginPath(); ctx.ellipse(x + r * 0.62, y - r * 0.08, 1.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.eyes; ctx.fillRect(x + r * 0.6, y - r * 0.12, 1.1, 1);
+  ctx.fillStyle = '#ece2c8';
+  for (const [dx, hh] of [[0.45, 0.5], [0.82, 0.4]]) { ctx.beginPath(); ctx.moveTo(x + r * (dx - 0.11), y + r * 0.86); ctx.lineTo(x + r * dx, y + r * (0.86 - hh)); ctx.lineTo(x + r * (dx + 0.11), y + r * 0.8); ctx.closePath(); ctx.fill(); }
+  if (C.crown) {
+    const cy = y - r * 0.82; const w = r * 0.95;
+    ctx.fillStyle = '#9a6a2e';
+    ctx.beginPath(); ctx.moveTo(x - w, cy + 4); ctx.lineTo(x - w, cy - 3);
+    const tips = 5; for (let i = 0; i <= tips; i++) { const px = x - w + (2 * w * i) / tips; ctx.lineTo(px, cy - (i % 2 ? 3 : 13) - (i === 3 ? 4 : 0)); if (i < tips) ctx.lineTo(px + w / tips, cy - 3); }
+    ctx.lineTo(x + w, cy + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d9a441'; ctx.fillRect(x - w, cy - 1, 2 * w, 2.2);
+    ctx.fillStyle = rgba('#4f8a8b', 0.85); for (const dx of [-0.6, 0.1, 0.55]) { ctx.beginPath(); ctx.ellipse(x + w * dx, cy + 1.5, 2.2, 1.4, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = rgba('#4f8a8b', 0.6); ctx.fillRect(x - w * 0.2, cy + 3, 1.2, 4); ctx.fillRect(x + w * 0.7, cy + 3, 1.2, 3);
+  }
+}
+/** The Scarecrow Hexer's head: a stitched sack with two dark buttons, under a floppy straw hat. */
+function sackHead(ctx, x, y, r, C, anim) {
+  ctx.fillStyle = C.sack; ctx.beginPath(); ctx.ellipse(x, y + r * 0.05, r * 0.95, r * 1.05, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade(C.sack, -0.25); ctx.beginPath(); ctx.moveTo(x - r * 0.8, y + r * 0.7); ctx.quadraticCurveTo(x, y + r * 1.15, x + r * 0.7, y + r * 0.8); ctx.lineTo(x + r * 0.5, y + r * 1.2); ctx.lineTo(x - r * 0.6, y + r * 1.15); ctx.fill();
+  ctx.strokeStyle = '#2b2118'; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(x + r * 0.05, y + r * 0.45); ctx.lineTo(x + r * 0.85, y + r * 0.38); ctx.stroke();
+  for (let i = 0; i < 4; i++) { const sx = x + r * (0.15 + i * 0.2); ctx.beginPath(); ctx.moveTo(sx, y + r * 0.32); ctx.lineTo(sx + 1, y + r * 0.55); ctx.stroke(); }
+  ctx.fillStyle = '#1e1812'; ctx.beginPath(); ctx.arc(x + r * 0.32, y - r * 0.1, 1.9, 0, Math.PI * 2); ctx.arc(x + r * 0.74, y - r * 0.12, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = C.straw; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+  for (let i = 0; i < 7; i++) { const a = Math.PI * (0.55 + i * 0.12); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.9, y + r * 0.9); ctx.lineTo(x + Math.cos(a) * r * 1.3, y + r * 1.4 + (i % 2) * 3); ctx.stroke(); }
+  const tilt = Math.sin((anim.t || 0) * 1.1) * 0.04 - 0.12;
+  ctx.save(); ctx.translate(x - r * 0.05, y - r * 0.7); ctx.rotate(tilt);
+  ctx.fillStyle = shade(C.straw, -0.2); ctx.beginPath(); ctx.ellipse(0, 0, r * 2.0, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.straw; ctx.beginPath(); ctx.moveTo(-r * 0.95, -r * 0.05); ctx.quadraticCurveTo(-r * 0.8, -r * 1.3, r * 0.05, -r * 1.35); ctx.quadraticCurveTo(r * 0.9, -r * 1.25, r * 0.95, -r * 0.05); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#6b4a2e'; ctx.fillRect(-r * 0.95, -r * 0.4, r * 1.9, r * 0.28);
+  ctx.strokeStyle = shade(C.straw, -0.35); ctx.lineWidth = 0.9;
+  for (let i = -4; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(i * r * 0.45, r * 0.12); ctx.lineTo(i * r * 0.52, r * 0.42); ctx.stroke(); }
+  ctx.restore();
+}
+/** Straw sticking out of a sleeve or a fist. */
+function strawTuft(ctx, h, C, b) {
+  ctx.strokeStyle = C.straw; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+  for (let i = 0; i < 5; i++) { const a = -0.9 + i * 0.45; ctx.beginPath(); ctx.moveTo(h[0], h[1]); ctx.lineTo(h[0] + Math.cos(a) * 8 * b, h[1] + Math.sin(a) * 8 * b + 3); ctx.stroke(); }
+}
+/** A wolf's or hound's ruff: a lighter mane of hand-cut tufts over the shoulders. */
+function beastRuff(ctx, k, bodyLen, bodyH, by, look) {
+  if (k !== 'wolf') return;
+  ctx.fillStyle = look.ruff;
+  ctx.beginPath(); const x0 = bodyLen * 0.12; const x1 = bodyLen * 0.5;
+  ctx.moveTo(x0, by - bodyH * 0.45);
+  for (let i = 0; i <= 6; i++) { const f = i / 6; ctx.lineTo(x0 + (x1 - x0) * f, by - bodyH * (0.55 + (i % 2) * 0.22) + f * 2); }
+  ctx.lineTo(x1, by + bodyH * 0.35); ctx.lineTo(x0 + 6, by + bodyH * 0.1); ctx.closePath(); ctx.fill();
+}
+
+// ------------------------------------------------------------------ Lantern paint pass
+/** A tile of short gouache strokes (light and dark), drawn once by the caller and passed to paintActor as grain. */
+export function makeGrain(size = 160, seed = 9) {
+  const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+  const g = cv.getContext('2d'); const rnd = prng(seed); g.lineCap = 'round';
+  for (let i = 0; i < 150; i++) {
+    const x = rnd() * size; const y = rnd() * size; const a = (rnd() - 0.5) * 0.5; const l = 4 + rnd() * 7;
+    g.strokeStyle = i % 2 ? 'rgba(255,240,210,0.55)' : 'rgba(30,20,14,0.6)'; g.lineWidth = 1 + rnd() * 1.6;
+    for (const dx of [0, -size, size]) for (const dy of [0, -size, size]) { g.beginPath(); g.moveTo(x + dx, y + dy); g.lineTo(x + dx + Math.cos(a) * l, y + dy + Math.sin(a) * l); g.stroke(); }
+  }
+  return cv;
+}
+
+/**
+ * Paint the actor drawn alone on o (a 2D context in device px, w x h, identity transform) in Lantern Gouache:
+ *   1. a shadow-side glaze (violet-brown, about 35 %) across the figure, away from the key light, and contact shade at the feet;
+ *   2. a darker edge on the shadow side (no outline: the figure's own colours darkened at the edge; heavier on an elite);
+ *   3. a warm lit edge on the side toward the key light, a little from above;
+ *   4. gouache grain, anchored to the actor so it does not swim.
+ * P: { tmp: a second canvas, grain: makeGrain(), dir: +1 key light to the right, -1 to the left, cx, feet: the actor's
+ *      centre x and ground line in o's px, span: its half width in px, px: device px per art unit, heavy, lit, shade }
+ * Only the actor's own pixels change (source-atop); the scene behind is not touched.
+ */
+export function paintActor(o, w, h, P) {
+  const { tmp, grain, dir, cx, feet, span, px } = P;
+  const lit = P.lit || '#f6d48a'; const sh = P.shade || '#3a2638';
+  if (tmp.width < w || tmp.height < h) { tmp.width = Math.max(tmp.width, w); tmp.height = Math.max(tmp.height, h); }
+  const t = tmp.getContext('2d');
+  o.save(); o.setTransform(1, 0, 0, 1, 0, 0);
+  // 1. glaze and contact shade
+  o.globalCompositeOperation = 'source-atop';
+  const gx = o.createLinearGradient(cx - dir * span * 1.2, 0, cx + dir * span * 1.2, 0);
+  gx.addColorStop(0, rgba(sh, 0.42)); gx.addColorStop(0.5, rgba(sh, 0.1)); gx.addColorStop(0.72, rgba(sh, 0)); gx.addColorStop(1, rgba(lit, 0.1));
+  o.fillStyle = gx; o.fillRect(0, 0, w, h);
+  const gv = o.createLinearGradient(0, feet, 0, feet - 46 * px);
+  gv.addColorStop(0, rgba(sh, 0.38)); gv.addColorStop(1, rgba(sh, 0));
+  o.fillStyle = gv; o.fillRect(0, 0, w, h);
+  // 2, 3. edges: the silhouette less itself shifted, tinted, laid back on the silhouette
+  const edge = (dx, dy, col, a) => {
+    t.setTransform(1, 0, 0, 1, 0, 0); t.globalAlpha = 1; t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, w, h);
+    t.drawImage(o.canvas, 0, 0, w, h, 0, 0, w, h);
+    t.globalCompositeOperation = 'destination-out'; t.drawImage(o.canvas, 0, 0, w, h, dx, dy, w, h);
+    t.globalCompositeOperation = 'source-in'; t.fillStyle = col; t.fillRect(0, 0, w, h);
+    o.globalCompositeOperation = 'source-atop'; o.globalAlpha = a; o.drawImage(tmp, 0, 0, w, h, 0, 0, w, h); o.globalAlpha = 1;
+  };
+  const d = 2.1 * px;
+  edge(dir * d * (P.heavy ? 1.9 : 1.2), 0, sh, P.heavy ? 0.75 : 0.55);
+  edge(-dir * d * 0.8, d * 0.6, lit, 0.62);
+  // 4. grain
+  if (grain) {
+    const pat = o.createPattern(grain, 'repeat');
+    if (pat && pat.setTransform && typeof DOMMatrix !== 'undefined') pat.setTransform(new DOMMatrix().translate(cx % grain.width, feet % grain.height).scale(Math.max(0.6, px)));
+    o.globalCompositeOperation = 'source-atop'; o.globalAlpha = 0.1; o.fillStyle = pat; o.fillRect(0, 0, w, h); o.globalAlpha = 1;
+  }
+  o.restore();
+}
+
+/** A Lantern portrait: a warm dusk ground, the figure drawn alone, painted (paintActor), then laid on the ground. */
+function lanternPortrait(ctx, size, look, kind, extra) {
+  const ps = Math.ceil(size);
+  const bg = ctx.createRadialGradient(size * 0.62, size * 0.3, size * 0.05, size * 0.5, size * 0.5, size * 0.8);
+  bg.addColorStop(0, '#6e5a3e'); bg.addColorStop(0.55, '#3d2c20'); bg.addColorStop(1, '#1c1510');
+  ctx.save(); ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size); ctx.restore();
+  const cv = document.createElement('canvas'); cv.width = ps; cv.height = ps; const o = cv.getContext('2d');
+  const tmp = document.createElement('canvas'); tmp.width = ps; tmp.height = ps;
+  let cx = size * 0.45; let feet = size;
+  if (kind === 'beast' && look.kind === 'hawk') { drawHawk(o, size * 0.4, size * 0.6, size / 52, look, { t: 1, portrait: true }); cx = size * 0.4; feet = size * 0.75; }
+  else if (kind === 'beast') { drawBeast(o, size * 0.28, size * 1.02, size / 52, look, { t: 1 }); cx = size * 0.4; }
+  else drawHumanoid(o, size * 0.44, size * 2.05, size / 50, look, { t: 1.3 });
+  paintActor(o, ps, ps, { tmp, grain: null, dir: 1, cx, feet: feet * 1.6, span: size * 0.45, px: size / 60, heavy: false });
+  ctx.drawImage(cv, 0, 0);
 }

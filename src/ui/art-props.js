@@ -17,12 +17,20 @@
 //                                          since art modules do not import each other
 // Fonts: the weight is the --fw-* type token of tokens.css; the family "Georgia, serif" matches no type token and stays
 // written here (R5, exact values only).
+// Lantern Gouache proof slice (docs/art/proof-slice-2026-11-25.md, draft): with data-art="lantern" on <html> the camp's
+// three pieces (campfire, tent, banner) are painted in the direction's palette: the fire is the camp's key light and
+// throws a warm pool on the ground; the tent is lit on its fire side; the banner is cloth with folds. Other pieces as today.
 import { rgba, mix, shade } from './util.js';
-import { token } from './theme.js';
+import { token, artStyle } from './theme.js';
 
 export const PROP_KINDS = Object.freeze(['campfire', 'tent', 'cart', 'stone', 'chest', 'gate', 'sign', 'banner']);
 
 export function drawProp(c, kind, x, y, u, t, pal, o = {}) {
+  if (artStyle() === 'lantern') {
+    if (kind === 'campfire') { campfireL(c, x, y, u, t); return true; }
+    if (kind === 'tent') { tentL(c, x, y, u, pal); return true; }
+    if (kind === 'banner') { bannerL(c, x, y, u, t, o.color || pal.ui.tint); return true; }
+  }
   switch (kind) {
     case 'campfire': campfire(c, x, y, u, t); return true;
     case 'tent': tent(c, x, y, u, pal); return true;
@@ -123,4 +131,58 @@ function banner(ctx, x, y, u, t, col) {
   const wave = Math.sin(t * 2) * 6 * u;
   ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x + 2 * u, y - 146 * u); ctx.quadraticCurveTo(x + 30 * u, y - 140 * u + wave, x + 52 * u, y - 146 * u); ctx.lineTo(x + 52 * u, y - 96 * u); ctx.lineTo(x + 27 * u, y - 108 * u + wave); ctx.lineTo(x + 2 * u, y - 96 * u); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x + 6 * u, y - 140 * u, 42 * u, 4 * u);
+}
+
+// ------------------------------------------------------------------ Lantern (proof slice, draft)
+/** The camp fire in gouache: a warm pool on the ground, a ring of stones, crossed logs, three flat flame shapes, sparks. */
+function campfireL(ctx, x, y, u, t) {
+  const fl = 0.9 + 0.1 * Math.sin(t * 7) + 0.05 * Math.sin(t * 13);
+  ctx.save();
+  const pool = ctx.createRadialGradient(x, y, 4 * u, x, y, 230 * u);
+  pool.addColorStop(0, `rgba(242,197,107,${0.34 * fl})`); pool.addColorStop(0.45, `rgba(217,142,79,${0.14 * fl})`); pool.addColorStop(1, 'rgba(217,142,79,0)');
+  ctx.fillStyle = pool; ctx.beginPath(); ctx.ellipse(x, y, 230 * u, 46 * u, 0, 0, Math.PI * 2); ctx.fill();
+  const halo = ctx.createRadialGradient(x, y - 40 * u, 4 * u, x, y - 40 * u, 150 * u);
+  halo.addColorStop(0, `rgba(246,196,122,${0.22 * fl})`); halo.addColorStop(1, 'rgba(246,196,122,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y - 40 * u, 150 * u, 0, Math.PI * 2); ctx.fill();
+  for (let i = 0; i < 9; i++) { const a = Math.PI * (0.05 + i * 0.1); const sx = x + Math.cos(a + Math.PI) * 30 * u; ctx.fillStyle = i % 2 ? '#5a4a3c' : '#6e5c4a'; ctx.beginPath(); ctx.ellipse(sx, y - 2 * u + Math.sin(a) * 4 * u, 7 * u, 5 * u, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(246,196,122,0.4)'; ctx.beginPath(); ctx.ellipse(sx + (sx < x ? 2 : -2) * u, y - 5 * u, 4 * u, 1.6 * u, 0, 0, Math.PI * 2); ctx.fill(); }
+  for (const [dx, r] of [[-12, 0.32], [12, -0.32]]) { ctx.save(); ctx.translate(x + dx * u, y - 6 * u); ctx.rotate(r); ctx.fillStyle = '#3d2c20'; ctx.fillRect(-24 * u, -4.5 * u, 48 * u, 9 * u); ctx.fillStyle = '#d98e4f'; ctx.fillRect(-4 * u, -4.5 * u, 8 * u, 3 * u); ctx.restore(); }
+  const flame = (w, hgt, col, ph) => {
+    const k = 1 + Math.sin(t * (7 + ph) + ph) * 0.12; const lean = Math.sin(t * 5 + ph) * 4 * u;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - w * u, y - 8 * u);
+    ctx.quadraticCurveTo(x - w * 0.9 * u, y - hgt * 0.55 * u * k, x + lean, y - hgt * u * k);
+    ctx.quadraticCurveTo(x + w * 0.4 * u + lean * 0.3, y - hgt * 0.6 * u * k, x + w * 0.6 * u, y - hgt * 0.45 * u * k);
+    ctx.quadraticCurveTo(x + w * 1.05 * u, y - hgt * 0.3 * u, x + w * u, y - 8 * u); ctx.closePath(); ctx.fill();
+  };
+  flame(19, 62, '#d98e4f', 0); flame(13, 46, '#f2c56b', 1.3); flame(7, 28, '#f8ecd0', 2.1);
+  ctx.fillStyle = 'rgba(248,236,208,0.85)';
+  for (let i = 0; i < 4; i++) { const k = (t * 0.6 + i * 0.27) % 1; ctx.beginPath(); ctx.arc(x + Math.sin(t * 2 + i * 2) * 14 * u, y - (50 + k * 90) * u, (1.6 - k) * 1.4 * u, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+/** A canvas tent in two values of paper-ochre, lit on the side toward the fire (to its left), with guy ropes and pegs. */
+function tentL(ctx, x, y, u, th) {
+  const cloth = '#cdb68a'; const shadeC = '#6f5a46'; const ink = '#2b2118';
+  ctx.strokeStyle = 'rgba(43,33,24,0.7)'; ctx.lineWidth = 1.3 * u;
+  ctx.beginPath(); ctx.moveTo(x - 3 * u, y - 94 * u); ctx.lineTo(x - 104 * u, y + 2 * u); ctx.moveTo(x + 3 * u, y - 94 * u); ctx.lineTo(x + 104 * u, y + 2 * u); ctx.stroke();
+  ctx.fillStyle = ink; for (const px of [-104, 104]) ctx.fillRect(x + px * u - 1.5 * u, y - 4 * u, 3 * u, 6 * u);
+  ctx.fillStyle = shadeC; ctx.beginPath(); ctx.moveTo(x - 74 * u, y + 1 * u); ctx.quadraticCurveTo(x - 30 * u, y - 46 * u, x, y - 92 * u); ctx.quadraticCurveTo(x + 34 * u, y - 44 * u, x + 76 * u, y + 1 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = cloth; ctx.beginPath(); ctx.moveTo(x - 74 * u, y + 1 * u); ctx.quadraticCurveTo(x - 30 * u, y - 46 * u, x, y - 92 * u); ctx.lineTo(x - 6 * u, y + 1 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(242,197,107,0.35)'; ctx.beginPath(); ctx.moveTo(x - 70 * u, y - 2 * u); ctx.quadraticCurveTo(x - 30 * u, y - 44 * u, x - 4 * u, y - 86 * u); ctx.lineTo(x - 22 * u, y - 2 * u); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(43,33,24,0.25)'; ctx.lineWidth = 1.4 * u;
+  for (const f of [0.38, 0.7]) { ctx.beginPath(); ctx.moveTo(x - 74 * u * f, y - 92 * u * (1 - f)); ctx.lineTo(x + 76 * u * f, y - 92 * u * (1 - f)); ctx.stroke(); }
+  ctx.fillStyle = '#1c1612'; ctx.beginPath(); ctx.moveTo(x - 4 * u, y + 1 * u); ctx.quadraticCurveTo(x + 4 * u, y - 30 * u, x + 4 * u, y - 52 * u); ctx.quadraticCurveTo(x + 12 * u, y - 26 * u, x + 24 * u, y + 1 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = cloth; ctx.beginPath(); ctx.moveTo(x - 6 * u, y + 1 * u); ctx.quadraticCurveTo(x + 2 * u, y - 28 * u, x + 4 * u, y - 52 * u); ctx.lineTo(x - 10 * u, y + 1 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3d2c20'; ctx.fillRect(x - 1.6 * u, y - 104 * u, 3.2 * u, 14 * u);
+  ctx.fillStyle = '#d9a441'; ctx.beginPath(); ctx.moveTo(x + 1.6 * u, y - 104 * u); ctx.lineTo(x + 14 * u, y - 100 * u); ctx.lineTo(x + 1.6 * u, y - 96 * u); ctx.fill();
+}
+/** The class banner as painted cloth: the class colour muted toward umber, a fold in shade, a lit hem, a finial. */
+function bannerL(ctx, x, y, u, t, col) {
+  const cloth = mix(col, '#6b4a2e', 0.28);
+  ctx.fillStyle = '#3d2c20'; ctx.fillRect(x - 2.5 * u, y - 156 * u, 5 * u, 156 * u);
+  ctx.fillStyle = '#d9a441'; ctx.beginPath(); ctx.arc(x, y - 158 * u, 4.5 * u, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3d2c20'; ctx.fillRect(x - 2 * u, y - 148 * u, 58 * u, 3.5 * u);
+  const wave = Math.sin(t * 1.8) * 5 * u;
+  ctx.fillStyle = cloth; ctx.beginPath(); ctx.moveTo(x + 3 * u, y - 145 * u); ctx.lineTo(x + 54 * u, y - 145 * u); ctx.quadraticCurveTo(x + 57 * u + wave * 0.3, y - 120 * u, x + 54 * u + wave * 0.5, y - 88 * u); ctx.lineTo(x + 28 * u + wave * 0.3, y - 100 * u); ctx.lineTo(x + 3 * u, y - 88 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = shade(cloth, -0.3); ctx.beginPath(); ctx.moveTo(x + 22 * u, y - 145 * u); ctx.quadraticCurveTo(x + 25 * u + wave * 0.4, y - 118 * u, x + 22 * u + wave * 0.3, y - 97 * u); ctx.lineTo(x + 30 * u + wave * 0.3, y - 100 * u); ctx.quadraticCurveTo(x + 32 * u + wave * 0.4, y - 120 * u, x + 30 * u, y - 145 * u); ctx.fill();
+  ctx.fillStyle = 'rgba(242,197,107,0.35)'; ctx.beginPath(); ctx.moveTo(x + 40 * u, y - 145 * u); ctx.lineTo(x + 54 * u, y - 145 * u); ctx.quadraticCurveTo(x + 57 * u + wave * 0.3, y - 120 * u, x + 54 * u + wave * 0.5, y - 88 * u); ctx.lineTo(x + 46 * u + wave * 0.4, y - 92 * u); ctx.quadraticCurveTo(x + 46 * u, y - 120 * u, x + 40 * u, y - 145 * u); ctx.fill();
+  ctx.strokeStyle = '#d9a441'; ctx.lineWidth = 1.6 * u; ctx.beginPath(); ctx.moveTo(x + 12 * u, y - 128 * u); ctx.lineTo(x + 44 * u, y - 128 * u); ctx.stroke();
 }

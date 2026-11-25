@@ -19,7 +19,7 @@
 // Fonts: weights are the --fw-* type tokens. FCT_FONT (floating text) differs from --font-num by "-apple-system", and
 // "Georgia, serif" (sleep letters) matches no type token; both stay written here (R5, exact values only).
 import { clamp, lerp, ease, rgba, glowBall } from './util.js';
-import { BOLT, token } from './theme.js';
+import { BOLT, token, artStyle } from './theme.js';
 
 export const FCT_FONT = '"Trebuchet MS", "Segoe UI", system-ui, -apple-system, "Liberation Sans", sans-serif';
 
@@ -30,6 +30,12 @@ export const floatFont = (f) => `${f.small ? token('--fw-bold') : token('--fw-he
 /** The ground shadow under an actor (none under the boss). */
 export function drawShadow(ctx, kind, x, gy, scale, look, u) {
   if (kind === 'boss') return;
+  if (look && look.lantern) { // Lantern (proof slice): a flat umber pool with a darker core under the feet, no black
+    const w = (kind === 'beast' ? 48 : kind === 'shard' ? 22 : 32) * scale * (look.size || 1) * (look.build || 1);
+    ctx.fillStyle = 'rgba(43,33,24,0.26)'; ctx.beginPath(); ctx.ellipse(x, gy + 2 * u, w * 1.15, 8 * u, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(43,33,24,0.32)'; ctx.beginPath(); ctx.ellipse(x, gy + 1.5 * u, w * 0.62, 4.5 * u, 0, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   const w = (kind === 'beast' ? 46 : kind === 'shard' ? 22 : 30) * scale * (look && look.size || 1) * (look && look.build || 1);
   ctx.beginPath(); ctx.ellipse(x, gy + 2 * u, w, 7 * u, 0, 0, Math.PI * 2); ctx.fill();
@@ -39,6 +45,12 @@ export function drawShadow(ctx, kind, x, gy, scale, look, u) {
 export function drawTargetRing(ctx, kind, x, gy, scale, u, sel) {
   const w = (kind === 'boss' ? 150 : kind === 'beast' ? 56 : 40) * scale;
   ctx.save();
+  if (artStyle() === 'lantern') { // Lantern (proof slice): red is danger's alone (D120), so the target ring is lantern light, flat
+    ctx.strokeStyle = sel ? 'rgba(242,197,107,0.95)' : 'rgba(241,227,192,0.55)'; ctx.lineWidth = (sel ? 3 : 2) * u;
+    ctx.setLineDash(sel ? [] : [6 * u, 5 * u]);
+    ctx.beginPath(); ctx.ellipse(x, gy + 2 * u, w, 11 * u, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore(); return;
+  }
   ctx.strokeStyle = sel ? 'rgba(255,90,70,0.95)' : 'rgba(255,230,160,0.6)'; ctx.lineWidth = (sel ? 3 : 2) * u;
   ctx.shadowColor = sel ? '#ff3a2a' : '#ffd27a'; ctx.shadowBlur = 10 * u;
   ctx.beginPath(); ctx.ellipse(x, gy + 2 * u, w, 11 * u, 0, 0, Math.PI * 2); ctx.stroke();
@@ -48,6 +60,7 @@ export function drawTargetRing(ctx, kind, x, gy, scale, u, sel) {
 /** The pulsing glow behind an elite, rare or dungeon-boss enemy (nothing for another rank). */
 export function drawRankAura(ctx, rank, x, gy, scale, t) {
   if (!(rank === 'elite' || rank === 'rare' || rank === 'dboss')) return;
+  if (artStyle() === 'lantern') return; // Lantern (proof slice): rank is in the drawing (size, feature, heavier edge), not a glow
   const col = rank === 'rare' ? '#d8e4ff' : rank === 'dboss' ? '#ff7a4a' : '#ffd27a';
   const g = ctx.createRadialGradient(x, gy - 50 * scale, 10, x, gy - 50 * scale, 90 * scale);
   g.addColorStop(0, rgba(col, 0.18 + 0.06 * Math.sin(t * 3))); g.addColorStop(1, rgba(col, 0));
