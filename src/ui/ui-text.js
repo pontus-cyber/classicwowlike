@@ -546,8 +546,8 @@ export function metaEffect(m, D, d, mode = 'rows') {
     // strength (D.freePotionMult from the engine; "half strength")
     case 'satchel': {
       const str = strengthText(D.freePotionMult);
-      return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight is free${str ? `, at ${str}` : ''}`,
-        long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight is a free action${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
+      return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight costs no turn${str ? `, at ${str}` : ''}`,
+        long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight costs no turn${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
     }
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${lv(m.ilvl)}`, long: `Your starting weapon is ${m.rarity} quality, item level ${lv(m.ilvl)}, instead of a common one.` };
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };

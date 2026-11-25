@@ -222,7 +222,7 @@ export const CONSUMABLES = {
   healing_draught: { id: 'healing_draught', name: 'Healing Draught', use: 'both', price: 1.5, stack: 5, text: 'Restores 35 % of your maximum health. Shares a 4-round cooldown with other draughts.' },
   mana_draught: { id: 'mana_draught', name: 'Mana Draught', use: 'both', price: 1.5, stack: 5, text: 'Restores 35 % of your maximum mana. Shares a 4-round cooldown with other draughts.' },
   trail_rations: { id: 'trail_rations', name: 'Trail Rations', use: 'out', price: 0.5, stack: 10, text: 'Out of combat: restores 40 % of health, mana and pet health.' },
-  purifying_tonic: { id: 'purifying_tonic', name: 'Purifying Tonic', use: 'combat', price: 2, stack: 5, text: 'Removes every debuff on you, including Brand stacks.' },
+  purifying_tonic: { id: 'purifying_tonic', name: 'Purifying Tonic', use: 'combat', price: 2, stack: 5, text: 'Removes every debuff on you.' },
   spark_flask: { id: 'spark_flask', name: 'Spark Flask', use: 'combat', price: 1, stack: 5, text: 'Throw it: magic damage to every enemy.' },
   elixir_ferocity: { id: 'elixir_ferocity', name: 'Elixir of Ferocity', use: 'out', price: 3, stack: 3, text: '+10 % damage for the next 3 nodes.' },
   ember_of_return: { id: 'ember_of_return', name: 'Ember of Return', use: 'passive', price: 30, stack: 1, text: 'Carried: when you die, you return at once with 40 % health. One at a time.' },

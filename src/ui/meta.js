@@ -85,7 +85,7 @@ export function createMeta(ctx) {
     const win = h('div.mwin.panel');
     // header: title, feedback line, balance, close
     const bal = h('div.mbal', h('i.eg.big'), h('b.n', fmtNum(m.echoes)), h('span.u', 'Echoes'), h('span.delta'));
-    tip(bal, () => h('div', h('div.tt-name', 'Echoes'), h('div.tt-line.desc', `Every run earns Echoes: for levels, zones, dungeons, elites and quests, and for facing ${D.names.boss}. They buy lasting unlocks here.`),
+    tip(bal, () => h('div', h('div.tt-name', 'Echoes'), h('div.tt-line.desc', 'Every run earns Echoes for what it did: levels, zones, dungeons, elites, quests and more. They buy lasting unlocks here.'),
       h('div.tt-line.num', `Earned ${fmtNum(m.earned)} · spent ${fmtNum(m.spent)}`), h('div.tt-sub', `${numWord(reach)} ${plural(reach, 'unlock')} within reach`)));
     const close = h('button.xbtn', { 'aria-label': 'Close' }, '×');
     close.addEventListener('click', () => ctx.ui.closeMeta());
