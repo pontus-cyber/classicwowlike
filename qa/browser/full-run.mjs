@@ -122,6 +122,17 @@ function slimView() {
   };
 }
 
+/**
+ * One twin step, then what the UI bridge does after every step of its own (src/ui/engine-bridge.js step, 2026-11-20 junk task,
+ * ui-2026-11-20b): when a vendor is open and the bags hold junk, SELL_JUNK is sent in the same step. The twin sends the same
+ * action at the same point (after the action, before the next comparison), so the policy's own junk sale is not needed in a run.
+ */
+function twinStep(s, a) {
+  s = R.step(s, a).state;
+  if (s.service && s.service.kind === 'vendor' && s.player.bag.some((x) => x.kind === 'junk') && R.isLegal(s, { type: 'SELL_JUNK' })) s = R.step(s, { type: 'SELL_JUNK' }).state;
+  return s;
+}
+
 /** The same fields from the twin's engine state. */
 function slimTwin(s) {
   const p = s.player;
@@ -518,7 +529,7 @@ async function playOne(browser, W, H, cls) {
       const own = await page.evaluate(() => (window.__ui.ownActions ? window.__ui.ownActions() : []));
       for (const a of own.slice(ownSeen)) {
         if (!R.isLegal(s, a)) { res.problems.push(`the UI's own ${JSON.stringify(a)} is not legal in the twin: ${R.whyIllegal(s, a)}`); continue; }
-        s = R.step(s, a).state;
+        s = twinStep(s, a);
       }
       ownSeen = own.length;
     };
@@ -607,7 +618,7 @@ async function playOne(browser, W, H, cls) {
       }
       if (s.phase === 'CAMP') await shotFirst('camp');
       await perform(a, s, v, { keys: s.fight && autoplay });
-      s = R.step(s, a).state;
+      s = twinStep(s, a);
     }
     v = await view();
     if (v.phase !== 'SUMMARY') {
