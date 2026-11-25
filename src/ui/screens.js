@@ -32,7 +32,7 @@ import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, 
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
 import { contractTitle } from './ui-text.js';
 import { gateLine, closedRoadLine } from './onboarding.js';
-import { token } from './theme.js';
+import { token, artStyle } from './theme.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
 const heatOf = (v, action) => (v.heat && v.heat.next ? v.heat.next[heatKey(action)] || null : null);
@@ -525,6 +525,9 @@ const XR = [0, 138, 262, 376]; // ring radii in the disc's 1000 units
 /** The colour of a Road's post line (newcomer check 2026-11-15): open, closed (the guided zone, D142), Dimmed. */
 const ROAD_LINE = { open: '#c98a3e', closed: '#a0705a', dimmed: '#9b7cf0' };
 const XCELL = [[0, 66], [66, 200], [200, 320], [320, 468]]; // each ring's band of the disc
+const LANTERN_MAP_DEFS = '<filter id="xf-lwash" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="16"/><feGaussianBlur stdDeviation="1.2"/></filter>'
+  + '<filter id="xf-lsoak" x="-30%" y="-30%" width="160%" height="160%"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="3" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="34"/><feGaussianBlur stdDeviation="5"/></filter>'
+  + '<pattern id="xp-lhatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(32)"><rect width="14" height="14" fill="#efe2c2"/><path d="M0 7 H14" stroke="#9a8460" stroke-width="1.3" opacity=".45"/></pattern>';
 const svgEl = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVGNS, tag); for (const [k, x] of Object.entries(attrs)) e.setAttribute(k, x); if (parent) parent.appendChild(e); return e; };
 const polar = (r, deg) => { const a = (deg * Math.PI) / 180; return [500 + r * Math.cos(a), 500 + r * Math.sin(a)]; };
 /** A node's cell: the annular sector of its ring between the half-steps to its ring neighbours (the hub: a disc). */
@@ -614,6 +617,9 @@ function buildExpMap(v, ctx, readOnly) {
     + '<filter id="xf-mist" x="-30%" y="-30%" width="160%" height="160%"><feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="38"/><feGaussianBlur stdDeviation="7"/></filter>'
     + '<filter id="xf-ink" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="matrix" values="0 0 0 0 .35  0 0 0 0 .24  0 0 0 0 .12  0 0 0 .22 0" result="gc"/><feComposite in="gc" in2="SourceGraphic" operator="in"/></filter>'
     + '<clipPath id="xc-disc"><circle cx="500" cy="500" r="468"/></clipPath>';
+  // the Lantern proof slice (data-art="lantern", draft; docs/art/proof-slice-2026-11-25.md): a gouache wash edge, a violet
+  // soak for the Dimming and a pencil hatch for uncharted land, used by the lantern rules of tokens.css only
+  if (artStyle() === 'lantern') defs.insertAdjacentHTML('beforeend', LANTERN_MAP_DEFS);
   // land: the painted parchment disc, a grain over it, the rim
   svgEl('circle', { cx: 500, cy: 500, r: 482, fill: '#3a2814', opacity: 0.55, filter: 'url(#xf-soft)' }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'url(#xg-land)' }, svg);
@@ -648,6 +654,12 @@ function buildExpMap(v, ctx, readOnly) {
   // the Dimming: a dark wash over every Dimmed node, from the Shardfall outward (a landmark: drawn over the fog, 5.1)
   const gDim = svgEl('g', { 'clip-path': 'url(#xc-disc)', class: 'xdimwash' }, svg);
   for (const n of mv.nodes) if (n.dimmed) svgEl('path', { d: cellPath(n.ring, n.angle, step(n.ring)), fill: '#1a0d30', opacity: 0.8, filter: 'url(#xf-soft)' }, gDim);
+  // the Lantern proof slice: gouache edges on the washes, uncharted land as hatched paper, the Dimming a violet soak
+  if (artStyle() === 'lantern') {
+    gReg.setAttribute('filter', 'url(#xf-lwash)'); gFog.setAttribute('filter', 'url(#xf-lwash)');
+    for (const pth of gFog.children) { pth.setAttribute('fill', 'url(#xp-lhatch)'); pth.setAttribute('opacity', pth.getAttribute('opacity') === '0.34' ? '0.55' : '0.92'); }
+    for (const pth of gDim.children) { pth.setAttribute('fill', '#36265a'); pth.setAttribute('filter', 'url(#xf-lsoak)'); }
+  }
   // paths: every edge; the ones from the player's node lit
   const XY = (n) => polar(XR[n.ring], n.angle);
   for (const [a, b] of mv.edges) {

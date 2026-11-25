@@ -418,3 +418,43 @@
 :root[data-theme="lantern"] .bar { background: var(--surface-well); box-shadow: inset 0 0 0 1px var(--lg-ink-edge); }
 :root[data-theme="lantern"] .bar .fill::after { height: 30%; background: linear-gradient(180deg, rgba(255, 244, 214, .16), rgba(255, 244, 214, 0)); }
 /* ==== end of the lantern-only rules ==== */
+
+/* ==== LANTERN GOUACHE PROOF SLICE (docs/art/proof-slice-2026-11-25.md; MD D.4; draft, for the owner, D121). On behind
+   the Dev menu's "Art: Lantern proof slice" switch or ?art=lantern, which put data-art="lantern" on <html> (settings.js).
+   The canvas is painted by the art modules (art-world.js, art-actors.js, art-props.js, art-fx.js). Here: red is danger's
+   alone (D120) on the HUD too, with today's dark panels kept (D129): enemy health brick with an ink edge, the primary
+   button and Take lantern ochre with ink text, the close button dark with a cream line, damage and potion icons in rust
+   umber (the danger icons, the Deathblow banner, LETHAL and MAIMED keep madder red); and the zone map painted as a chart
+   (paper, gouache region washes, uncharted land as hatched paper, ink roads, the Dimming a violet soak, a compass rose;
+   the washes, hatch and soak are SVG filters and a pattern that screens.js adds to the chart only under this switch).
+   Every selector starts with :root[data-art="lantern"], so nothing here touches the look with the switch off. ==== */
+:root[data-art="lantern"] {
+  --icon-blood: #b07a4a; --icon-blood-deep: #3d2416;
+  --lg-brick-1: #a8674e; --lg-brick-2: #84452f; --lg-brick-3: #5f2f20; --lg-ink-edge: rgba(43, 33, 24, .7);
+}
+:root[data-art="lantern"] .bar.enemy .fill { background: linear-gradient(180deg, var(--lg-brick-1), var(--lg-brick-2) 55%, var(--lg-brick-3)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge); }
+:root[data-art="lantern"] .btn.primary,
+:root[data-art="lantern"] .pp-card .pc-btn { background: linear-gradient(180deg, #f2c56b, #d9a441 65%, #c18d33); color: #2b2118; text-shadow: none; box-shadow: inset 0 1px 0 rgba(255, 244, 214, .5), inset 0 0 0 1px var(--lg-ink-edge), 0 .2rem .5rem var(--shade-55); }
+:root[data-art="lantern"] .btn.primary .key, :root[data-art="lantern"] .btn.primary kbd { color: #2b2118; border-color: rgba(43, 33, 24, .55); background: rgba(255, 244, 214, .35); }
+:root[data-art="lantern"] .pp-card.taken .pc-btn { background: linear-gradient(180deg, #e9dbb4, #d3c08e); }
+:root[data-art="lantern"] .xbtn { background: radial-gradient(circle at 40% 35%, #4a3a2c, #241a12); color: #f1e3c0; box-shadow: inset 0 0 0 1px rgba(241, 227, 192, .45); }
+/* the chart: painted paper with a darker deckle edge and a compass rose (original drawing, inline SVG) */
+:root[data-art="lantern"] .expmap .xbody {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-50 -50 100 100'%3E%3Cg fill='none' stroke='%232b2118' stroke-width='1.2' opacity='.55'%3E%3Ccircle r='30'/%3E%3Ccircle r='24' stroke-dasharray='2 3'/%3E%3C/g%3E%3Cpath d='M0-46 6-6 0 0-6-6Z M0 46 6 6 0 0-6 6Z M-46 0-6-6 0 0-6 6Z M46 0 6-6 0 0 6 6Z' fill='%232b2118' opacity='.7'/%3E%3Cpath d='M0-46 6-6 0 0Z M46 0 6 6 0 0Z M0 46-6 6 0 0Z M-46 0-6-6 0 0Z' fill='%23d9a441'/%3E%3Cpath d='M0-22 3-3 0 0-3-3Z M22 0 3 3 0 0 3-3Z M0 22-3 3 0 0 3 3Z M-22 0-3-3 0 0-3 3Z' fill='%235d7a5a' opacity='.8' transform='rotate(45)'/%3E%3Ctext y='-36' x='-4' font-size='9' font-family='Georgia,serif' fill='%232b2118' transform='translate(0 -12)'%3EN%3C/text%3E%3C/svg%3E") no-repeat right 1.2rem bottom 1rem / 7.5rem 7.5rem,
+    radial-gradient(120% 90% at 50% 45%, rgba(255, 248, 228, .55), rgba(255, 248, 228, 0) 60%),
+    repeating-linear-gradient(97deg, rgba(110, 80, 40, 0) 0 .9rem, rgba(110, 80, 40, .035) .9rem 1rem),
+    repeating-linear-gradient(8deg, rgba(110, 80, 40, 0) 0 1.7rem, rgba(110, 80, 40, .03) 1.7rem 1.8rem),
+    linear-gradient(175deg, #f3e6c6, #e7d3a6);
+  box-shadow: inset 0 0 0 1px var(--chart-ink-edge), inset 0 0 2.6rem rgba(122, 86, 44, .38), inset 0 0 .5rem rgba(122, 86, 44, .3), .15rem .25rem 0 var(--shade-35);
+}
+:root[data-art="lantern"] .expmap #xg-land stop:nth-child(1) { stop-color: #f1e3c0; }
+:root[data-art="lantern"] .expmap #xg-land stop:nth-child(2) { stop-color: #e4cf9e; }
+:root[data-art="lantern"] .expmap #xg-land stop:nth-child(3) { stop-color: #c4a46e; }
+:root[data-art="lantern"] .expmap #xg-land stop:nth-child(4) { stop-color: #7d5c36; }
+:root[data-art="lantern"] .expmap .xregions { opacity: .8; }
+:root[data-art="lantern"] .expmap .xdimwash path { opacity: .8; }
+:root[data-art="lantern"] .expmap .xedge { stroke: #2b2118; }
+:root[data-art="lantern"] .expmap .xedge.near { stroke: #b8782a; }
+:root[data-art="lantern"] .expmap .xrname { fill: #2b2118; stroke: rgba(241, 227, 192, .85); }
+/* ==== end of the Lantern proof slice rules ==== */
