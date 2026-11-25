@@ -13,9 +13,9 @@ This is every player-facing line, name and number a demo player can see, grouped
 | Draft | **417** |
 | of which "to come" in part 1 (the demo spec adds them); built in D.3 since | 18 |
 | Flagged in part 1 (any flag) | **137** |
-| Part 2: **fixed** (the text in src changed) | **75** |
+| Part 2: **fixed** (the text in src changed) | **76** |
 | Part 2: **demo variant** (the demo shows its own line; the full game's line stays) | **6** (2 built and wired in D.3: HS3, HS18; 4 added now, wiring L1 for the UI engineer: NUM11, GR43, GR44, FU4) |
-| Part 2: **explained** (no change needed: the line cannot show in the demo, D.3 already handles it, or the two lines never show together; the note says which) | **41** |
+| Part 2: **explained** (no change needed: the line cannot show in the demo, D.3 already handles it, or the two lines never show together; the note says which) | **40** |
 | Part 2: **open: needs logic** (text change alone cannot fix it; hand-off docs/handoffs/content-2026-11-25.md L2-L5) | **8** (FT5, FT11, HL2, HL3, HL4, HL5, HL7, ST8) |
 | Part 2: **open: owner name** (a rename is proposed on the owner page; not applied, see below) | **7** (FU2, EN15, EN31, EN32, IT1, IT4, IT5) |
 | Still flagged (open) | **15** |
@@ -627,7 +627,7 @@ The window "Menu and settings". The Dev tools row, the Classic map setting and t
 | ST4 | Screen shake · Reduce motion · No screen shake, smaller recoil, numbers without the slam. · Combat log | draft | **explained** (R): Reduce motion also turns shake off, so its line says so; Screen shake is the one switch on its own | ui/windows.js |
 | ST5 | Hints · One short line the first time you meet something new. · On / Off · First-time hints and the guide · Reset hints · Play the guide again · Every first-time hint shows again. · This run is the guided run. · Your next run is the guided run. | draft |  | ui/windows.js |
 | ST6 | Mute sound · Sound starts with your first click or key. Everything it tells you is also on screen. · Volume · Master {n} % · Effects {n} % · Interface {n} % | draft |  | ui/windows.js |
-| ST7 | Keys: 1–7 Spells · 8 9 0 Items · A Basic attack · Tab Next target · Z Autoplay · F F Flee · X Pass · Space Skip a hit / take loot · C B P Character, bags, spells · N L M Talents, quests, map | draft | **explained** (U): checked: the keys list matches the hint keys (N talents, B bags, P spellbook; onboarding.js KEYS) | ui/windows.js |
+| ST7 | Keys: 1–7 Spells · 8 9 0 Items · A Basic attack · Tab Next target · Z Autoplay · F F Flee · X Pass · Space Skip a hit / take loot · C B P Character, bags, spells · N L M Talents, quests, map | draft | **fixed** (U): the level-up banner wrote "Talent point to spend (T)." but the Talents key is N (app.js); director.js now passes N. The Settings keys list matches the hint keys (onboarding.js KEYS) | ui/windows.js |
 | ST8 | Footer: Engine: {engine} · build {build} | draft | **open: needs logic** (X): developer text: hide the "Engine: … · build …" footer in the demo build: hand-off L4 | ui/windows.js |
 | ST9 | Window titles and tabs: Menu and settings · Character · Bags · Spellbook · Talents · Quest log · Map · Vendor · Trainer · Loot | draft |  | ui/windows.js |
 | ST10 | Start over · Start over? Your heroes and Legacy unlocks are deleted. | draft (built in D.3) |  | docs/specs/demo.md 2.4 |

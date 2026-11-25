@@ -514,7 +514,7 @@ export class Director {
     const spells = [...new Set(list.flatMap((e) => e.heroSpells || []))];
     if (spells.length) for (const sp of spells.slice(0, 2)) lines.push(E('level_new_spell', { spell: sp }));
     else if (z.ranks > 0) lines.push(E('level_new_ranks', { n: z.ranks }));
-    if (sum('talentPoints') > 0) lines.push(E('level_talent', { key_talents: 'T' }));
+    if (sum('talentPoints') > 0) lines.push(E('level_talent', { key_talents: 'N' }));
     const reached = (L) => L != null && list.some((e) => e.heroLevel === L);
     // the demo (demo.md 3.1, draft): the level-up to the demo's highest level says so, once (the engine's `cap` on that event)
     if (list.some((e) => e.cap === 'demo') && ctx.data.demo) lines.push(capLevelText(ctx));
