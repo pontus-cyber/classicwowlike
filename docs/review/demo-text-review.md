@@ -655,5 +655,5 @@ From docs/specs/demo.md 1.3, 1.4, 2.4, 3.1, 3.2. Every line is a draft for the o
 - Built by reading src, not by playing the build: content tables are loaded from src/content, UI strings are copied from src/ui. A line that is built from several strings (a tooltip) is one row. The wording of a screen may differ slightly where the UI joins pieces at run time.
 - Spells and talents are listed for hero levels 1 to 7 on the Legacy scale (R.learnLevel). Talent tiers above 1 need four points already spent in the tree, so they cannot be bought by level 7 and are left out.
 - Left out: lines of zones 3 to 6, the Camp and Oruvath, the Dev menu, the mock engine, the classic map, Oaths, Lost Techniques and the level-20 wing (none of them can show in the demo).
-- Numbers: the hero cap is the demo spec's proposal (7); the code has no demo cap yet. The hall prices are hall v3d (D167, draft).
+- Numbers: the hero cap 7 and the hall prices are the numbers of the demo spec; the engine holds them as constants (HERO_MAX_DEMO, DEMO_HALL, D.3), and the UI shows none of the demo lines yet. The hall prices are hall v3d (D167, draft).
 - The demo spec asks for a blind panel (D.7) and owner sign-off (D.8); this list is the input to D.5, not its result.
