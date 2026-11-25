@@ -69,10 +69,10 @@ Scope (D170, draft for the owner): the guided first run, then zones 1-2 of the e
 |---|---|---|---|
 | D.1 | Demo spec: cut line, demo-end screen, gates on, hero cap, what is hidden (docs/specs/demo.md) | Designer | done (2e78760, D171) |
 | D.2 | Legacy ready to be on by default: Hunter package (D169), pace check on the D168 reading, B6 on fresh seeds | Engineer + Sim | done (8e260d2, 4c20405; D172-D174) |
-| D.3 | Demo build mode: zones 1-2 cut, demo-end screen, Legacy gates on, no dev switches visible | Engineer + UI | todo |
-| D.4 | Art: owner-led proof slice (D121), then the pass the demo needs | Owner + UI | doing: art directions being drawn for the owner to pick |
-| D.5 | Content approval: one review page with every draft line, name and number for the owner | Content + Lead | todo |
-| D.6 | Stability: browser matrix, save and reload, long sessions, performance, no console errors | QA | todo |
+| D.3 | Demo build mode: zones 1-2 cut, demo-end screen, Legacy gates on, no dev switches visible | Engineer + UI | doing |
+| D.4 | Art: owner-led proof slice (D121), then the pass the demo needs | Owner + UI | proof slice built (e73d477, docs/art/proof-slice-2026-11-25.md); waiting for the owner steer |
+| D.5 | Content approval: one review page with every draft line, name and number for the owner | Content + Lead | doing |
+| D.6 | Stability: browser matrix, save and reload, long sessions, performance, no console errors | QA | doing (harness) |
 | D.7 | Blind panel on the demo build (three personas) and fixes | QA + Lead | todo |
 | D.8 | Owner plays the demo (replaces the M3 five-run playtest) and signs off | Owner | todo |
 | D.9 | Private preview package (single game.html plus a short readme) for the owner to publish | Lead | todo |
