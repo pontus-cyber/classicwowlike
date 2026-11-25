@@ -19,6 +19,9 @@
 // (theme.js artStyle) backdrops are built with art-world.js's Lantern pass (zones 1-2 and the camp), actors take the
 // Lantern looks (art-actors.js heroLook, foeLook...), painted (paintActor) with the key light of the backdrop into sprites
 // kept per pose (drawPainted); a switch of the attribute rebuilds the backdrops and the looks at once (restyle()).
+// Paint on demand (D175, docs/specs/demo.md 5.4 frame time): frame() moves the scene's state on every frame as before, but
+// on the map and in fights (IDLE_MODES) it paints the canvas only while something is moving or has changed (busy(), sig());
+// a still map or idle fight keeps its last paint. paintNow() paints a stale canvas at once (canvas-shot.mjs).
 import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine } from './art-world.js';
 import { drawHumanoid, drawBeast, drawBoss, drawShard, heroLook, petLook, foeLook, foeBeastLook, paintActor, makeGrain } from './art-actors.js';
 import { drawProp as drawSetPiece, drawQuestMark } from './art-props.js';
@@ -40,6 +43,14 @@ const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD =
 // is HEAD_DY0 px above the head; under an enemy it is HEAD_GAP px below the word lane's last row (px at 768 high)
 const HEAD_ROWS = 2; const HEAD_DY0 = 18; const HEAD_ROW = 28; const HEAD_GAP = 30; const FLOG_MAX = 240;
 const SCHOOL_COL = IMPACT; // theme.js: the --fx-impact-* tokens (frost: --school-frost)
+// paint on demand (D175; Scene.frame): the modes whose canvas may hold its last paint while nothing on it moves (the map and
+// fights; class select, the camp, the hub, nodes and the summary paint every frame as before); an actor or prop within
+// SETTLE_PX of its mark, a scroll under SETTLE_SPEED px/s and a dim within SETTLE_DIM of its target count as settled
+const IDLE_MODES = new Set(['map', 'combat', 'boss']);
+const SETTLE_PX = 0.25; const SETTLE_SPEED = 0.5; const SETTLE_DIM = 0.001;
+/** A small number per object (sig(): the same look or backdrop object, the same number). */
+const objIds = new WeakMap(); let objNext = 0;
+const objId = (x) => { let n = objIds.get(x); if (n === undefined) { n = ++objNext; objIds.set(x, n); } return n; };
 
 export class Scene {
   constructor(canvas) {
@@ -65,8 +76,12 @@ export class Scene {
     this.target = null; this.hover = null;
     this.desat = 0;
     this.art = artStyle();
+    // the paint on demand (D175; frame()): the canvas is out of date (dirty), the last frame did not paint (stale), what the
+    // last paint in an idle mode showed (lastSig), and frame counts for the checks (painted, coasted)
+    this.dirty = true; this.stale = false; this.lastSig = null; this.painted = 0; this.coasted = 0;
     this.resize();
-    onTheme(() => this.restyle());
+    // a theme or art style switch (Lantern) changes the paint of tokens and looks: the next frame paints
+    onTheme(() => { this.restyle(); this.invalidate(); });
   }
 
   /** The art style changed (data-art on <html>): rebuild the backdrops and give every actor the look of the new style. */
@@ -92,6 +107,7 @@ export class Scene {
     this.cv.style.width = W + 'px'; this.cv.style.height = H + 'px';
     this.backdrops.clear();
     this.bd = this.getBackdrop(this.theme, this.hub); this.prevBd = null;
+    this.dirty = true;
     this.u = H / 768;
     this.layout(true);
     this.seedAmbient();
@@ -477,10 +493,101 @@ export class Scene {
   }
 
   // ------------------------------------------------------------------ frame
+  /**
+   * One animation frame (D175, BUG: the map and idle fights cost a full canvas paint every frame). The scene's state moves on
+   * every frame exactly as before (the clock, the ambient motes, actors settling on their marks, the scroll); the canvas is
+   * painted only when that paint shows something new: always outside IDLE_MODES; in them while an effect, a tween or a
+   * running animation is on (busy()), when anything the paint reads changed (sig()), and after invalidate(). An idle map
+   * or fight keeps its last paint (its ambient motion holds still) until then. Returns true when it painted.
+   */
   frame(now) {
     const t = now / 1000;
     const dt = this.last ? Math.min(0.05, t - this.last) : 0.016;
-    this.last = t; this.time += dt;
+    this.last = t;
+    if (this.mustPaint()) { this.paint(dt); this.stale = false; this.painted++; return true; }
+    this.coast(dt); this.stale = true; this.coasted++;
+    return false;
+  }
+
+  /** Mark the canvas out of date: the next frame paints (a resize, an art style switch). */
+  invalidate() { this.dirty = true; }
+
+  /** Test hook (canvas-shot.mjs): when the last frame did not paint, paint the scene as it stands now (no time passes). */
+  paintNow() { if (this.stale) { this.paint(0, true); this.stale = false; } }
+
+  /** Does this frame need a paint? Records what was painted (lastSig) when it does. */
+  mustPaint() {
+    if (this.dirty || !IDLE_MODES.has(this.mode) || this.busy()) { this.dirty = false; this.lastSig = null; return true; }
+    const sig = this.sig();
+    if (sig === this.lastSig) return false;
+    this.lastSig = sig;
+    return true;
+  }
+
+  /**
+   * Is an effect, a tween or a running animation on screen? Effects with a lifetime, the hit-stop, the screen shake, the
+   * scroll, the dim and the backdrop cross-fade, actors in a pose, a recoil, a hit flash, a death fade or walking to their
+   * mark, a prop sliding in; and the animations that carry meaning: a held telegraph (its tremble and sparks) and the
+   * animated status marks (stun, burn, hex, sleep, off-balance). The idle breathing, the rank glow, the drifting backdrop
+   * and the ambient motes are not counted: they hold still between paints.
+   */
+  busy() {
+    if (this.freeze > 0 || this.prevBd || this.shakeAmt > 0 || this.flash || this.pillar) return true;
+    if (this.targetSpeed !== 0 || Math.abs(this.speed) > SETTLE_SPEED || Math.abs(this.dim - this.targetDim) > SETTLE_DIM) return true;
+    if (this.particles.length || this.texts.length || this.projectiles.length || this.charges.length || this.cores.length || this.rays.length || this.rings.length || this.beams.length) return true;
+    const t = this.time;
+    for (const a of this.actors.values()) {
+      if (a.visible === false) continue;
+      if (a.act || a.kb || (a.flashT && t - a.flashT < 0.2) || (a.deadT0 && t - a.deadT0 < 0.7)) return true;
+      if (a.tx != null && (a.x == null || Math.abs(a.x - a.tx) > SETTLE_PX)) return true;
+      const live = a.alive !== false;
+      if (a.tele && !a.teleSpent && live && !a.deadT0) return true;
+      if (live && (a.fxStun || a.fxBurn || a.fxHex || ((a.fxSap || a.fxOffBal) && !a.deadT0))) return true;
+    }
+    for (const pr of this.props) if (pr.tx != null && (pr.x == null || Math.abs(pr.x - pr.tx) > SETTLE_PX)) return true;
+    return false;
+  }
+
+  /** What a paint reads besides the clock and the ambient motion, as one string (equal strings: the same picture). */
+  sig() {
+    const o = (x) => (x && typeof x === 'object' ? objId(x) : x);
+    const p = [this.mode, this.theme, this.hub ? 1 : 0, o(this.bd), this.W, this.H, this.dpr, this.art, this.target, this.hover, this.stealth ? 1 : 0, this.desat, this.bossPhase, this.targetDim];
+    for (const a of this.actors.values()) {
+      p.push(a.id, a.uid, a.kind, o(a.look), a.scale, a.flip ? 1 : 0, a.visible, a.alive, a.hidden, a.dead, a.deadT0, a.rank, a.dy, a.alpha, a.tx, a.born,
+        a.fxWard, a.fxStun, a.fxFrozen, a.fxHex, a.fxBurn, a.fxSap, a.fxOffBal, a.tele ? `${a.tele.kind}${a.tele.color}` : '', a.teleSpent);
+    }
+    for (const pr of this.props) p.push(pr.kind, pr.at, pr.tx, pr.color, pr.open, pr.mark, pr.look ? JSON.stringify(pr.look) : '');
+    return p.join('|');
+  }
+
+  /**
+   * A frame without a paint: the state moves on as paint() would move it (the same steps in the same order), so the next
+   * paint is the one the old every-frame loop would have shown at that moment. Only reached when busy() is false, so no
+   * effect, pose or random draw is pending.
+   */
+  coast(dt) {
+    this.time += dt;
+    const adt = this.freeze > 0 ? Math.max(0, dt - this.freeze) : dt;
+    this.freeze = Math.max(0, this.freeze - dt); this.atime += adt;
+    this.speed = lerp(this.speed, this.targetSpeed, Math.min(1, dt * 3.2));
+    this.scroll += this.speed * dt;
+    if (this.prevBd) { this.fade = Math.min(1, this.fade + dt / 1.4); if (this.fade >= 1) this.prevBd = null; }
+    this.dim = lerp(this.dim, this.targetDim, Math.min(1, dt * 5));
+    this.shakeAmt = 0;
+    for (let i = 0; i < this.ambient.length; i++) this.moveMote(this.ambient[i], (i % 3 === 0), dt);
+    for (const pr of this.props) this.moveProp(pr);
+    const walking = Math.abs(this.speed) > 5;
+    for (const a of this.actors.values()) {
+      if (a.visible === false) continue;
+      if (a.tx != null) a.x = lerp(a.x ?? a.tx, a.tx, Math.min(1, dt * (a.id.startsWith('enemy') ? 3.2 : 4)));
+      const moving = walking && (a.id === 'player' || a.id === 'pet') || (a.tx != null && Math.abs(a.x - a.tx) > 3);
+      a.phase = (a.phase || 0) + dt * (moving ? (a.kind === 'beast' ? 9 : 7.5) : 0);
+    }
+  }
+
+  /** Paint a frame dt seconds after the last one (the scene loop as it always was). still: paint the state as it stands. */
+  paint(dt, still = false) {
+    this.time += dt;
     // the actor clock stops during a hit-stop
     const adt = this.freeze > 0 ? Math.max(0, dt - this.freeze) : dt;
     this.freeze = Math.max(0, this.freeze - dt); this.atime += adt;
@@ -501,9 +608,9 @@ export class Scene {
     if (this.prevBd) drawBackdrop(ctx, this.prevBd, this.scroll, this.time, 1, true);
     drawBackdrop(ctx, this.bd, this.scroll, this.time, this.prevBd ? ease.inOut(this.fade) : 1, true);
 
-    this.drawAmbient(ctx, dt, false);
+    this.drawAmbient(ctx, dt, false, still);
     // props (set pieces) scroll with the ground
-    for (const pr of this.props) this.drawProp(ctx, pr);
+    for (const pr of this.props) this.drawProp(ctx, pr, still);
 
     // actors sorted by depth
     const walking = Math.abs(this.speed) > 5;
@@ -518,7 +625,7 @@ export class Scene {
     drawForeground(ctx, this.bd, this.scroll, this.prevBd ? ease.inOut(this.fade) : 1);
 
     this.drawFx(ctx, dt);
-    this.drawAmbient(ctx, dt, true);
+    this.drawAmbient(ctx, dt, true, still);
     ctx.restore();
 
     // grade + vignette, desaturation, dim and the screen flash (art-fx.js drawGrade); the flash ends here
@@ -671,11 +778,18 @@ export class Scene {
     } else ctx.drawImage(sp.cv, x + sp.dx, gy + sp.dy, w, h);
   }
 
-  /** A set piece (art-props.js), an NPC (art-actors.js) or a tree (art-world.js) on the ground line; an arriving one slides in. */
-  drawProp(ctx, pr) {
-    const u = this.u; const gy = this.groundY; const t = this.time;
+  /** A prop's place this frame (where it is drawn), then its slide toward its mark (an arriving one); kept as pr.dx. */
+  moveProp(pr) {
     const x = pr.x != null ? pr.x : this.W * (pr.at || 0.66);
     if (pr.tx != null) pr.x = lerp(pr.x ?? pr.tx, pr.tx, Math.min(1, 0.06));
+    pr.dx = x;
+    return x;
+  }
+
+  /** A set piece (art-props.js), an NPC (art-actors.js) or a tree (art-world.js) on the ground line; an arriving one slides in. */
+  drawProp(ctx, pr, still = false) {
+    const u = this.u; const gy = this.groundY; const t = this.time;
+    const x = still && pr.dx != null ? pr.dx : this.moveProp(pr);
     const th = this.palette();
     if (pr.kind === 'npc') {
       drawHumanoid(ctx, x, gy, 1.4 * u, pr.look, { t: t + 3, flip: true });
@@ -737,26 +851,31 @@ export class Scene {
     }
   }
 
-  drawAmbient(ctx, dt, front) {
-    const u = this.u; const t = this.time; const W = this.W; const H = this.H; const sp = this.speed;
+  drawAmbient(ctx, dt, front, still = false) {
+    const u = this.u; const t = this.time;
     ctx.save();
     for (let i = 0; i < this.ambient.length; i++) {
       const p = this.ambient[i];
       if ((i % 3 === 0) !== front) continue;
-      const k = p.kind;
-      let vx = -sp * (front ? 0.9 : 0.35) * 0.05, vy = 0;
-      if (k === 'pollen') { vx += 8 * u; vy = Math.sin(t + p.p) * 6 * u; }
-      if (k === 'motes') { vx += 4 * u; vy = -3 * u + Math.sin(t * 0.7 + p.p) * 4 * u; }
-      if (k === 'wind') { vx += -260 * u * p.s; }
-      if (k === 'dust') { vx += -30 * u * p.s; vy = Math.sin(t + p.p) * 5 * u; }
-      if (k === 'wisps') { vx += Math.sin(t * 0.5 + p.p) * 10 * u; vy = Math.cos(t * 0.6 + p.p) * 8 * u; }
-      if (k === 'embers') { vx += 10 * u; vy = -40 * u * p.s; }
-      if (k === 'stars') { vy = -10 * u * p.s; }
-      p.x += vx * dt - sp * dt * (front ? 0.6 : 0.15); p.y += vy * dt;
-      if (p.x < -20) p.x += W + 40; if (p.x > W + 20) p.x -= W + 40; if (p.y < -20) p.y += H + 40; if (p.y > H + 20) p.y -= H + 40;
+      if (!still) this.moveMote(p, front, dt);
       drawMote(ctx, p, front, u, t);
     }
     ctx.restore();
+  }
+  /** An ambient mote drifts for dt seconds (its kind's motion, the scroll) and wraps round the screen. */
+  moveMote(p, front, dt) {
+    const u = this.u; const t = this.time; const W = this.W; const H = this.H; const sp = this.speed;
+    const k = p.kind;
+    let vx = -sp * (front ? 0.9 : 0.35) * 0.05, vy = 0;
+    if (k === 'pollen') { vx += 8 * u; vy = Math.sin(t + p.p) * 6 * u; }
+    if (k === 'motes') { vx += 4 * u; vy = -3 * u + Math.sin(t * 0.7 + p.p) * 4 * u; }
+    if (k === 'wind') { vx += -260 * u * p.s; }
+    if (k === 'dust') { vx += -30 * u * p.s; vy = Math.sin(t + p.p) * 5 * u; }
+    if (k === 'wisps') { vx += Math.sin(t * 0.5 + p.p) * 10 * u; vy = Math.cos(t * 0.6 + p.p) * 8 * u; }
+    if (k === 'embers') { vx += 10 * u; vy = -40 * u * p.s; }
+    if (k === 'stars') { vy = -10 * u * p.s; }
+    p.x += vx * dt - sp * dt * (front ? 0.6 : 0.15); p.y += vy * dt;
+    if (p.x < -20) p.x += W + 40; if (p.x > W + 20) p.x -= W + 40; if (p.y < -20) p.y += H + 40; if (p.y > H + 20) p.y -= H + 40;
   }
 }
 

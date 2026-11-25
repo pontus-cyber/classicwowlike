@@ -885,6 +885,10 @@ export class App {
       dev: (op, args) => app.devAct(op, args),
       /** Sound (audio.js): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }; the log is written locked or muted too. */
       audio: () => app.audio.info(),
+      /** The scene loop (D175, scene.js frame): frames painted and frames that only moved the state on, the scene mode, stale. */
+      sceneFrames: () => ({ painted: app.scene.painted, coasted: app.scene.coasted, mode: app.scene.mode, stale: app.scene.stale }),
+      /** Paint the scene canvas now if the last frame did not (canvas-shot.mjs reads the canvas after this). */
+      paintScene: () => app.scene.paintNow(),
     };
   }
 }

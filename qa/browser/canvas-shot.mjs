@@ -13,7 +13,8 @@
  * (STEP_MS at a time), so the frame loop, particles, idle motion and the director's waits run the same way on every
  * run. The state is reached with the Dev menu's ops (window.__ui.dev), the clock is run on until the director is idle,
  * then SETTLE_MS more, and the canvas is read with getImageData: <state>.rgba (raw), <state>.png (to look at) and a
- * SHA-256 in shots.json.
+ * SHA-256 in shots.json. Since D175 the scene paints on the map and in fights only while something moves: the read first
+ * asks the page to paint a canvas the last frame left stale (window.__ui.paintScene), so it is the frame of that moment.
  *
  * Compare: one line per state that differs (pixels changed, largest channel difference, bounding box) and nothing when
  * every state is equal; a summary on stderr. Exit 0 when equal, 1 when not, 2 on a usage error.
@@ -124,6 +125,10 @@ try {
     }
     await run(st.settle ?? SETTLE_MS);
     const shot = await page.evaluate(() => {
+      // D175: on the map and in fights the scene paints only while something moves; a frame that did not paint left the
+      // canvas as last painted. paintScene paints the scene as it stands now (the same paint the every-frame loop made), so
+      // the read is the frame of this moment on every build (a build without the hook painted every frame)
+      if (window.__ui && window.__ui.paintScene) window.__ui.paintScene();
       const cv = document.getElementById('world');
       const c = cv.getContext('2d'); const d = c.getImageData(0, 0, cv.width, cv.height).data;
       let bin = ''; for (let i = 0; i < d.length; i += 0x8000) bin += String.fromCharCode.apply(null, d.subarray(i, i + 0x8000));
