@@ -878,7 +878,7 @@ export function createHud(root, ctx) {
     if (z && !z.camp && z.rows && z.rows.length) {
       const sq = R.storyQuests; const t = travelState(v);
       lines.push(['h', z.name]);
-      lines.push([z.storyDone ? 'd' : 'l', `Story: ${Math.min(sq, z.questsDone)} / ${sq} quests${z.storyDone ? ' (done)' : ''}`]);
+      lines.push([z.storyDone ? 'd' : 'l', `Zone story: ${Math.min(sq, z.questsDone)} / ${sq} quests${z.storyDone ? ' (done)' : ''}`]);
       // travel on (rules 1.5): legal from travelLevel, under the exit level when the engine allows it
       if (t.kind === 'done' || (t.rows && z.pos.row >= t.rows)) lines.push(['d', `Row ${t.rows} done: travel on`]);
       else if (p.level >= t.exit) lines.push(['d', `Level ${t.exit} reached: you may travel on`]);

@@ -115,12 +115,12 @@ export function windupStakes(n) {
  * asks of the player (the spec's table, in words). The script itself is read from the engine (data.v2.scripts).
  */
 export const ROLE_INFO = {
-  brute: { name: 'Brute', text: 'Hits hard. Its Heavy Smash is a telegraphed big blow.', asks: 'Stop or absorb its Heavy Smash, then punish the opening.' },
-  caster: { name: 'Caster', text: 'Fragile, but its casts hurt and curse you.', asks: 'Interrupt or control its Hex Bolt, or kill it before it casts.' },
-  skulker: { name: 'Skulker', text: 'Bleeds you, and as a lookout signals for help when it is not alone.', asks: 'Kill, interrupt or control it before it signals.' },
+  brute: { name: 'Brute', text: 'Hits hard. Its Heavy Smash is a big blow, shown ahead on its track.', asks: 'Stop its Heavy Smash with a stun or control, or let a shield take it; then hit it while it is off-balance.' },
+  caster: { name: 'Caster', text: 'Fragile, but its casts hurt and curse you.', asks: 'Stop its Hex Bolt with an interrupt or control, or kill it before it casts.' },
+  skulker: { name: 'Skulker', text: 'Bleeds you, and as a lookout signals for help when it is not alone.', asks: 'Kill it, or stop it with an interrupt or control, before it signals.' },
   beast: { name: 'Beast', text: 'Bloodlust: deals more damage every turn it acts.', asks: 'Kill it early: every turn alive makes it stronger.' },
   guardian: { name: 'Guardian', text: 'Shields its ward and braces itself; tough to bring down.', asks: 'Do not spend your burst on its ward early, or control the guardian.' },
-  mender: { name: 'Mender', text: 'Bolsters the weakest ally with a shield and mends the wounded.', asks: 'Kill or control it; interrupt its Mend.' },
+  mender: { name: 'Mender', text: 'Bolsters the weakest ally with a shield and mends the wounded.', asks: 'Kill or control it, and stop its Mend with an interrupt.' },
 };
 /** A control status as a word on the track ("Heavy Smash cancelled: stunned"). */
 export const CONTROL_WORD = { STUN: 'stunned', FROZEN: 'frozen', HEXED: 'hexed', SAPPED: 'sapped', TRAP: 'trapped', INTERRUPT: 'interrupted' };

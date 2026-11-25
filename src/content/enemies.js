@@ -340,7 +340,7 @@ export const ENEMIES = {
    "ab_z2_mawgrim_heavy_blow",
    "ab_z2_mawgrim_self_heal"
   ],
-  "text": "A bloated gatekeeper who opens the floodgates on those who owe him toll."
+  "text": "A bloated gatekeeper who opens the floodgates on anyone who crosses his locks unpaid."
  },
  "z3_cairn_brute": {
   "id": "z3_cairn_brute",

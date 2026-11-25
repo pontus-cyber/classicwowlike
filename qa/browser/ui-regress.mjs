@@ -7111,7 +7111,7 @@ async function partAA0(browser, W, H) {
         fits: (() => { const e = document.querySelector('.summary .s-balance'); if (!e) return false; const r = e.getBoundingClientRect(); return r.height > 0 && r.bottom <= innerHeight + 1; })() }));
       await shot(page, `AA2-summary-${bal}`);
       const want = econFill('run_balance', { legacy: pAfter.legacy, next: next.name, cost: next.cost });
-      const wantReach = reach ? `Legacy points buy lasting unlocks between runs. ${reach === 1 ? 'One' : String(reach)} ${reach === 1 ? 'unlock' : 'unlocks'} within reach.` : 'Legacy points buy lasting unlocks between runs. Keep them for the next one.';
+      const wantReach = reach ? `${reach === 1 ? 'One' : String(reach)} ${reach === 1 ? 'unlock' : 'unlocks'} within reach.` : 'Keep them for the next run.';
       check('AA-2', `the run end with ${pAfter.legacy} Legacy points: "${want}" (${bal >= 60 ? 'the one unlock within reach' : 'none within reach: how far off'}), and the reach line agrees (s0382, s0561, s0596)`,
         sv.bal === want && sv.reach === wantReach && sv.fits && (bal >= 60 ? next.cost === 60 && reach === 1 : /\(\d+ more points\)$/.test(String(next.cost)) && reach === 0), JSON.stringify({ sv, want, wantReach }));
     } catch (e) { await shot(page, `AA2-error-${bal}`); check('AA-2', `part AA2 (${bal}) ran to the end`, false, e.message.split('\n').slice(0, 3).join(' / ')); }

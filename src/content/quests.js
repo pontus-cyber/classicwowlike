@@ -171,9 +171,9 @@ export const QUESTS = {
  "q_z1_guide_hedge_breaker": {
   "id": "q_z1_guide_hedge_breaker",
   "title": "The Hedge Breaker",
-  "giver": "Hobb Larrow",
+  "giver": "Jory Larrow",
   "objective": "slay",
-  "text": "An ogre keeps smashing through the hedges on the east lane. He swings slow and heavy. Send him back to the woods.",
+  "text": "A slow, heavy ogre keeps smashing through the hedges on the east lane. Send him back to the woods.",
   "turnIn": "The lane is quiet again. Well struck.",
   "enemies": [
    "z1_hedge_ogre"
@@ -194,7 +194,7 @@ export const QUESTS = {
  "q_z1_guide_tusks_in_the_verge": {
   "id": "q_z1_guide_tusks_in_the_verge",
   "title": "Tusks in the Verge",
-  "giver": "Warden Pell",
+  "giver": "Hayward Tobin",
   "objective": "slay",
   "text": "Boars come down from the Verge and churn every field they cross. Thin them out for us.",
   "turnIn": "That will keep them off the fields a while.",

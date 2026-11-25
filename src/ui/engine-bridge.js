@@ -1284,7 +1284,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const pend = s.node && s.node.stage === 'reward' ? s.node.rewards.filter((r) => r.kind === 'items') : [];
     const nextOf = (list) => list.map((r) => {
       if (r.contract) { const c = v.contracts ? v.contracts.contracts.find((x) => x.id === r.contract) : null; return { kind: 'contract', title: c ? TXT.contractTitle(c, CONTENT) : 'a contract' }; }
-      if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: the story` : 'the story' };
+      if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: zone story` : 'zone story' };
       if (r.bounty) return { kind: 'bounty', title: BOUNTY_TITLE };
       return { kind: 'quest', title: (CONTENT.quests[s.node.quest] || {}).title || 'the quest' };
     });
