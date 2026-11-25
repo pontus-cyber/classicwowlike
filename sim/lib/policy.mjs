@@ -77,6 +77,9 @@ function rawDamage(s, id) {
     // Deadfall Trap already count. Counting Ricochet Bolt's bounces on every cast (autoplay casts it only with 2+
     // enemies) put it in the Camp bar's AoE step over Deadfall Trap and in the zone bar over Savage Order: the Hunter with
     // Lost Technique I won 11 % at hero 20 against 35.5 % without it (report legacy-hunter-techniques-2026-11-20).
+    // D169 (legacy.md 2.4.3, draft): with the D157 numbers on (legacyRules) a Legacy run teaches no Ricochet Bolt (Lost
+    // Technique I is Keen Shot's passive, the engine's KEEN_RICOCHET), so in played runs this rule now acts on level-60
+    // runs only; Keen Shot keeps one target's value (its SPELL entry has no bounces), as D166 counts every multi-target spell.
     return one * (a.hits || 1) * (sp.bounces && !legacyRules(s) ? 1 + sp.bounces * sp.bounceFrac : 1);
   }
   if (a.kind === 'dot') return a.perTick * a.rounds * (sp.dot.perCp ? FINISHER_CP : 1);

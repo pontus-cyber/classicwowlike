@@ -1,12 +1,15 @@
 // D166 (draft; report legacy-hunter-techniques-2026-11-20): in a Legacy run (sim/lib/policy.mjs legacyRules) the bar
 // template counts one target for every multi-target spell, Ricochet Bolt's bounces included, so Lost Technique I no longer
 // takes the Hunter's Camp AoE step from Deadfall Trap or a zone slot from Savage Order. Off the switch (level-60 runs) the
-// bounces still count, so those bars are as before.
+// bounces still count, so those bars are as before. D169 (legacy.md 2.4.3, draft): with both gates on a Legacy run teaches no
+// Ricochet Bolt at all (Lost Technique I is Keen Shot's passive), so the hero's bars are the same with and without it.
 import { test, describe, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, GATE_DEFAULTS, newRunFor } from '../../sim/lib/engine.mjs';
 import { setGates } from '../../sim/lib/runner.mjs';
-import { spellValue, legacyRules } from '../../sim/lib/policy.mjs';
+import { spellValue, legacyRules, templateBar } from '../../sim/lib/policy.mjs';
+import { cellProfile } from '../../sim/lib/runner.mjs';
+import { CONTENT } from '../../sim/lib/engine.mjs';
 import { campBars } from '../../sim/campbars.mjs';
 
 after(() => setGates(null));
@@ -47,6 +50,26 @@ describe('D166: Lost Techniques on the Hunter bar (Legacy runs only)', () => {
       s.legacy = { heroLevel: 25 };
       assert.equal(legacyRules(s), true);
       assert.ok(Math.abs(spellValue(s, 'ricochet_bolt') - spellValue(s, 'keen_shot')) < 1e-6);
+    } finally { setGates(null); }
+  });
+});
+
+describe('D169: Lost Technique I as Keen Shot\'s passive (Legacy runs, both gates)', () => {
+  /** A Legacy Hunter at the hero's power level in zone z with the v3d hall bought (both techniques), sp_h1 dropped when !tech. */
+  function hero(H, z, tech) {
+    const profile = cellProfile({ bot: 'planner', cls: 'hunter', prof: 'later', hero: H, hall: 'v3d' });
+    assert.equal(profile.unlocks.sp_h1, 1);
+    if (!tech) delete profile.unlocks.sp_h1;
+    return R.debug.build({ content: CONTENT, classId: 'hunter', petId: 'ridgewolf', seed: 2, profile, zone: z, level: C.POWER_OF_LEVEL[H - 1] }).state;
+  }
+  test('hero 20 and 25: no Ricochet Bolt known, and the zone and Camp template bars equal the bars without the technique', () => {
+    setGates(ON);
+    try {
+      for (const H of [20, 25]) for (const z of [4, C.ZONE_COUNT + 1]) {
+        const a = hero(H, z, true); const b = hero(H, z, false);
+        assert.ok(!a.player.spells.ricochet_bolt && a.meta.keenRicochet, `H${H} z${z}`);
+        for (const camp of [false, true]) assert.deepEqual(templateBar(a, { camp }), templateBar(b, { camp }), `H${H} z${z} camp ${camp}`);
+      }
     } finally { setGates(null); }
   });
 });
