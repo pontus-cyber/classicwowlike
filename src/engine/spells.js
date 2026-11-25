@@ -5,10 +5,11 @@
 // M2b v14 (rules 7.4, D111): a PASS keeps STEALTH while every living enemy is SAPPED (GATES.passStealth).
 // D150 (owner text pass, wrong texts): spellHitEstimate (a spell's average direct hit on a target, spellInfo `est`;
 // spellAmount `cp`: a finisher's amount is a total at that many combo points) and bigHitReady (offBalance `bigHit`).
+// D169 (legacy.md 2.4.3, draft): Lost Technique I's Keen Shot passive in a Legacy run (keenRicochet, KEEN_RICOCHET).
 import {
   SPELL, CLASS, TALENT, PET, CP_MAX, ENGINE_ASSUMPTION as EA, CHILL_PCT, CONSUMABLE, POTION_CD,
   UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE,
-  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT, GATES,
+  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT, GATES, KEEN_RICOCHET,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd } from './util.js';
@@ -25,6 +26,15 @@ import { engageAction, keepsStealth } from './engage.js';
 // ---------------- Spell facts ----------------
 export function knowsSpell(s, id) {
   return !!s.player.spells[id];
+}
+
+/**
+ * D169 (legacy.md 2.4.3 item 2, draft): Lost Technique I's Keen Shot passive applies now: the run marked it at its start
+ * (nodes.js startRun: a Legacy run with the D157 numbers, the Hunter owns the technique) and the hero has reached power
+ * KEEN_RICOCHET.lvl.
+ */
+export function keenRicochet(s) {
+  return !!(s.meta && s.meta.keenRicochet) && s.player.level >= KEEN_RICOCHET.lvl;
 }
 
 /** Trained level: talent spells always use tl = L (rules 5.2). */
@@ -528,6 +538,16 @@ export function cast(s, ev, id, tgt, opts = {}) {
       const pct = id === 'keen_shot' ? tr(s, 'h_b1') * TALENT.h_b1.pct : 0;
       const critBonus = id === 'heartseeker_shot' && hpFrac(e) < sp.critBelow ? sp.critBonus : 0;
       pHit(s, ev, tgt, base(s, sp, tl), { ...phys, pct, critBonus });
+      // D169 (draft): Lost Technique I's passive, up to KEEN_RICOCHET.targets other living enemies for KEEN_RICOCHET.frac
+      if (id === KEEN_RICOCHET.spell && keenRicochet(s)) {
+        let n = 0;
+        for (const x of livingEnemies(s)) {
+          if (n >= KEEN_RICOCHET.targets || f.over) break;
+          if (x.idx === tgt) continue;
+          pHit(s, ev, x.idx, base(s, sp, tl), { ...phys, pct, multi: KEEN_RICOCHET.frac });
+          n++;
+        }
+      }
       break;
     }
     case 'barbed_arrow':
@@ -666,6 +686,8 @@ export function spellAmount(s, id) {
     if (sp.perCp) a.cp = cp;
     // Ricochet Bolt: the target takes `amount`, then up to `bounces` other enemies take bounceFrac of it.
     if (sp.bounces) Object.assign(a, { bounces: sp.bounces, bounceFrac: sp.bounceFrac, bounceAmount: rnd(base(s, sp, tl, cp) * sp.bounceFrac) });
+    // D169 (draft): Keen Shot with Lost Technique I's passive carries the same fields (KEEN_RICOCHET)
+    else if (id === KEEN_RICOCHET.spell && keenRicochet(s)) Object.assign(a, { bounces: KEEN_RICOCHET.targets, bounceFrac: KEEN_RICOCHET.frac, bounceAmount: rnd(base(s, sp, tl, cp) * KEEN_RICOCHET.frac) });
     return a;
   }
   return null;

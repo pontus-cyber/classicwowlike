@@ -26,8 +26,10 @@
 #   so85     Savage Order coefficients x0.85 (b, l, p)
 #   hs85     Heartseeker Shot coefficients x0.85 (b, l, p, w)
 #   ksb      (Lost Technique I as a passive) while Ricochet Bolt is learned, Keen Shot also hits up to two other enemies for 30 %
-#            of its hit (Ricochet's bounce); Ricochet Bolt itself stays off every bar, so the change is the passive alone
-#   fer<NN>  Legacy Ferocity (TALENT_HERO h_a2) petDmgPct 0.10 -> NN / 1000 a rank (fer75: 0.075, fer50: 0.05, fer40: 0.04). The Hunter buys its Ferocity ranks only
+#            of its hit (Ricochet's bounce); Ricochet Bolt itself stays off every bar, so the change is the passive alone.
+#            D169 built it (engine-2026-11-25: C.KEEN_RICOCHET; a Legacy run with both gates teaches no Ricochet Bolt), so on
+#            this tree the arm is the copy as it is (base); the rb* and rbz arms act on level-60 runs only
+#   fer<NN>  Legacy Ferocity (TALENT_HERO h_a2) petDmgPct 0.045 (D169; 0.10 when the report was made) -> NN / 1000 a rank (fer75: 0.075, fer50: 0.05, fer40: 0.04). The Hunter buys its Ferocity ranks only
 #            at hero 24-25, so the change acts from there
 #   fpm<NN>  Packed Satchel's free potion at NN / 100 of a potion (FREE_POTION_MULT 0.5 as built): fpm25 = a quarter
 #   pet      a pet that falls in a dungeon's trash fight stays down until the boss fight is over (no 25 % revive between a
@@ -103,6 +105,8 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
   so85) rep "$K" "cd: 4, school: 'phys', b: 8, l: 2.0, p: 1.0, tags: ['pet']" "cd: 4, school: 'phys', b: 6.8, l: 1.7, p: 0.85, tags: ['pet']" ;;
   hs85) rep "$K" "cd: 3, school: 'phys', b: 14, l: 3.0, p: 1.3, w: 1.5, critBelow" "cd: 3, school: 'phys', b: 11.9, l: 2.55, p: 1.105, w: 1.275, critBelow" ;;
   ksb)
+    # D169: built in the engine (spells.js keenRicochet); nothing to edit
+    grep -q 'KEEN_RICOCHET' "$S/src/constants.js" && continue
     rep "$S/src/engine/spells.js" "      pHit(s, ev, tgt, base(s, sp, tl), { ...phys, pct, critBonus });
       break;" "      pHit(s, ev, tgt, base(s, sp, tl), { ...phys, pct, critBonus });
       if (id === 'keen_shot' && p.spells.ricochet_bolt) {
@@ -124,7 +128,7 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
     ;;
   fer[0-9][0-9])
     V=$(python3 -c "print(int('${A#fer}') / 1000)")
-    rep "$K" '  h_a2: { petDmgPct: 0.10 },' "  h_a2: { petDmgPct: $V },"
+    rep "$K" '  h_a2: { petDmgPct: 0.045 },' "  h_a2: { petDmgPct: $V },"
     ;;
 esac
 done

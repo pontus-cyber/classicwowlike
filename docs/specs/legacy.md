@@ -281,6 +281,16 @@ rules also on the run's mark `state.legacy`), as does the sim's Hunter Camp pet 
 - Fresh seeds 8000-8059 (300 runs per class per band): B6 passes in bands 1-20 (7.3 / 4.3 / 6.0 / 3.0 pp) and fails 21-25 (10.7 pp: Mage 53.0 %, Hunter 42.3 %); pooled over both seed sets (900 runs per class) band 21-25 reads 43.3 / 47.2 / 45.4 %, 3.9 pp.
 - Fresh seeds, one-button, B7 and the first win: report sections 2, 5 and 6.
 
+### 2.4.3 The Hunter package (D169, Lead default 2026-11-25, **draft**)
+
+Source: report docs/reports/legacy-hunter-dungeon-2026-11-20.md sections 4-6 (arms `ksb` and `fer45`); built by the Core Gameplay Engineer, hand-off docs/handoffs/engine-2026-11-25.md. Same gates as 2.4.2: Legacy runs with `C.GATES.legacy` and `oruvathLegacy` both on (D158). A level-60 run, and a Legacy run with oruvathLegacy off, keep the numbers and the spell as before (run hashes identical, hand-off).
+
+1. **Ferocity** (Hunter talent h_a2): petDmgPct 0.10 → **0.045** a rank (ORUVATH_TALENT; level-60 runs 0.18). The standard Hunter build takes its ranks at hero 24 and 25, so it acts there only.
+2. **Lost Technique I (Hunter)** (hall entry sp_h1, price unchanged) teaches no spell: Ricochet Bolt is not taught and never on a bar. While the entry is owned, from power level 20 (Ricochet Bolt's learn level, hero 9 on screen), **every Keen Shot cast also hits up to two other living enemies for 30 % of its hit** (KEEN_RICOCHET; the first living enemies other than the target, in list order; Keen Shot's talent bonus applies, no crit bonus; the opening shot of the engage step is not a cast and does not bounce). Hall card: "Keen Shot also hits up to two other enemies for 30 %", from hero level 9. Keen Shot's tooltip carries the bounce line, as Ricochet Bolt's did (engine-api.md `spellInfo`).
+3. Lost Technique II (Hunter) is unchanged: Beastcall Horn, needs I.
+
+**Measured** (B6, native engine with the D168 first-kill rule, planner, profile `later`, band tables sim/tables/legacy-hx; see the hand-off for the table): pending (the runs are in progress; the table follows in the hand-off).
+
 ### 2.5 Items and gold
 - Item level as rules 8.3 (source power level + rarity bonus), shown on the hero scale; capped at ILVL_MAX.
 - Gold scales with the hero (1.6). Vendors as today at their level (the hub at the band, the Camp at the Camp level).
@@ -786,7 +796,8 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | SPELL changes (2.4.1, draft) | frost_lance l 1.77, p 0.97 (was 1.54, 0.84); pyre_comet lvl 21, hero 9 (was 38, hero 16); barbed_arrow dot l 0.495, p 0.20 (was 0.45, 0.18); field_dressing healPct 0.18 (was 0.12) | content values |
 | GATES.oruvathLegacy (2.4.1, draft) | off until accepted | engine switch for every 2.4.1 rule |
 | SPELL changes (2.4.2, draft) | cinder_storm lvl 21, hero 9 (was 22, hero 10); glacial_tomb lvl 43, hero 18 (was 30, hero 13); feign_stillness lvl 23, hero 10 (was 28, hero 12); heartseeker_shot lvl 43, hero 18 (was 46, hero 20), b 13.3, l 2.85, p 1.235, w 1.425 (was 14, 3.0, 1.3, 1.5); barbed_arrow dot l 0.52, p 0.21 (2.4.1: 0.495, 0.20); open_vein dot l 0.52, p 0.115 (was 0.45, 0.10) | content values, behind GATES.oruvathLegacy |
-| TALENT change (2.4.2, draft) | h_a2 Ferocity petDmgPct 0.10 (was 0.18) | per rank, behind GATES.oruvathLegacy |
+| TALENT change (2.4.2, draft) | h_a2 Ferocity petDmgPct 0.10 (was 0.18); 2.4.3 (D169, draft): 0.045 | per rank, behind GATES.oruvathLegacy |
+| KEEN_RICOCHET (2.4.3, D169, draft) | targets 2, frac 0.3, lvl 20 (hero 9); meta sp_h1, spell keen_shot, replaces ricochet_bolt | Lost Technique I (Hunter) as Keen Shot's passive in Legacy runs, behind GATES.legacy and oruvathLegacy |
 | BOSS_HP_LEVEL (2.4.2, draft) | entries for hero 9, 23, 24, 25: 1.08, 0.93, 0.92, 0.92 (2.4.1: 1.00, 0.92, 0.89, 0.89); the others as 2.4.1 | × Oruvath's and the Shards' HP |
 | ONB_ELITE_LEVEL_MIN | 2 | Gorrak's lowest power level (was 4) (5.1) |
 | LEGACY_PER_LEVEL | 20 | Legacy points per hero level gained, and per HERO_XP_AT_MAX past 25 (4.1) |

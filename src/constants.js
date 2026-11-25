@@ -1579,10 +1579,22 @@ export const ORUVATH_SPELL = {
   heartseeker_shot: { lvl: 43, b: 13.3, l: 2.85, p: 1.235, w: 1.425 },
   open_vein: { dot: { l: 0.52, p: 0.115 } },
 };
-/** legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy and GATES.legacy are on (D158; getters as ORUVATH_SPELL). */
+/**
+ * legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy and GATES.legacy are on (D158; getters as
+ * ORUVATH_SPELL). D169 (legacy.md 2.4.3 item 1, draft): Ferocity 0.10 -> 0.045 a rank (the Hunter's hero 24-25 spike with a
+ * bought hall; report legacy-hunter-dungeon-2026-11-20 section 4). A level-60 run keeps 0.18.
+ */
 export const ORUVATH_TALENT = {
-  h_a2: { petDmgPct: 0.10 },
+  h_a2: { petDmgPct: 0.045 },
 };
+/**
+ * legacy.md 2.4.3 item 2 (D169, draft): Lost Technique I (Hunter) in a Legacy run with the D157 numbers on (GATES.legacy and
+ * GATES.oruvathLegacy, D158; legacy.js oruvathRules). The entry `meta` teaches no spell there (`replaces`, Ricochet Bolt, is
+ * not taught); while it is owned, from power level `lvl` (Ricochet Bolt's learn level, hero 9 on screen), every Keen Shot
+ * (`spell`; a cast, not the opening shot of 7.14) also hits up to `targets` other living enemies, in list order, for `frac`
+ * of its hit (Keen Shot's talent bonus included, no crit bonus): spells.js keenRicochet. A level-60 run keeps Ricochet Bolt.
+ */
+export const KEEN_RICOCHET = { id: 'keen_ricochet', meta: 'sp_h1', spell: 'keen_shot', replaces: 'ricochet_bolt', targets: 2, frac: 0.3, lvl: 20 };
 (function gateOruvathNumbers() {
   const bind = (obj, now) => {
     for (const [k, v] of Object.entries(now)) {

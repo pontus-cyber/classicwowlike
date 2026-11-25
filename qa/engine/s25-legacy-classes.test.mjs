@@ -79,11 +79,12 @@ describe('legacy.md 2.4.2 (D157, draft): the nine changes behind GATES.oruvathLe
     assert.deepEqual(on(read), [0.52, 0.21, 2, 4]);
   });
 
-  test('7. Ferocity (h_a2): petDmgPct 0.18 off, 0.10 on, per rank; read by petPct', () => {
+  // D169 (legacy.md 2.4.3 item 1, draft): 0.10 -> 0.045 on
+  test('7. Ferocity (h_a2): petDmgPct 0.18 off, 0.045 on (D169; D157 0.10), per rank; read by petPct', () => {
     assert.equal(C.TALENT.h_a2.petDmgPct, 0.18);
-    assert.equal(on(() => C.TALENT.h_a2.petDmgPct), 0.10);
+    assert.equal(on(() => C.TALENT.h_a2.petDmgPct), 0.045);
     assert.equal(C.TALENT.h_a2.petDmgPct, 0.18);
-    assert.ok(C.ORUVATH_TALENT && C.ORUVATH_TALENT.h_a2.petDmgPct === 0.10);
+    assert.ok(C.ORUVATH_TALENT && C.ORUVATH_TALENT.h_a2.petDmgPct === 0.045);
     assert.equal(JSON.parse(JSON.stringify(C.TALENT.h_a2)).petDmgPct, 0.18);
     const s = R.debug.toBoss(R.debug.build({ content: CONTENT, classId: 'hunter', zone: 7 }).state).state;
     const t = JSON.parse(R.serialize(s)); t.content = CONTENT;
@@ -91,7 +92,7 @@ describe('legacy.md 2.4.2 (D157, draft): the nine changes behind GATES.oruvathLe
     t.player.buffs = {};
     t.fight.p.st = [];
     assert.ok(Math.abs(petPct(t) - 0.54) < 1e-12);
-    assert.ok(Math.abs(on(() => petPct(t)) - 0.30) < 1e-12);
+    assert.ok(Math.abs(on(() => petPct(t)) - 0.135) < 1e-12);
   });
 
   test('8. Open Vein (Rogue) DoT: l 0.45, p 0.10 off; l 0.52, p 0.115 on (+15 %); perCp kept', () => {

@@ -49,7 +49,9 @@ describe('sim/hunter-arms.sh', () => {
       const r = run('ksb+fer60', d);
       assert.equal(r.status, 0, r.stderr);
       assert.match(readFileSync(join(d, 'src/constants.js'), 'utf8'), /h_a2: \{ petDmgPct: 0\.06 \}/);
-      assert.match(readFileSync(join(d, 'src/engine/spells.js'), 'utf8'), /multi: 0\.3/);
+      // D169: the Keen Shot passive is built (KEEN_RICOCHET), so ksb leaves the copy's engine as it is
+      assert.match(readFileSync(join(d, 'src/engine/spells.js'), 'utf8'), /multi: KEEN_RICOCHET\.frac/);
+      assert.equal(readFileSync(join(d, 'src/engine/spells.js'), 'utf8'), readFileSync(new URL('../../src/engine/spells.js', import.meta.url), 'utf8'));
       assert.doesNotMatch(readFileSync(new URL('../../src/constants.js', import.meta.url), 'utf8'), /petDmgPct: 0\.06 \}/);
     } finally { rmSync(d, { recursive: true, force: true }); }
   });

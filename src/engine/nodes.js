@@ -28,7 +28,7 @@ import {
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
-  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY, META_HERO,
+  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY, META_HERO, KEEN_RICOCHET,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -41,7 +41,7 @@ import { generateZone, contentLevel, vendorStock, composeEncounter, pickFrom } f
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight, zoneDanger } from './combat.js';
 import {
-  isLegacy, heroOf, newHero, powerOf, checkpointHero, campLevelNow, clMax, oruvathScale, zoneBand, econV2,
+  isLegacy, heroOf, newHero, powerOf, checkpointHero, campLevelNow, clMax, oruvathScale, zoneBand, econV2, oruvathRules,
 } from './legacy.js';
 import { parTime } from './meta.js';
 import { makeBoss } from './boss.js';
@@ -121,6 +121,13 @@ export function startRun(s, ev) {
   s.seed = c.seed;
   // Economy v2 (legacy.md 4.7 E5): a Legacy run reads the hall's effects (META_HERO), a level-60 run META
   s.meta = metaFromProfile(s.profile, c.classId, econV2(s) ? META_HERO : META);
+  // D169 (legacy.md 2.4.3 item 2, draft): in a Legacy run with the D157 numbers (oruvathRules) Lost Technique I (Hunter)
+  // teaches no Ricochet Bolt; s.meta.keenRicochet marks its Keen Shot passive (spells.js keenRicochet). The field exists only
+  // then, so every other run's state is as before.
+  if (oruvathRules(s) && s.meta.spells.includes(KEEN_RICOCHET.replaces)) {
+    s.meta.spells = s.meta.spells.filter((id) => id !== KEEN_RICOCHET.replaces);
+    s.meta.keenRicochet = true;
+  }
   s.oaths = c.oaths.slice();
   s.nextUid = 1;
   s.time = 0;
