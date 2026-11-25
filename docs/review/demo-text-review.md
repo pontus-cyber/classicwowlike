@@ -1,6 +1,6 @@
 # Demo text review: the owner's list (draft)
 
-Status: **draft for the owner**. Task MD D.5, part 1. Author: Content Designer, 2026-11-25. Source commit: origin/main c53d04d (the demo spec is docs/specs/demo.md; nothing demo-specific is built yet).
+Status: **draft for the owner**. Task MD D.5, part 1. Author: Content Designer, 2026-11-25. Read at origin/main c53d04d, then checked against 832be34 (the demo engine, D.3: gates, cap 7, hall, zone 2 exit; no text changed). The demo spec is docs/specs/demo.md. No demo UI line is built yet.
 
 This is every player-facing line, name and number a demo player can see, grouped by screen. Mark each row **approve**, **change** (with the new text) or **cut**. Every name, text and number the owner has not approved is a draft.
 
@@ -11,7 +11,7 @@ This is every player-facing line, name and number a demo player can see, grouped
 | Total rows | **438** |
 | Approved earlier (decision named in the Status column) | 24 |
 | Draft | **414** |
-| of which "to come" (the demo spec adds them; not built) | 19 |
+| of which "to come" (the demo spec adds them; not built) | 18 |
 | Flagged (any flag below) | **137** |
 | Flag R, repetition | 40 |
 | Flag M, machine-sounding | 11 |
@@ -53,7 +53,7 @@ Also open: the names the owner has not yet approved (the Furnace and its four st
 
 | Section | Screen | Rows | Draft | To come | Flagged |
 |---|---|---|---|---|---|
-| [NUM](#num-numbers-the-owner-should-see) | Numbers the owner should see | 14 | 14 | 2 | 2 |
+| [NUM](#num-numbers-the-owner-should-see) | Numbers the owner should see | 14 | 14 | 1 | 2 |
 | [HS](#hs-hero-select-class-select) | Hero select (class select) | 23 | 20 | 1 | 6 |
 | [SC](#sc-start-camp) | Start camp | 26 | 25 | 0 | 5 |
 | [GR](#gr-the-guided-first-run-coach-lines-hints-and-guide-lines) | The guided first run: coach lines, hints and guide lines | 82 | 73 | 0 | 17 |
@@ -85,7 +85,7 @@ Values a demo player meets or that shape what he meets. "Value" is what the code
 
 | ID | Text | Status | Flag | Source |
 |---|---|---|---|---|
-| NUM1 | Hero level cap in the demo: 7 (HERO_MAX_DEMO) | to come | X: demo spec 3.1 (inference, to be measured in DM1); the full game stops at 25 | docs/specs/demo.md 3.1 |
+| NUM1 | Hero level cap in the demo: 7 (HERO_MAX_DEMO) | draft | X: the cap is in the engine (constants.js HERO_MAX_DEMO, D.3) but its value is the spec's proposal, to be measured in DM1; the full game stops at 25 | constants.js HERO_MAX_DEMO |
 | NUM2 | Hero XP to the next level, levels 1 to 7 (Economy v2): 1 800, 1 850, 1 900, 2 100, 2 150, 2 250; cumulative 1 800 / 3 650 / 5 550 / 7 650 / 9 800 / 12 050 | draft |  | constants.js HERO_XP_ECON2 |
 | NUM3 | Hero level to engine power level (what zones scale to): hero 1-7 = power 1, 3, 6, 8, 11, 13, 16 | draft |  | constants.js POWER_OF_LEVEL |
 | NUM4 | Spells known by hero 7: Rogue Gutting Jab, Severing Flourish (1), Shadowstep Strike, Throat Jab (3), Open Vein (5), Temple Blow (6), Smoke Veil (7); Mage Ember Bolt, Frost Lance (1), Arcane Ward (3), Rime Burst (5), Living Flame (6), Spellsnap (7); Hunter Keen Shot, Barbed Arrow (1), Mark Prey, Mend Companion (3), Muzzle Shot (6), Snare Trap (7) | draft |  | rules.js learnLevel |
