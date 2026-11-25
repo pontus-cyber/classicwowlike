@@ -225,6 +225,8 @@ export function summarize(res) {
   return {
     at20, at25, done, le3a: at20 ? at20.cum / res.account - 1 : NaN, le3b: at25 ? at25.cum / res.hall - 1 : NaN,
     le4: res.rows.slice(0, 4).map((r) => r.bought.length), hours: at25 ? at25.hours : NaN,
+    // D168 reading (lh1report chain().at): cumulative Legacy and hours at the hero level, inside the run that crosses it
+    h20: res.at ? res.at(20) : null, h25: res.at ? res.at(25) : null,
   };
 }
 function variantPrint(out, opt, label) {
