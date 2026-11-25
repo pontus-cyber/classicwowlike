@@ -33,6 +33,7 @@ import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kin
 import { contractTitle } from './ui-text.js';
 import { gateLine, closedRoadLine } from './onboarding.js';
 import { token, artStyle } from './theme.js';
+import { DEMO_TEXT, fill as demoFill, buildDemoBlock, atDemoExit, leaveLine as demoLeaveLine, capLevelText, demoOn } from './demo.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
 const heatOf = (v, action) => (v.heat && v.heat.next ? v.heat.next[heatKey(action)] || null : null);
@@ -186,8 +187,10 @@ function buildCreate(ctx) {
   const root = h('div#create');
   // Legacy (legacy.md 1.1, draft line): the hero keeps its level; the refund note (4.6) once, filled by updateCreate
   root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'),
-    h('div.t3', legacyShown() ? `Your hero keeps its level, 1 to ${d.rules.heroMaxLevel}, from run to run. ${cap(numWord(d.rules.zoneCount))} zones, then Oruvath.` : `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath.`),
-    h('div.t4.refund.hidden')));
+    h('div.t3', d.demo ? demoFill('heroIntro', { cap: d.demo.heroMax }) : legacyShown() ? `Your hero keeps its level, 1 to ${d.rules.heroMaxLevel}, from run to run. ${cap(numWord(d.rules.zoneCount))} zones, then Oruvath.` : `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath.`),
+    h('div.t4.refund.hidden'),
+    // the demo (demo.md 2.4, draft): storage blocked or missing: one line, and the game plays on without saving
+    d.demo && !d.demo.canSave ? h('div.t4.nosave', DEMO_TEXT.cannotSave) : null));
   const classes = h('div.classes');
   for (const id of ['rogue', 'mage', 'hunter']) {
     const c = d.classes[id];
@@ -234,7 +237,9 @@ function buildCreate(ctx) {
   const guide = h('button.toggle.guide.hidden', { type: 'button', role: 'switch', 'aria-checked': 'true', 'aria-label': 'Guided first run' }, h('span.sw'), h('span', 'Guided first run'));
   guide.addEventListener('click', () => { const m = ctx.view.meta; if (m) ctx.act({ type: 'SET_GUIDE', on: !m.guided }); });
   tip(guide, () => h('div', h('div.tt-name', 'Guided first run'), h('div.tt-line', 'Zone 1 teaches the game as you play: one short line at a time. Skip it at any point.'), h('div.tt-sub', 'Settings can play it again later.')));
-  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field.seedf', h('label', 'Seed'), seed), mode, echoes, guide, go));
+  // the demo build (demo.md 2.3): no Seed field and no mode chip
+  const demoBuild = !!(d.demo && d.demo.build);
+  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), demoBuild ? null : h('div.field.seedf', h('label', 'Seed'), seed), demoBuild ? null : mode, echoes, guide, go));
   return root;
 }
 
@@ -257,10 +262,13 @@ function updateCreate(root, v, ctx) {
     // Economy v2 (legacy.md 4.7 E6.4): the hero of the run just ended shows its levels as "Level 4 → 7" (content level_progress)
     const lr = m.lastRun; const went = econShown() && hr && lr && lr.classId === el.dataset.cls && lr.from != null && lr.from !== hr.level;
     const lvText = went ? econLine(d.content.texts, 'level_progress', { from: lr.from, to: hr.level }) : hr ? `Level ${hr.level}` : '';
-    box.querySelector('.ch-l').textContent = hr ? `${lvText}${named ? ` · ${named}` : ''}` : 'New hero';
+    // the demo (demo.md 3.1, draft): a hero at the demo's cap reads "Level 7: the demo's highest" with a full XP bar
+    const capped = !!(hr && hr.cap === 'demo' && d.demo);
+    box.querySelector('.ch-l').textContent = hr ? `${capped ? capLevelText(ctx) : lvText}${named ? ` · ${named}` : ''}` : 'New hero';
     box.dataset.from = went ? String(lr.from) : '';
+    box.dataset.cap = capped ? 'demo' : '';
     box.classList.toggle('new', !hr);
-    const f = hr && hr.xpToNext ? Math.max(0, Math.min(1, hr.xp / hr.xpToNext)) : 0;
+    const f = capped ? 1 : hr && hr.xpToNext ? Math.max(0, Math.min(1, hr.xp / hr.xpToNext)) : 0;
     box.querySelector('.ch-xp i').style.width = `${Math.round(f * 1000) / 10}%`;
     box.dataset.level = hr ? String(hr.level) : '';
     box.dataset.xp = hr ? `${hr.xp}/${hr.xpToNext}` : '';
@@ -550,6 +558,7 @@ function hopsFrom(mv, from) {
 function meanAngle(list) { let x = 0; let y = 0; for (const a of list) { x += Math.cos((a * Math.PI) / 180); y += Math.sin((a * Math.PI) / 180); } return (Math.atan2(y, x) * 180) / Math.PI; }
 /** Where a Road leads: the next zone's name (zone 6's: the Camp). */
 function roadTo(v, ctx) {
+  if (atDemoExit(v, ctx)) return DEMO_TEXT.roadSign; // the demo (demo.md 4.3, draft): zone 2's Roads lead to the demo's end
   const zs = ctx.data.zones || []; const z = v.zone.idx;
   if (zs[z] && zs[z].name) return zs[z].name;
   return (ctx.data.camp && ctx.data.camp.name) || 'the Camp';
@@ -573,12 +582,14 @@ function buildExpMap(v, ctx, readOnly) {
   const expiring = readOnly ? [] : expiringHere(v);
   // blind panel 2026-11-13 (item 8): the Bell (one charge a run, it leaves the zone) always asks first; a Road asks when
   // contracts of this zone would expire
-  const asks = (type) => type === 'RING_BELL' || expiring.length > 0;
+  // the demo (demo.md 1.3): leaving its last zone ends the run, so the Road asks there too (one dialog, with the demo's line)
+  const demoExit = atDemoExit(v, ctx);
+  const asks = (type) => type === 'RING_BELL' || expiring.length > 0 || demoExit;
   if (leave.armed && (readOnly || !asks(leave.armed) || !acts.some(([, a]) => a.type === leave.armed))) leave.armed = null;
   const btns = acts.map(([label, a]) => {
     const b = btn(label, () => { if (asks(a.type) && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
     b.dataset.leave = a.type;
-    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
+    tip(b, () => h('div', h('div.tt-name', label), demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx)) : a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
       expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx),
       asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null), { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
     return ghostOn(b, ctx, a);
@@ -595,13 +606,14 @@ function buildExpMap(v, ctx, readOnly) {
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
-    const go = btn(road ? 'Take the Road anyway' : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
+    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
     const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
     // section 7 (D150): the tolls and the fight that comes first are the engine's preview of the ring (RING_BELL), as on its tooltip
     const bp = !road ? heatOf(v, a) : null;
-    const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. ${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`} No way back to ${z.name}.`) : null;
+    const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `${demoExit ? '' : `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. `}${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`}${demoExit ? '' : ` No way back to ${z.name}.`}`) : null;
     win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
       h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), bell,
+      demoExit ? h('div.lw-l.lw-demo', demoLeaveLine(ctx)) : null,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
       h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
   }
@@ -1053,7 +1065,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
     if (n.lost) box.appendChild(h('div.tt-warn', 'Lost to the Dimming: it can no longer be done.'));
     else if (n.done) box.appendChild(h('div.tt-hint', 'Done'));
   }
-  if (n.road) { const i = (mv.roads || []).indexOf(n.id); box.appendChild(h('div.tt-line', `${mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'}: leads to ${roadTo(v, ctx)}`)); }
+  if (n.road) { const i = (mv.roads || []).indexOf(n.id); const rn = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'; box.appendChild(atDemoExit(v, ctx) ? h('div.tt-line.demo-leave', `${rn}. ${demoLeaveLine(ctx)}`) : h('div.tt-line', `${rn}: leads to ${roadTo(v, ctx)}`)); }
   if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
   if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
   if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost.'));
@@ -1460,7 +1472,14 @@ function buildSummary(v, ctx) {
   const won = s.outcome === 'victory';
   // a hero without a name of its own carries the class name: say it once (QA playtest 2026-11-11 finding 10)
   const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
-  win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
+  // the demo (demo.md 1.4): a run that ended at the cut has the demo block over the summary's lines; demoRun: no Oruvath
+  // line and no play-time estimate (4.1); the demo build: no Seed row (2.3)
+  const demoEnd = !!(s.demo && demoOn(ctx));
+  const demoBuild = !!(ctx.data.demo && ctx.data.demo.build);
+  if (demoEnd) win.classList.add('demo-end');
+  if (demoEnd) win.appendChild(h('div.shead', buildDemoBlock(s, v.meta && v.meta.after, ctx),
+    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
+  else win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
     // Legacy (legacy.md 1.5; draft line): a run abandoned from the menu ends as a death, and says so
     h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : s.death && s.death.abandoned ? `${named || `Your ${s.className}`} left the run` : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
     h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
@@ -1474,10 +1493,10 @@ function buildSummary(v, ctx) {
     ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } },
       econShown() && s.hero.level !== s.hero.from ? econLine(ctx.data.content.texts, 'level_progress', { from: s.hero.from, to: s.hero.level }) : `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''}`, ` · +${fmtNum(s.hero.xpGained)} XP`,
       econShown() && s.hero.xpToNext ? h('span.s-xp', { title: `${fmtNum(s.hero.xp)} / ${fmtNum(s.hero.xpToNext)} XP to level ${s.hero.level + 1}` }, h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, s.hero.xp / s.hero.xpToNext)) * 1000) / 10}%` } })) : null)]] : []),
-    [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'Base strength: no tolls overspent'],
+    [HEAT_WORDS.Units, fmtTime(s.time)], ...(s.demoRun ? [] : [['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'Base strength: no tolls overspent']]),
     // Legacy bugs 2026-11-19 (blind returning player s0247): no time estimate for a run without a fight (it was the model's
     // fixed set-up time, "2 min manual · 2 min autoplay")
-    ...(s.fights > 0 ? [['Play time', `about ${s.estMinutes.manual} min by hand, ${s.estMinutes.auto} with autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} ${plural(s.rounds, 'round')})`], ['Seed', String(s.seed)],
+    ...(s.fights > 0 && !s.demoRun ? [['Play time', `about ${s.estMinutes.manual} min by hand, ${s.estMinutes.auto} with autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} ${plural(s.rounds, 'round')})`], ...(demoBuild ? [] : [['Seed', String(s.seed)]]),
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
     ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
@@ -1498,7 +1517,7 @@ function buildSummary(v, ctx) {
   // the Legacy lines, and the balance against the next hall entry under the total (the bridge's dry END_RUN)
   const E = (id, vars) => econLine(ctx.data.content.texts, id, vars);
   const carry = econShown() && s.hero ? h('div.s-carry', h('div.s-kept', E('run_kept', { level: s.hero.level, was: s.hero.from })), h('div.s-left', E('run_left'))) : null;
-  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: hallCost(after.nextHall) }) : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
+  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: hallCost(after.nextHall) }) : s.demoRun ? DEMO_TEXT.hallAllOwned : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
   const card3 = h('div.card', h('h3', 'Echoes earned'), carry, s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null, balance,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
@@ -1506,9 +1525,12 @@ function buildSummary(v, ctx) {
       : 'Echoes buy lasting unlocks between runs.'));
   // heat (H.4, engine-api.md 11.3): the tolls-against-the-line track per zone, tolls by state, the end against the line or the par
   win.appendChild(h('div.sbody', card1, card2, card3, s.heat ? buildHeatSummary(s, ctx) : null));
-  const again = btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
+  // the demo-end screen (demo.md 1.4): "Next run" (primary, to hero select) and "Legacy hall"
+  const again = demoEnd ? btn(DEMO_TEXT.nextRun, () => ctx.act({ type: 'END_RUN' }), '.primary.big') : btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
+  if (demoEnd) again.dataset.demo = 'next';
   // Spend Echoes: END_RUN stores the profile, then the Hall of Echoes opens over class select
-  const spend = v.meta ? btn('Spend Echoes', () => { ctx.ui.openMeta(); ctx.act({ type: 'END_RUN' }); }, '.primary.big') : null;
+  const spend = v.meta ? btn(demoEnd ? DEMO_TEXT.hallButton : 'Spend Echoes', () => { ctx.ui.openMeta(); ctx.act({ type: 'END_RUN' }); }, demoEnd ? '.big' : '.primary.big') : null;
+  if (spend && demoEnd) spend.dataset.demo = 'hall';
   if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
   if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
     after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
@@ -1523,6 +1545,6 @@ function buildSummary(v, ctx) {
     spend.addEventListener('click', () => coach.armHall(), true);
     nudge = h('div.nudgeline', ctx.data.tutorial.table.nudge.summaryLine);
   }
-  win.appendChild(h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, again));
+  win.appendChild(demoEnd ? h('div.sfoot', again, nudge ? h('div.spendcol', spend, nudge) : spend) : h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, again));
   return win;
 }

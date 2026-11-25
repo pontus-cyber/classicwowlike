@@ -43,6 +43,7 @@ import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceT
 import { createHeatMeter, bossText } from './heat.js';
 import { trackerContracts } from './prep.js';
 import { CON, token, artStyle } from './theme.js';
+import { capLevelText } from './demo.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
@@ -361,6 +362,7 @@ export function createHud(root, ctx) {
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
   tip(els.xp, () => {
     const p = ctx.view.player; if (!p) return null;
+    if (p.heroCap === 'demo' && ctx.data.demo) return h('div', h('div.tt-name', capLevelText(ctx))); // demo.md 3.1: no XP number at the cap
     return h('div', h('div.tt-name', `Level ${shownLv(p.level)}`), h('div.tt-line', `${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} experience`), p.rested ? h('div.tt-line', { style: { color: '#9fb8ff' } }, `Rested: ${fmtNum(p.rested)} (kills give double XP)`) : h('div.tt-sub', 'Not rested. Rest at an inn or campfire.'));
   });
   els.target.addEventListener('click', () => {});
@@ -497,12 +499,15 @@ export function createHud(root, ctx) {
     // action bar
     updateBar(v);
     // xp
-    const xf = p.xpToNext ? clamp(p.xp / p.xpToNext, 0, 1) : 1;
-    const rf = p.xpToNext ? clamp((p.xp + (p.rested || 0)) / p.xpToNext, 0, 1) : 0;
+    // the demo (demo.md 3.1, draft): at the demo's cap the bar is full and reads "Level 7: the demo's highest"
+    const demoCap = p.heroCap === 'demo' && !!ctx.data.demo;
+    const xf = demoCap ? 1 : p.xpToNext ? clamp(p.xp / p.xpToNext, 0, 1) : 1;
+    const rf = demoCap ? 1 : p.xpToNext ? clamp((p.xp + (p.rested || 0)) / p.xpToNext, 0, 1) : 0;
     els.xp.querySelector('.fill').style.width = `${xf * 100}%`;
     els.xp.querySelector('.fill').classList.toggle('rest', (p.rested || 0) > 0);
     const rs = els.xp.querySelector('.rested'); rs.style.left = `${xf * 100}%`; rs.style.width = `${Math.max(0, rf - xf) * 100}%`;
-    els.xp.querySelector('.txt').textContent = !p.xpToNext ? `Level ${shownLv(p.level)} · maximum level` : `Level ${shownLv(p.level)}  ·  ${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} XP (${Math.floor(xf * 100)} %)${p.rested ? `  ·  Rested ${fmtNum(p.rested)}` : ''}`;
+    els.xp.dataset.cap = demoCap ? 'demo' : '';
+    els.xp.querySelector('.txt').textContent = demoCap ? capLevelText(ctx) : !p.xpToNext ? `Level ${shownLv(p.level)} · maximum level` : `Level ${shownLv(p.level)}  ·  ${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} XP (${Math.floor(xf * 100)} %)${p.rested ? `  ·  Rested ${fmtNum(p.rested)}` : ''}`;
     // minimap & clock
     if (v.zone) {
       els.minimap.querySelector('.zname').textContent = v.zone.name;

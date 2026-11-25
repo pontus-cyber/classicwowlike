@@ -21,6 +21,7 @@
 import { wait, SkipToken, fmtNum, deepClone, lv, econShown } from './util.js'; // lv: Legacy's hero scale (identity off)
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine } from './ui-text.js';
+import { capLevelText } from './demo.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
 import { fillLine, rescueLeftLine } from './onboarding.js';
@@ -515,7 +516,9 @@ export class Director {
     else if (z.ranks > 0) lines.push(E('level_new_ranks', { n: z.ranks }));
     if (sum('talentPoints') > 0) lines.push(E('level_talent', { key_talents: 'T' }));
     const reached = (L) => L != null && list.some((e) => e.heroLevel === L);
-    if (reached(R.heroMaxLevel)) lines.push(E('level_hero25', { xp: R.heroXpAtMax, legacy: R.legacyPerLevel }));
+    // the demo (demo.md 3.1, draft): the level-up to the demo's highest level says so, once (the engine's `cap` on that event)
+    if (list.some((e) => e.cap === 'demo') && ctx.data.demo) lines.push(capLevelText(ctx));
+    else if (reached(R.heroMaxLevel)) lines.push(E('level_hero25', { xp: R.heroXpAtMax, legacy: R.legacyPerLevel }));
     else if (reached(R.treeOpenLevel)) lines.push(E('level_hero20'));
     else if (R.legacyPerLevel) lines.push(E('level_legacy', { legacy: R.legacyPerLevel * n }));
     const title = n > 1 ? E('level_title_multi', { level: z.heroLevel, n }) : E('level_title', { level: z.heroLevel });

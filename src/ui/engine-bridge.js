@@ -96,13 +96,22 @@ import * as mock from './mock-engine.js';
 import * as TXT from './ui-text.js';
 import { heatKey } from './heat.js';
 import { setDisplay } from './util.js';
+import { store } from './store.js';
+import { DEMO_BUILD } from '../build-flags.js';
 
 /** A line of the guided run's `guide` table (content, draft), or null. */
 const guideLine = (k) => (CONTENT.tutorial && CONTENT.tutorial.guide && CONTENT.tutorial.guide[k]) || null;
 const BOUNTY_TITLE = "Gorrak's bounty"; // D152: the bounty's reward window and the loot window's "Next" (draft)
+/**
+ * The page's URL switches. The demo build (demo.md 2.1, 2.3; src/build-flags.js DEMO_BUILD) reads none: every switch is at
+ * its default (no ?legacy, ?dev, ?debug, ?seed, ?classic, ?expedition, ?prep, ?dimming, ?guide, ?mock, ?speed, ?demo).
+ */
 const params = (() => {
+  if (DEMO_BUILD) return new URLSearchParams('');
   try { return new URLSearchParams(globalThis.location ? globalThis.location.search : ''); } catch { return new URLSearchParams(''); }
 })();
+// demo.md 2.1: the demo build sets the demo's switches once, before any profile loads, and locks them for the page
+if (DEMO_BUILD) R.applyDemo({ lock: true });
 
 /**
  * Rule numbers the screens put into text, read from the engine's constants (`C` of src/rules.js) so that UI
@@ -164,7 +173,12 @@ function metaData(K) {
   // Economy v2 (D159, legacy.md 4.7 E5; engine-2026-11-19c UI need 2): a version 3 profile's hall is C.META_HERO (ranks, costs
   // and effects of 4.2); the page's profile is version 3 exactly while GATES.legacy is on. The level-20 wing (priced, not
   // sold until phases 4-5): its prices, for the hall's "not yet open" cards
-  const hall = K.GATES && K.GATES.legacy && K.GATES.economyV2 && K.META_HERO ? { ...K.META, ...K.META_HERO } : K.META;
+  const hall0 = K.GATES && K.GATES.legacy && K.GATES.economyV2 && K.META_HERO ? { ...K.META, ...K.META_HERO } : K.META;
+  // the demo (demo.md 3.2): DEMO_HALL at rank I only (one rank, its first price, a rank list field's first value); no
+  // other entry and no level-20 wing
+  const demo = !!(K.GATES && K.GATES.demo);
+  const rank1 = (m) => Object.fromEntries(Object.entries(m).map(([k, x]) => [k, k === 'costs' ? x.slice(0, K.DEMO_HALL_MAX_RANK) : k === 'ranks' ? Math.min(x, K.DEMO_HALL_MAX_RANK) : Array.isArray(x) && x.length === m.ranks && typeof x[0] === 'number' ? x.slice(0, K.DEMO_HALL_MAX_RANK) : x]));
+  const hall = demo ? Object.fromEntries(K.DEMO_HALL.filter((id) => hall0[id]).map((id) => [id, rank1(hall0[id])])) : hall0;
   // D169 (legacy.md 2.4.3 item 2, draft): with the D157 numbers on (legacy and oruvathLegacy) Lost Technique I (Hunter) is
   // Keen Shot's passive (K.KEEN_RICOCHET), not Ricochet Bolt: its entry carries `passive` (ui-text.js metaEffect)
   const keen = K.KEEN_RICOCHET && K.GATES && K.GATES.legacy && K.GATES.oruvathLegacy ? K.KEEN_RICOCHET : null;
@@ -175,7 +189,7 @@ function metaData(K) {
   return {
     kinds: [...new Set(Object.values(K.META).map((m) => m.kind))], // catalogue order (rules 11.2)
     entries: Object.fromEntries(Object.values(hall).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req], ...(keen && m.id === keen.meta ? { passive: { ...keen } } : {}) }])),
-    wing: hall !== K.META && K.TREE_OPEN_COST ? { level: K.TREE_OPEN_LEVEL, trees: [...K.TREE_OPEN_COST], armoury: K.ARMOURY_COST } : null,
+    wing: !demo && hall !== K.META && K.TREE_OPEN_COST ? { level: K.TREE_OPEN_LEVEL, trees: [...K.TREE_OPEN_COST], armoury: K.ARMOURY_COST } : null,
     oathIds: [...(K.OATH_IDS || [])],
     oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
     // expedition.md 8.2 (M2b v11): the numbers and names of the expedition entries' texts (bellMax, trackerRadius, prepPoints, charts, tracker)
@@ -311,18 +325,18 @@ const castReason = (s, err) => {
 /** The stored meta profile, completed with the fields of R.newProfile() a stored copy may lack; null without one. */
 function loadProfile() {
   try {
-    let raw = globalThis.localStorage && localStorage.getItem(profileKey());
+    let raw = store.get(profileKey());
     if (!raw && legacyGate()) {
       // the first Legacy load (legacy.md 4.6): the version 1 profile migrated (Echoes in, Legacy points out), stored under
       // the version 3 key; what came back (spent Echoes, Packed Satchel's kept) is noted once on class select
-      const old = localStorage.getItem(PROFILE_KEY_V1);
+      const old = store.get(PROFILE_KEY_V1);
       if (old) {
         const p1 = JSON.parse(old);
         if (p1 && typeof p1 === 'object') {
           const base = R.newProfile();
           const p3 = R.migrateProfile({ ...p1, v: p1.v || 1, guide: p1.guide, welcome: p1.welcome, unlocks: { ...(p1.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p1.firstKill || {}) } });
           const back = Math.max(0, (p1.spent || 0) - (p3.spent || 0));
-          if (back > 0) localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ back, echoes: p1.echoes || 0, legacy: p3.legacy || 0, shown: false }));
+          if (back > 0) store.set(LEGACY_REFUND_KEY, JSON.stringify({ back, echoes: p1.echoes || 0, legacy: p3.legacy || 0, shown: false }));
           saveProfile(p3);
           raw = JSON.stringify(p3);
         }
@@ -338,7 +352,7 @@ function loadProfile() {
         // stored at once (so it happens once) and noted once on class select, as the Echoes refund
         if (p.v >= 3 && out.hallV2 && p.hallV2 !== true) {
           const back = Math.max(0, (out.legacy || 0) - (p.legacy || 0));
-          if (back > 0) localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ back, legacy: out.legacy, hall: true, shown: false }));
+          if (back > 0) store.set(LEGACY_REFUND_KEY, JSON.stringify({ back, legacy: out.legacy, hall: true, shown: false }));
           saveProfile(out);
         }
         return out;
@@ -347,7 +361,7 @@ function loadProfile() {
   } catch { /* storage blocked or bad JSON */ }
   return null;
 }
-function saveProfile(p) { try { localStorage.setItem(profileKey(), JSON.stringify(p)); } catch { /* storage blocked: the profile lives until the page closes */ } }
+function saveProfile(p) { try { store.set(profileKey(), JSON.stringify(p)); } catch { /* storage blocked: the profile lives until the page closes */ } }
 
 /**
  * Run log (presentation only; the engine's profile keeps counts, not records): per class the runs, Oruvath kills, best
@@ -360,13 +374,13 @@ const historyKey = () => (legacyGate() ? 'tbwcr.history.v3' : HISTORY_KEY_V1);
 const newHistory = () => ({ v: 1, logged: 0, classes: {} });
 function loadHistory() {
   try {
-    const raw = globalThis.localStorage && localStorage.getItem(historyKey());
+    const raw = store.get(historyKey());
     const h = raw ? JSON.parse(raw) : null;
     if (h && typeof h === 'object' && h.classes && typeof h.classes === 'object') return { ...newHistory(), ...h };
   } catch { /* storage blocked or bad JSON */ }
   return newHistory();
 }
-function saveHistory(h) { try { localStorage.setItem(historyKey(), JSON.stringify(h)); } catch { /* storage blocked */ } }
+function saveHistory(h) { try { store.set(historyKey(), JSON.stringify(h)); } catch { /* storage blocked */ } }
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
 /**
@@ -429,8 +443,8 @@ function engineBackend(seedOpt, runOpts = {}) {
   let refund = null;
   if (legacyGate()) {
     try {
-      const r0 = JSON.parse((globalThis.localStorage && localStorage.getItem(LEGACY_REFUND_KEY)) || 'null');
-      if (r0 && !r0.shown && r0.back > 0) { refund = { back: r0.back, legacy: r0.legacy, hall: !!r0.hall }; localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ ...r0, shown: true })); }
+      const r0 = JSON.parse((store.get(LEGACY_REFUND_KEY)) || 'null');
+      if (r0 && !r0.shown && r0.back > 0) { refund = { back: r0.back, legacy: r0.legacy, hall: !!r0.hall }; store.set(LEGACY_REFUND_KEY, JSON.stringify({ ...r0, shown: true })); }
     } catch { refund = null; }
   }
   // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
@@ -454,7 +468,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       fx: { meta: s.source === 'meta', talent: s.source === 'talent' },
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
-    pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
+    // the demo (demo.md 4.1): a companion that needs an unlock the demo hall does not sell (Stormhawk) is not listed
+    pets: Object.fromEntries(Object.values(C.PET).filter((p) => !(C.GATES.demo && p.meta && !C.DEMO_HALL.includes(p.meta))).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
     // heal: it restores health (the low-health potion hint, hud.js)
     consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, heal: !!c.heal, text: TXT.consumableText(c.id, CONTENT, c) }])),
     // names and texts from the UI table; buff or debuff from the engine's DEBUFFS list (rules 7.4). The combat v2 enemy
@@ -480,6 +495,14 @@ function engineBackend(seedOpt, runOpts = {}) {
     meta: metaData(C),
     v2: v2Data(C),
     dev: devData(C),
+    // the demo (demo.md 1-4; engine-api.md 16): null in the full game. build: the demo build (DEMO_BUILD; ?demo=1 gives a
+    // team build the rules only); lastZone, heroMax (HERO_MAX_DEMO), hallSize; zones: the names of zones 1 to lastZone and
+    // of every zone (the full-game line); canSave: storage works in this page (demo.md 2.4)
+    demo: C.GATES.demo ? {
+      build: DEMO_BUILD, lastZone: C.DEMO_LAST_ZONE, heroMax: C.HERO_MAX_DEMO, hallSize: C.DEMO_HALL.length, maxWords: C.DEMO_END_MAX_WORDS,
+      zones: CONTENT.zones.slice(0, C.DEMO_LAST_ZONE).map((z) => z.name), moreZones: C.ZONE_COUNT - C.DEMO_LAST_ZONE,
+      camp: (CONTENT.camp && CONTENT.camp.name) || null, boss: C.BOSS_TEXT.name, canSave: store.ok(),
+    } : null,
   };
   /** A pet that needs a meta unlock (Stormhawk) is locked until the profile owns it; refreshed after every purchase. */
   const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
@@ -607,7 +630,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       name: p.name, classId: p.classId, className: cls.name, petId: p.pet ? p.pet.id : null,
       level: p.level, xp: p.xp, xpToNext: hv ? hv.xpToNext : R.xpToNext(p.level), rested: p.rested || 0, hp: p.hp, maxHp: d.maxHp,
       // Legacy (engine-api.md 15.4): the hero's level 1-25 (level stays the engine's, for the colours); null outside one
-      heroLevel: hv ? hv.level : null, heroMax: hv ? !!hv.atMax : false,
+      heroLevel: hv ? hv.level : null, heroMax: hv ? !!hv.atMax : false, heroCap: hv && hv.cap ? hv.cap : null, // demo.md 3.1: 'demo' at the demo's cap
       res, cp: f ? f.p.cp || 0 : 0, cpMax: C.CP_MAX,
       stats: { sta: d.STA, agi: d.AGI, int: d.INT, spi: d.SPI, power: Math.round(d.power), crit: d.crit, critMult: d.critMult, dodge: d.dodge, armor: Math.round(d.armor), wd: d.wd },
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
@@ -1085,6 +1108,11 @@ function engineBackend(seedOpt, runOpts = {}) {
       // D152 (changes-m3-v2.md 1.3): a lean first run: no contracts or Reserve named; its Echo line `reserve` is
       // "Unspent camp points" (content prep.unspentLabel)
       firstRun: !!sm.firstRun,
+      // the demo (demo.md 1.2, 1.4, 4.1; engine-api.md 16): demoRun in every demo run (no Oruvath line, no play-time
+      // estimate); demo { lastZone, zones (the names of zones 1 to lastZone) } when the run ended at the cut
+      demoRun: !!sm.demoRun,
+      demo: sm.demo ? { lastZone: sm.demo.lastZone, zones: CONTENT.zones.slice(0, sm.demo.lastZone).map((zz) => zz.name) } : null,
+      cap: sm.hero && sm.hero.cap ? sm.hero.cap : null,
     };
   }
 
@@ -1114,6 +1142,15 @@ function engineBackend(seedOpt, runOpts = {}) {
     dry.nextOf = s; dry.next = out;
     return out;
   }
+  /**
+   * The demo's "So far" of a profile (demo.md 1.4): { runs, heroes: [{ classId, name (null: the class name), className, level,
+   * atMax }] (heroes with at least one run, CLASS_IDS order), owned (demo hall entries bought), total (C.DEMO_HALL) }.
+   */
+  function demoSoFar(p) {
+    const heroes = (R.heroesView(p) || []).filter((x) => x && x.runs > 0).map((x) => ({ classId: x.classId, name: x.name && x.name.toLowerCase() !== x.className.toLowerCase() ? x.name : null, className: x.className, level: x.level, atMax: !!x.atMax }));
+    const offers = R.metaOffers(p);
+    return { runs: p.runs || 0, heroes, owned: offers.filter((o) => o.rank > 0).length, total: offers.length };
+  }
   /** The profile END_RUN will store (SUMMARY), from a dry END_RUN: its balance and how many unlocks it can buy. */
   function afterRun(s) {
     if (dry.afterOf === s) return dry.after;
@@ -1121,7 +1158,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     try {
       const r = R.step(s, { type: 'END_RUN' }).state;
       const p = r.result.profile;
-      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length, nextHall: econOn(s) ? nextHall(p, s.player && s.player.classId) : null };
+      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length, nextHall: econOn(s) ? nextHall(p, s.player && s.player.classId) : null,
+        // the demo-end screen's "So far" (demo.md 1.4): runs, the heroes with a run, the demo hall's entries owned
+        demo: s.demo ? demoSoFar(p) : null };
     } catch { out = null; }
     dry.afterOf = s; dry.after = out;
     return out;
@@ -1402,7 +1441,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'levelUp': out.push({ t: 'levelUp', level: e.level, ...(e.heroLevel != null ? { heroLevel: e.heroLevel, talentPoints: e.talentPoints || 0, xpToNext: R.heroXpToNext(e.heroLevel),
           hpGain: e.hpGain || 0, maxMana: e.maxMana || 0, manaGain: e.manaGain || 0,
           heroSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && R.learnLevel(s, sp.id) === e.heroLevel).map((sp) => sp.name),
-          ranks: (() => { try { return R.trainerView(s, e.level).train.length; } catch { return 0; } })() } : {}), talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
+          ranks: (() => { try { return R.trainerView(s, e.level).train.length; } catch { return 0; } })(), ...(e.cap ? { cap: e.cap } : {}) } : {}), talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
         // Legacy (legacy.md 1.3; UI need 4): XP past level 25 pays one more level line at the run's end (draft line)
         case 'heroMax': out.push({ t: 'msg', text: `Past level ${C.HERO_MAX_LEVEL}: +${C.LEGACY_PER_LEVEL} Legacy points at the end of the run.`, kind: 'good' }); break;
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
@@ -1647,6 +1686,16 @@ function engineBackend(seedOpt, runOpts = {}) {
           // seed and Oaths kept); the profile's guide changes only when the run starts (START_RUN below)
           if (st.phase !== 'CREATE') return { ok: false, error: 'The guide is chosen at class select' };
           guideOn = !!action.on; rebuildCreate();
+          return { ok: true, events: [] };
+        }
+        case 'START_OVER': {
+          // the demo's Settings, "Start over" (demo.md 2.4): every demo key cleared (profile, hints, history, settings) and
+          // hero select with a new profile; the guided first run is offered again. Demo only (C.GATES.demo).
+          if (!C.GATES.demo) return { ok: false, error: 'Start over is a demo setting' };
+          store.clearDemo();
+          profile = null; history = newHistory(); refund = null; guideOn = true; local.lastRun = null; local.runNo = 0;
+          refreshPets();
+          st = mkRun(randomSeed()); resetLocal();
           return { ok: true, events: [] };
         }
         case 'GUIDE_AGAIN': {
@@ -2028,6 +2077,7 @@ export class Bridge {
    */
   dev(op, args = {}) {
     if (!this.backend.dev) return { ok: false, error: 'The dev tools need the engine (not ?mock=1)', view: this._view };
+    if (DEMO_BUILD) return { ok: false, error: 'No dev tools in the demo', view: this._view }; // demo.md 2.3: no dev runs
     const r = this.backend.dev(op, args);
     if (r.ok) {
       this._view = this.backend.view();
@@ -2072,20 +2122,25 @@ export class Bridge {
 export function createBridge(opts = {}) {
   const seedParam = params.get('seed');
   const seed = opts.seed ?? (seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : undefined);
-  const useMock = opts.mock ?? params.get('mock') === '1';
-  const classic = !!(opts.classic ?? params.get('classic') === '1');
-  const prep = !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
+  // the demo build (demo.md 2.3): the engine, the expedition map with the start camp, always (no mock, no classic map)
+  const useMock = !DEMO_BUILD && (opts.mock ?? params.get('mock') === '1');
+  const classic = !DEMO_BUILD && !!(opts.classic ?? params.get('classic') === '1');
+  const prep = DEMO_BUILD || !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
   const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
   // Legacy (D154 phase 1): ?legacy=1 turns C.GATES.legacy on for this page (a test switch; the game follows the switch)
   // D159 (engine-2026-11-19c UI need 1): Economy v2 (legacy.md 4.7) is part of the same set
-  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; } // D158: Legacy numbers need both
+  if (!DEMO_BUILD && !useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; } // D158: Legacy numbers need both
+  // demo.md 2.1: ?demo=1 (or opts.demo) gives a team build the demo's rules for the team's own checks (the demo build has them already)
+  if (!DEMO_BUILD && !useMock && (opts.demo ?? params.get('demo') === '1')) R.applyDemo();
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 
 export const flags = {
   mock: params.get('mock') === '1',
-  // the Dev menu (engine-api.md 12): on unless ?dev=0 (the settings can hide it too)
-  dev: params.get('dev') !== '0',
+  // the Dev menu (engine-api.md 12): on unless ?dev=0 (the settings can hide it too); never in the demo build (demo.md 2.3)
+  dev: !DEMO_BUILD && params.get('dev') !== '0',
+  // the demo build (demo.md 2.3): no Dev menu, Seed field or row, Classic map setting or mode chip
+  demoBuild: DEMO_BUILD,
   debug: params.get('debug') === '1',
   speed: params.get('speed'),
   expedition: params.get('expedition') === '1',

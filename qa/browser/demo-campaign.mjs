@@ -1,0 +1,180 @@
+#!/usr/bin/env node
+/**
+ * qa/browser/demo-campaign.mjs - headless campaign of the demo build (docs/specs/demo.md 1-4, 5.1 A1, A6-A9; D171, task D.3).
+ *
+ *   NODE_PATH=/opt/npm-tools/node_modules node qa/browser/demo-campaign.mjs [--file /tmp/x/demo.html] [--runs 4]
+ *        [--size 1366x768] [--shots /tmp/tbwcr-<worktree>/demo-shots] [--quiet]
+ *
+ * Without --file it builds this worktree's demo (tools/build.mjs --demo) to /tmp/tbwcr-<worktree folder>/demo.html first.
+ * The page is opened with URL switches (?legacy=0&dev=1&debug=1&seed=5&classic=1&mock=1&demo=0&art=lantern): the demo build
+ * must read none of them. Then: two campaigns of --runs runs each (classes in turn), the first from a fresh page, the second
+ * after Settings > Start over. Every run is played by the engine's autoplay (the UI's AUTO step, instant speed) from hero
+ * select to the summary. Checks:
+ *   - every run ends at the demo-end screen (outcome demo: the demo block, at most DEMO_END_MAX_WORDS words, Next run and
+ *     Legacy hall buttons, no Oruvath line, no play-time line, no Seed row) or by death (the normal summary, no demo block);
+ *     at least one run per campaign reaches the demo-end screen
+ *   - the view never shows zone 3 or later, the Camp or a boss fight
+ *   - hero select: no Seed field, no mode chip; no Dev menu element; the backquote key opens nothing; the art and theme are
+ *     today's (no data-art / data-theme on <html>); a Hunter shows no Stormhawk
+ *   - the Legacy hall lists exactly seven cards and no level-20 wing
+ *   - Start over: the profile is new (no runs, no Legacy points, no heroes), and the next run is the guided one
+ *   - storage: every key the page wrote starts with tbwcr.demo.
+ *   - no request besides the file, no console error or page error; the file holds no <a href> and no window.open
+ * Screenshots (--shots): the demo-end screen and the Legacy hall. Exit 1 on any failure.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import { REPO, BUILD_DIR } from './build-path.mjs';
+import * as R from '../../src/rules.js';
+
+const args = process.argv.slice(2);
+const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
+const QUIET = args.includes('--quiet');
+const RUNS = Number(arg('--runs', '4'));
+const [W, H] = arg('--size', '1366x768').split('x').map(Number);
+const SHOTS = arg('--shots', path.join(BUILD_DIR, 'demo-shots'));
+let FILE = arg('--file', null);
+if (!FILE) {
+  FILE = path.join(BUILD_DIR, 'demo.html');
+  const r = spawnSync(process.execPath, [path.join(REPO, 'tools/build.mjs'), '--demo', '--out', FILE, '--quiet'], { cwd: REPO, encoding: 'utf8' });
+  if (r.status !== 0) { console.error(`demo build failed:\n${r.stdout}${r.stderr}`); process.exit(2); }
+}
+FILE = path.resolve(FILE);
+fs.mkdirSync(SHOTS, { recursive: true });
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright');
+const log = (...x) => { if (!QUIET) console.log(...x); };
+const fails = [];
+const check = (ok, what) => { if (!ok) { fails.push(what); console.log(`FAIL ${what}`); } };
+
+// the file itself (A8): no link and no window.open anywhere in the built page
+const html = fs.readFileSync(FILE, 'utf8');
+check(!/<a\s[^>]*href/i.test(html), 'the built file holds an <a href>');
+check(!/window\.open\s*\(/.test(html), 'the built file calls window.open');
+const urls = [...html.matchAll(/https?:\/\/[^\s'"`)<]+/g)].map((m) => m[0]);
+const urlsOther = urls.filter((u) => u !== 'http://www.w3.org/2000/svg');
+check(urlsOther.length === 0, `the built file holds URLs other than the SVG namespace: ${[...new Set(urlsOther)].slice(0, 5).join(', ')}`);
+log(`file: ${FILE} (${Math.round(fs.statSync(FILE).size / 1024)} KB); URL strings: ${urls.length} (all the SVG namespace identifier, never fetched)`);
+
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: W, height: H } });
+const page = await context.newPage();
+const errors = [];
+const requests = [];
+page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`${m.type()}: ${m.text()}`); });
+page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+page.on('request', (r) => { if (!r.url().startsWith('file://') && !r.url().startsWith('data:')) requests.push(r.url()); });
+const url = `${pathToFileURL(FILE).href}?legacy=0&dev=1&debug=1&seed=5&classic=1&mock=1&demo=0&art=lantern&theme=lantern&speed=1&guide=0`;
+await page.goto(url);
+await page.waitForFunction(() => !!window.__ui, null, { timeout: 20000 });
+const idle = () => page.evaluate(() => window.__ui.idle());
+await page.evaluate(() => { const s = window.__ui.settings; s.set('speed', 0); s.set('skipTravel', true); s.set('autoDelay', 0); });
+
+// A6, A7: the URL switches did nothing; nothing for developers
+const boot = await page.evaluate(() => ({
+  mode: window.__ui.mode, seed: window.__ui.view().seed, phase: window.__ui.view().phase, mapMode: window.__ui.view().mapMode,
+  art: document.documentElement.dataset.art || null, theme: document.documentElement.dataset.theme || null,
+  seedField: !!document.querySelector('#create .seedf, #create input.seed'), modeChip: !!document.querySelector('#create .modechip'),
+  dev: !!document.querySelector('.devmenu, #devmenu, [class*="devmenu"], #dev-menu, .dm-tab, .dm-win'), guide: window.__ui.view().meta && window.__ui.view().meta.guided,
+  canDebug: window.__ui.canDebug,
+}));
+log('boot', JSON.stringify(boot));
+check(boot.mode === 'engine', 'mock engine in the demo');
+check(boot.seed !== 5, '?seed=5 was read');
+check(boot.mapMode === 'expedition', '?classic=1 was read');
+check(!boot.art && !boot.theme, '?art= or ?theme= was read');
+check(!boot.seedField && !boot.modeChip, 'hero select shows a Seed field or the mode chip');
+check(!boot.dev, 'a Dev menu element is on the page');
+check(boot.guide === true, '?guide=0 was read (the guided first run is not offered on a new profile)');
+await page.keyboard.press('Backquote'); await idle();
+check(!(await page.evaluate(() => window.__ui.devOpen())), 'the backquote key opened the Dev menu');
+const devOp = await page.evaluate(() => window.__ui.dev('give', { gold: 100 }));
+check(!devOp || devOp.ok === false, 'a dev op ran in the demo');
+check(!(await page.evaluate(() => /\bSeed\b/.test(document.body.innerText))), 'hero select shows the word Seed');
+
+const CLASSES = ['rogue', 'mage', 'hunter'];
+let shotEnd = false; let shotHall = false;
+async function oneRun(n, cls) {
+  await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle();
+  if (cls === 'hunter') check(!(await page.evaluate(() => [...document.querySelectorAll('#create .pets .pet .pn')].some((x) => /stormhawk/i.test(x.textContent)))), 'hero select offers Stormhawk');
+  await page.getByRole('button', { name: 'Enter the world' }).click(); await idle();
+  let maxZone = 0; let steps = 0;
+  for (; steps < 6000; steps++) {
+    const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, z: x.zone ? x.zone.idx : 0, camp: !!(x.zone && x.zone.camp), boss: !!(x.combat && x.combat.isBoss) }; });
+    if (v.phase === 'SUMMARY') break;
+    maxZone = Math.max(maxZone, v.z);
+    if (v.z > 2 || v.camp || v.boss || v.phase === 'CAMP' || v.phase === 'BOSS') { check(false, `run ${n}: zone ${v.z}, camp ${v.camp}, boss ${v.boss}`); break; }
+    const r = await page.evaluate(() => window.__ui.act({ type: 'AUTO' }));
+    await idle();
+    if (r && r.ok === false && /Nothing to do/.test(r.error || '')) break;
+  }
+  await idle();
+  // the summary screen may wait for a banner or overlay of the run's last step
+  await page.waitForSelector('.summary .sfoot button', { timeout: 15000 }).catch(() => null);
+  const out = await page.evaluate(() => {
+    const v = window.__ui.view(); const s = v.summary || {};
+    const block = document.querySelector('.summary .demoend');
+    const kv = [...document.querySelectorAll('.summary dl.kv dt')].map((x) => x.textContent);
+    return {
+      phase: v.phase, outcome: s.outcome, demo: !!s.demo, block: !!block, text: block ? block.innerText : '', kv,
+      next: !!document.querySelector('.summary [data-demo="next"]'), hall: !!document.querySelector('.summary [data-demo="hall"]'),
+      seedWord: /\bSeed\b/.test(document.querySelector('.summary') ? document.querySelector('.summary').innerText : ''),
+      hero: s.hero ? s.hero.level : null,
+    };
+  });
+  const words = (out.text.match(/[A-Za-z0-9][\w'’-]*/g) || []).length;
+  log(`run ${n} ${cls}: ${out.outcome} after ${steps} steps, max zone ${maxZone}, hero ${out.hero}, demo block ${out.block} (${words} words)`);
+  check(out.phase === 'SUMMARY', `run ${n}: no summary`);
+  check(['demo', 'death'].includes(out.outcome), `run ${n}: outcome ${out.outcome}`);
+  check(!out.kv.includes('Oruvath') && !out.kv.includes('Play time') && !out.kv.includes('Seed') && !out.seedWord, `run ${n}: Oruvath, Play time or Seed on the summary (${out.kv.join(', ')})`);
+  if (out.outcome === 'demo') {
+    check(out.block && out.next && out.hall, `run ${n}: the demo-end screen lacks its block or buttons`);
+    check(words <= R.C.DEMO_END_MAX_WORDS, `run ${n}: the demo block has ${words} words (at most ${R.C.DEMO_END_MAX_WORDS})`);
+    if (!shotEnd) { await page.screenshot({ path: path.join(SHOTS, `demo-end-${W}x${H}.png`) }); shotEnd = true; log(`  demo block: ${out.text.replace(/\n/g, ' | ')}`); }
+    await page.locator('.summary [data-demo="next"]').click();
+  } else {
+    check(!out.block, `run ${n}: a death shows the demo block`);
+    await page.getByRole('button', { name: 'Begin a new run' }).click();
+  }
+  await idle();
+  check((await page.evaluate(() => window.__ui.view().phase)) === 'CREATE', `run ${n}: not back at hero select`);
+  return out.outcome;
+}
+async function hall() {
+  await page.locator('#create .bottom .echoes').click(); await idle();
+  const h = await page.evaluate(() => ({ cards: [...document.querySelectorAll('#meta .mcard:not(.wing)')].map((x) => x.dataset.id), wing: document.querySelectorAll('#meta .mcard.wing').length }));
+  log(`hall: ${h.cards.join(', ')} (wing cards ${h.wing})`);
+  check(h.cards.length === R.C.DEMO_HALL.length && R.C.DEMO_HALL.every((id) => h.cards.includes(id)), `the hall lists ${h.cards.join(', ')}`);
+  check(h.wing === 0, 'the hall shows the level-20 wing');
+  if (!shotHall) { await page.screenshot({ path: path.join(SHOTS, `demo-hall-${W}x${H}.png`) }); shotHall = true; }
+  await page.keyboard.press('Escape'); await idle();
+}
+async function campaign(label) {
+  const outs = [];
+  for (let i = 0; i < RUNS; i++) outs.push(await oneRun(`${label}.${i + 1}`, CLASSES[i % 3]));
+  check(outs.includes('demo'), `campaign ${label}: no run reached the demo-end screen (${outs.join(', ')})`);
+  if (outs.length > 1) await hall();
+  return outs;
+}
+const c1 = await campaign('A');
+const before = await page.evaluate(() => window.__ui.view().meta);
+// Start over (demo.md 2.4): Settings, two clicks
+await page.evaluate(() => window.__ui.openWin('settings')); await idle();
+const so = page.locator('#win-settings [data-startover]');
+check(await so.count() === 1, 'Settings has no Start over');
+await so.click(); await so.click(); await idle();
+const after = await page.evaluate(() => { const m = window.__ui.view().meta; return { phase: window.__ui.view().phase, runs: m.runs, legacy: m.echoes, heroes: (m.heroes || []).filter(Boolean).length, guided: m.guided }; });
+log(`start over: before runs ${before.runs}, Legacy ${before.echoes}; after ${JSON.stringify(after)}`);
+check(after.phase === 'CREATE' && after.runs === 0 && after.legacy === 0 && after.heroes === 0 && after.guided === true, 'Start over did not give a new profile with the guided run');
+const c2 = await campaign('B');
+const keys = await page.evaluate(() => Object.keys(localStorage));
+check(keys.length > 0 && keys.every((k) => k.startsWith('tbwcr.demo.')), `storage keys outside tbwcr.demo.: ${keys.filter((k) => !k.startsWith('tbwcr.demo.')).join(', ')}`);
+check(requests.length === 0, `requests besides the file: ${requests.slice(0, 3).join(', ')}`);
+check(errors.length === 0, `console: ${errors.slice(0, 3).join(' | ')}`);
+await browser.close();
+console.log(`demo campaign ${W}x${H}: A ${c1.join(', ')} · B ${c2.join(', ')} · keys ${keys.length} · ${fails.length ? `FAIL (${fails.length})` : 'pass'}`);
+console.log(`screenshots: ${SHOTS}`);
+process.exitCode = fails.length ? 1 : 0;

@@ -11,6 +11,7 @@ import { tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn } from './tooltip
 import { dragSource, dropTarget } from './hud.js';
 import { buildMap } from './screens.js';
 import { settings } from './settings.js';
+import { DEMO_TEXT } from './demo.js';
 import { buildContractLog } from './prep.js';
 import { resurrectText, econLine } from './ui-text.js';
 import { flags } from './engine-bridge.js';
@@ -242,6 +243,24 @@ export function createWindows(root, ctx) {
         });
         abandonRow = h('div.setrow.abandon', h('div', h('div', 'Abandon run'), note), ab);
       }
+      // the demo (demo.md 2.4; draft lines): "Start over", asked once: the first click asks, the second clears the demo's keys
+      // (heroes, Legacy unlocks, hints, history, settings) and returns to hero select with a new profile
+      let startOverRow = null;
+      if (ctx.data.demo && ctx.bridge.mode === 'engine') {
+        const so = h('button.btn.small', { type: 'button', dataset: { startover: 'ask' } }, DEMO_TEXT.startOver);
+        const note = h('div.muted', DEMO_TEXT.startOverNote);
+        so.addEventListener('click', () => {
+          if (so.dataset.startover === 'ask') { so.dataset.startover = 'sure'; so.classList.add('danger'); so.textContent = DEMO_TEXT.startOverConfirm; note.textContent = DEMO_TEXT.startOverAsk; return; }
+          so.disabled = true; close('settings');
+          ctx.act({ type: 'START_OVER' }).then((r) => {
+            if (!r || !r.ok) return;
+            settings.resetAll();
+            if (ctx.coach) { ctx.coach.setOff(false); ctx.coach.reset(); } else { hints.setOff(false); hints.reset(); }
+            if (ctx.ui.closeMeta) ctx.ui.closeMeta();
+          });
+        });
+        startOverRow = h('div.setrow.startover', h('div', h('div', DEMO_TEXT.startOver), note), so);
+      }
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         abandonRow,
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
@@ -259,6 +278,7 @@ export function createWindows(root, ctx) {
         // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
         // ?dev=0 or the mock engine
         devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,
+        startOverRow,
         // D116: new runs start at the start camp on the expedition map; the classic map (old) is in the Dev menu only (World)
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',

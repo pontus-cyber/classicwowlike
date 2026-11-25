@@ -39,6 +39,7 @@ import { h, verbatim } from './util.js'; // verbatim: content lines as written (
 import { settings } from './settings.js';
 import { stoppedNow } from './tracks.js';
 import { UI_HINTS, NEAREST_ROAD_TAIL, hopsText, nearestRoad, tolls } from './ui-text.js';
+import { store } from './store.js';
 
 export const HINTS_KEY = 'tbwcr.hints.v2';
 const OLD_ENGAGE_KEY = 'tbwcr.hints.v1'; // the engage hint, per class (retired: H01)
@@ -108,7 +109,7 @@ const leavesUnseen = (x) => !!(x && x.kind === 'hint' && UNSEEN_ALT[x.id] && UNS
 const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the action bar's control row (1366x768: y 620)
 
 // ------------------------------------------------------------------ the hint store (spec 3.1)
-function readJson(k) { try { const x = JSON.parse(localStorage.getItem(k) || 'null'); return x && typeof x === 'object' ? x : null; } catch { return null; } }
+function readJson(k) { try { const x = JSON.parse(store.get(k) || 'null'); return x && typeof x === 'object' ? x : null; } catch { return null; } }
 /**
  * The stored hints, with the v1 keys moved over on first load (tbwcr.hints.v1 engage: H01 per class; heatIntro: H16):
  * { off, seen: { key: true }, nudge, shows: { key: showings so far } (D142), stats: { won, auto } (H31) }.
@@ -119,12 +120,12 @@ export function loadHints() {
     x = { off: false, seen: {}, nudge: { summary: 0, hall: false }, shows: {} };
     const old = readJson(OLD_ENGAGE_KEY);
     for (const [cls, on] of Object.entries((old && old.engage) || {})) if (on) x.seen[`H01:${cls}`] = true;
-    try { if (localStorage.getItem(OLD_HEAT_KEY)) x.seen.H16 = true; } catch { /* storage blocked */ }
+    try { if (store.get(OLD_HEAT_KEY)) x.seen.H16 = true; } catch { /* storage blocked */ }
     saveHints(x);
   }
   return { off: !!x.off, seen: { ...(x.seen || {}) }, nudge: { summary: 0, hall: false, ...(x.nudge || {}) }, shows: { ...(x.shows || {}) }, stats: { ...(x.stats || {}) } };
 }
-export function saveHints(x) { try { localStorage.setItem(HINTS_KEY, JSON.stringify(x)); } catch { /* storage blocked: kept for this page */ } }
+export function saveHints(x) { try { store.set(HINTS_KEY, JSON.stringify(x)); } catch { /* storage blocked: kept for this page */ } }
 export const hints = {
   state: null,
   /** Showings after which a hint counts as seen (ONB_HINT_SHOWS, src/constants.js, through the bridge; set by createOnboarding). */
@@ -148,7 +149,7 @@ export const hints = {
   reset() { const s = this.get(); s.seen = {}; s.shows = {}; s.nudge = { summary: 0, hall: false }; this.save(); },
   /** Dev menu "Reset onboarding": the hint store as on a new profile (tbwcr.hints.v2 and the retired v1 keys removed; hints on). */
   clear() {
-    for (const k of [HINTS_KEY, OLD_ENGAGE_KEY, OLD_HEAT_KEY]) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } }
+    for (const k of [HINTS_KEY, OLD_ENGAGE_KEY, OLD_HEAT_KEY]) { try { store.remove(k); } catch { /* storage blocked */ } }
     this.state = null; this.get();
   },
 };

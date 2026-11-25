@@ -143,7 +143,8 @@ export class App {
     new MutationObserver(() => { this.placeToasts(); const n = this.root.querySelectorAll('#windows > .win').length; if (n !== this.winCount) this.audio.cue(n > this.winCount ? 'winOpen' : 'winClose'); this.winCount = n; }).observe(this.root.querySelector('#windows'), { childList: true });
     // ... and when the screen changes (the hub's panel comes after a rescue's toast; ui-2026-11-14 finding 2)
     new MutationObserver(() => this.placeToasts()).observe(this.root.querySelector('#screens'), { childList: true });
-    this.devMenu = createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
+    // demo.md 2.3: the demo build creates no Dev menu (its tab, its window and the backquote key)
+    this.devMenu = flags.demoBuild ? null : createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
     this.toasts = h('div#toasts', { 'aria-live': 'polite' });
@@ -448,7 +449,7 @@ export class App {
     this.screens.update(v);
     if (!this.director.playing) this.windows.update();
     this.coach.update(this.bridge.view);
-    this.devMenu.update(this.bridge.view);
+    if (this.devMenu) this.devMenu.update(this.bridge.view);
     // Legacy bugs 2026-11-19 (blind returning player s0236, s0247): the run summary opens clear of toasts (their lines are
     // in the log); "You abandon the run." lay over the Deeds card
     if (v.phase === 'SUMMARY' && document.body.dataset.phase !== 'SUMMARY') this.clearToasts();
@@ -735,7 +736,7 @@ export class App {
 
   onKey(e) {
     // the Dev menu (dev-menu.js): the backquote key opens and closes it, also from its own fields
-    if (e.code === 'Backquote' && this.devMenu.enabled()) { e.preventDefault(); this.devMenu.toggle(); return; }
+    if (e.code === 'Backquote' && this.devMenu && this.devMenu.enabled()) { e.preventDefault(); this.devMenu.toggle(); return; }
     if (e.target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
     const v = this.shown; const code = e.code;
     const inFight = v.combat && !v.combat.over;
@@ -880,7 +881,7 @@ export class App {
       /** The run as R.serialize has it (engine mode), for a Node twin to compare (qa/browser/ui-regress.mjs part K). */
       state: () => app.bridge.serialized(),
       /** Dev menu (engine-api.md 12): whether it is open; a dev op as the menu sends it. */
-      devOpen: () => app.devMenu.isOpen(),
+      devOpen: () => !!(app.devMenu && app.devMenu.isOpen()),
       dev: (op, args) => app.devAct(op, args),
       /** Sound (audio.js): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }; the log is written locked or muted too. */
       audio: () => app.audio.info(),

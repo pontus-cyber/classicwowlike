@@ -727,6 +727,14 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .summary .echo { display: flex; justify-content: space-between; font-size: var(--fs-body-3); padding: var(--sp-15) 0; }
 .summary .echo.total { border-top: 1px solid var(--edge-hi-30); margin-top: var(--sp-40); padding-top: var(--sp-50); font: var(--fw-heavy) var(--fs-title-1) var(--font-num); color: #c8a8ff; }
 .summary .sfoot { display: flex; justify-content: center; gap: var(--sp-100); padding: var(--sp-100) 0 var(--sp-160); }
+/* the demo-end block (docs/specs/demo.md 1.4, D171): over the summary of a run that ended at the demo's cut */
+.summary .demoend { display: flex; flex-direction: column; align-items: center; gap: var(--sp-20); margin-bottom: var(--sp-60); }
+.summary .demoend .dm-h { font: var(--fw-semibold) var(--fs-display-2) var(--font-title); color: var(--accent-pale); }
+.summary .demoend .dm-made { font: var(--fs-title-1) var(--font-ui); }
+.summary .demoend .dm-sofar, .summary .demoend .dm-hall { font-size: var(--fs-body-6); color: var(--ink-dim); }
+.summary .demoend .dm-cap { font-size: var(--fs-body-6); color: var(--gold); }
+.summary .demoend .dm-full { font-size: var(--fs-body-6); font-style: italic; margin-top: var(--sp-40); }
+#create .ctitle .nosave { color: var(--gold); }
 
 /* tooltip */
 .tooltip { position: fixed; left: 0; top: 0; z-index: var(--z-tooltip); max-width: 34rem; padding: var(--sp-100) var(--sp-120); pointer-events: none; opacity: 0; transition: opacity var(--dur-fast-2); border-radius: var(--radius-md-2); background: linear-gradient(180deg, rgba(14, 16, 30, .97), rgba(8, 9, 18, .97)); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px rgba(150, 160, 210, .45), 0 .6rem 2rem var(--shade-70); font-size: var(--fs-body-5); line-height: var(--lh-normal-4); }

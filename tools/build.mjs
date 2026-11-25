@@ -10,6 +10,8 @@
  *                                            ES modules do not load from file://, the built file does)
  *   node tools/build.mjs --quiet             print errors only
  *   node tools/build.mjs --src <dir>         use another source folder (tests of the builder)
+ *   node tools/build.mjs --demo --out demo.html   the demo build (docs/specs/demo.md 2.1): src/build-flags.js is bundled
+ *                                            as `export const DEMO_BUILD = true;`; nothing else differs from game.html
  *
  * WHAT IT DOES
  *   1. Reads src/index.html. Every <link rel="stylesheet" href="local.css"> becomes an inline <style>, with the
@@ -45,18 +47,19 @@ let SRC = path.join(ROOT, 'src');
 // CLI
 // ---------------------------------------------------------------------------------------------
 const argv = process.argv.slice(2);
-const opt = { out: path.join(ROOT, 'dist', 'game.html'), watch: false, serve: false, port: 8080, quiet: false };
+const opt = { out: path.join(ROOT, 'dist', 'game.html'), watch: false, serve: false, port: 8080, quiet: false, demo: false };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--out') opt.out = path.resolve(process.cwd(), argv[++i]);
   else if (a === '--watch') opt.watch = true;
   else if (a === '--quiet') opt.quiet = true;
+  else if (a === '--demo') opt.demo = true;
   else if (a === '--src') SRC = path.resolve(process.cwd(), argv[++i]);
   else if (a === '--serve') {
     opt.serve = true;
     if (argv[i + 1] && /^\d+$/.test(argv[i + 1])) opt.port = Number(argv[++i]);
   } else if (a === '--help' || a === '-h') {
-    const head = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 34).join('\n');
+    const head = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 36).join('\n');
     console.log(head.replace(/^ \* ?/gm, '').replace(/^\/\*\*|\*\/$/gm, ''));
     process.exit(0);
   } else {
@@ -389,7 +392,12 @@ function loadGraph(entries) {
   while (stack.length) {
     const file = stack.pop();
     if (mods.has(file)) continue;
-    const src = fs.readFileSync(file, 'utf8').replace(/^#!.*\n/, '\n');
+    let src = fs.readFileSync(file, 'utf8').replace(/^#!.*\n/, '\n');
+    // the demo build (demo.md 2.1): the one build switch, src/build-flags.js, with DEMO_BUILD true
+    if (opt.demo && file === path.join(SRC, 'build-flags.js')) {
+      if (!/^export const DEMO_BUILD = false;$/m.test(src)) fail('src/build-flags.js: no line "export const DEMO_BUILD = false;" to switch for --demo');
+      src = src.replace(/^export const DEMO_BUILD = false;$/m, 'export const DEMO_BUILD = true;');
+    }
     let info;
     try { info = analyze(file, src); } catch (e) { if (e instanceof BuildError && !e.message.includes(rel(file))) e.message = `${rel(file)}: ${e.message}`; throw e; }
     const deps = new Map();
@@ -615,7 +623,7 @@ function build() {
   fs.writeFileSync(opt.out, html);
   if (!opt.quiet) {
     const kb = (Buffer.byteLength(html) / 1024).toFixed(0);
-    console.log(`built ${rel(opt.out) || opt.out}: ${ordered.length} modules, ${kb} KB, ${Date.now() - t0} ms`);
+    console.log(`built ${rel(opt.out) || opt.out}${opt.demo ? ' (demo)' : ''}: ${ordered.length} modules, ${kb} KB, ${Date.now() - t0} ms`);
   }
 }
 

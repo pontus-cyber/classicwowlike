@@ -35,6 +35,7 @@ import { h, add, clear, fmtNum } from './util.js';
 import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon } from './art-icons.js';
 import { tip, spellTip } from './tooltip.js';
 import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes, sapWaitText } from './ui-text.js';
+import { store } from './store.js';
 
 const pct = (x) => `${Math.round((x || 0) * 100)} %`;
 const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
@@ -629,8 +630,8 @@ export function offBalanceTip(e) {
 // round a class meets, its three openers with their keys; "Got it" or the end of that round puts it away for good. Kept per
 // class in this browser's saved game (localStorage HINT_KEY), like the Heat note.
 export const HINT_KEY = 'tbwcr.hints.v1';
-const loadHints = () => { try { const x = JSON.parse(localStorage.getItem(HINT_KEY) || '{}'); return x && typeof x === 'object' ? x : {}; } catch { return {}; } };
-const saveHints = (x) => { try { localStorage.setItem(HINT_KEY, JSON.stringify(x)); } catch { /* storage blocked: shown again next page */ } };
+const loadHints = () => { try { const x = JSON.parse(store.get(HINT_KEY) || '{}'); return x && typeof x === 'object' ? x : {}; } catch { return {}; } };
+const saveHints = (x) => { try { store.set(HINT_KEY, JSON.stringify(x)); } catch { /* storage blocked: shown again next page */ } };
 
 export function createEngagePanel(root, ctx) {
   const el = h('div#engage.panel.hidden', { 'aria-label': 'Engage' });

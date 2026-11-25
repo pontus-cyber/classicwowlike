@@ -42,6 +42,7 @@ import { h, add, clear, clamp } from './util.js';
 import { tip } from './tooltip.js';
 import { HEAT_WORDS as HW, tolls } from './ui-text.js';
 import { HEAT } from './theme.js';
+import { store } from './store.js';
 
 export const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
 export const HEAT_COLOR = HEAT; // the --heat-* tokens of tokens.css (theme.js), read when used
@@ -261,7 +262,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   noteRoot.appendChild(els.intro);
   // M3 (m3-onboarding.md 3.3, U4): the first-time note is retired into hint H16 (onboarding.js); its seen state moved over
   let introSeen = true;
-  const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
+  const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { store.set(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
   els.introBtn.addEventListener('click', closeIntro);
 
   let built = false;
