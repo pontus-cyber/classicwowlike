@@ -88,3 +88,20 @@ Status: open unless marked.
 - Expected: the menu (Equip, Use, Put on item slot, Discard) lies inside the window.
 - Actual: the menu is 212 px wide at this size and starts at x = 1727, so its right 19 px are cut off (seen 8 times in the 1920x1080 Rogue run). Cause: src/ui/windows.js clamps the left edge to `innerWidth - 200` px, but the menu's width grows with the UI scale (rem).
 - Status: fixed in 6315c97.
+
+## BUG-QA-12 · major (for the demo) · A reload on the run summary loses everything the run paid
+- Build: c53d04d (game.html); found by qa/browser/demo/reload.mjs, point "demo-end screen" (docs/specs/demo.md 5.3).
+- Steps: play a run to its summary (any class, fresh profile), press F5 (or close and reopen the tab) before pressing "Begin a new run" or "Spend Echoes".
+- Expected (spec 5.3): the run end is a checkpoint: hero level and XP, Legacy points and the first-run welcome are as at the run end; the guide counts as done once the guided run ended; nothing is paid twice.
+- Actual: the profile is stored at zone and Camp arrival and when the summary's button sends END_RUN (src/ui/engine-bridge.js, saveProfile in the step wrapper and in case 'END_RUN'). After F5 on the summary the Legacy balance is as before the run (222 points paid on the summary, balance 0 after F5 in the harness run), the last zone's hero XP is gone and the profile still says guide "todo", so the next run is a guided run again. Nothing is paid twice (the check passes), but nothing is paid at all.
+- Why it matters for the demo: the demo-end screen is where a player is most likely to refresh or close the tab, and the 60-point welcome and the hall purchases they lead to live in that payment.
+- Fix idea (owner decision needed, a spec 5.3 reading): store the profile when the run ends (the engine's result profile at the SUMMARY phase) and let END_RUN only move to hero select; or state in 5.3 that the run end is stored by the button.
+- Status: open; reported in docs/handoffs/qa-2026-11-25b.md.
+
+## BUG-QA-13 · minor · The DOM node count of a long tab grows by about 130 a run
+- Build: c53d04d (game.html); found by qa/browser/demo/long-session.mjs (docs/specs/demo.md 5.4: nodes at the end at most 1.2 x after the first run).
+- Steps: one tab, engine autoplay at instant speed, 8 runs (rogue, mage, hunter in turn, 138-191 pace minutes), read Chromium's node count (CDP Performance Nodes, after a forced GC) at hero select after each run.
+- Expected: at most 1.2 x the count after run 1.
+- Actual: 1016, 1186, 1348, 1467, 1557, 1721, 1818, 1930 (1.90 x); in a second run 1.93 x. The same storage in a fresh page has 493 nodes. Elements still attached to the document grow only slowly (575, 574, 594 over three runs, 348 fresh), so most of the growth is detached nodes that something still holds (event listeners 281 -> 500). JS heap is within the limit (10.9 -> 14.1 MB = 1.29 x; 1.5 x allowed) but rises with the runs.
+- Not seen: console errors; the bridge's run log is cleared at each run start (2-3 entries).
+- Status: open; to be re-measured on the demo build (check B4 in the hand-off).
