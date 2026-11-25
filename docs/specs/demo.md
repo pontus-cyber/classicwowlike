@@ -249,7 +249,7 @@ Oruvath's B6 does not gate the demo: no demo run meets him. DM4 is the demo's cl
 ## 9. Open questions for the owner (the team builds on the default)
 | # | Question | Default |
 |---|---|---|
-| Q1 | The Furnace warns that overspending makes Oruvath stronger, and the demo has no Oruvath. Keep the Furnace exactly as in the full game, or soften it in the demo? | Keep it as in the full game: the demo teaches the real game, and the Dimming still makes tolls cost places |
+| Q1 | The Furnace warns that overspending makes Oruvath stronger, and the demo has no Oruvath. Keep the Furnace exactly as in the full game, or soften it in the demo? | Keep it as in the full game: the demo teaches the real game, and the Dimming still makes tolls cost places; **Lead call 2026-11-26 (draft, the owner may reverse it): the demo shows the demo Furnace lines (`TUTORIAL.demo` G5, H16, H17 and `DEMO_TEXT.furnaceLine`) and no "Boss +N %" on the meter, since no demo run meets the boss** |
 | Q2 | Should demo progress carry into the full game, and should the demo-end screen say so? | No promise: the demo saves under its own keys and the screen says only that the full game goes on; an import can be added later (about 0.5 session) |
 | Q3 | A player who closes the tab mid-run loses that run (XP up to the last zone arrival is kept). Add run resume for the demo? | No resume (saves about 1.5 sessions); runs are about 13 minutes |
 
