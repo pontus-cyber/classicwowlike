@@ -62,5 +62,20 @@ Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behavio
 Tasks so far: 3.1 onboarding spec (done, 5c031ee, D135); 3.2 tutorial seed script (done, 78a8303: TUTORIAL_SEED 8736, D137); 3.3 content table (done, 03d3072); 3.4 engine (done, 9cad27f); 3.5 UI (done, cd61e9b); 3.6 QA (done, 2f2ee9c; follow-ups D142); 3.7 guided-run follow-ups (done, ffd69ec: D142-D149 and the blind-panel fixes; zone 1 damage lever and zone 2 inner cap); 3.8 blind tester panel round 2 (done: five personas plus the owner-requested information editor, D150 text pass 3b8f003..c18c372, re-run scores in docs/feedback/2026-11-14-*); 3.9 lean first-run zone 1, guided lesson protected, steady Dimming (doing, D151); 3.10 round 2 bug batch (doing); 3.11 newcomer fixes and D153 harder guided zone (engine done eed57a6; UI finishing); then the owner's playtest and demo check (zones 1-2 by a stranger without help); Legacy (D154, spec legacy.md, D155): phase 1 sim calibration started 2026-11-17; meta v2 waits for the owner (EXPERIMENTS X1-X3).
 Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row. Includes the meta v2 proposal once agreed (persistent character per class, account quests) and a proper tutorial: a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system; checked by QA as a new-player playtest and by the owner.
 
+## MD. Demo (active since 2026-11-25, owner: "we need to work towards getting a demo out")
+Done when a stranger can play the demo from first screen to the demo end without help, the demo build is stable in Chrome, Firefox and Edge at 1366x768 and 1920x1080, three blind testers on the demo build would play again, every player-facing line and name is approved by the owner, and the owner has played it and says it can go out. The Lead prepares a private preview package; the owner publishes it himself (no public action by the team).
+Scope (D170, draft for the owner): the guided first run, then zones 1-2 of the expedition with Legacy on (hero levels, the hall), ending at the zone 2 exit with a demo-end screen that keeps Legacy progress. About 60-90 minutes of play for several runs.
+| # | Task | Owner | Status |
+|---|---|---|---|
+| D.1 | Demo spec: cut line, demo-end screen, gates on, hero cap, what is hidden (docs/specs/demo.md) | Designer | doing |
+| D.2 | Legacy ready to be on by default: Hunter package (D169), pace check on the D168 reading, B6 on fresh seeds | Engineer + Sim | doing |
+| D.3 | Demo build mode: zones 1-2 cut, demo-end screen, Legacy gates on, no dev switches visible | Engineer + UI | todo |
+| D.4 | Art: owner-led proof slice (D121), then the pass the demo needs | Owner + UI | waiting for the owner |
+| D.5 | Content approval: one review page with every draft line, name and number for the owner | Content + Lead | todo |
+| D.6 | Stability: browser matrix, save and reload, long sessions, performance, no console errors | QA | todo |
+| D.7 | Blind panel on the demo build (three personas) and fixes | QA + Lead | todo |
+| D.8 | Owner plays the demo (replaces the M3 five-run playtest) and signs off | Owner | todo |
+| D.9 | Private preview package (single game.html plus a short readme) for the owner to publish | Lead | todo |
+
 ## M4. Content, look and feel
 Done when the zones, dungeons, gear tiers and boss mechanics in docs/specs/content.md are in, the art and animation pass is done, and the build still meets the M2 targets.
