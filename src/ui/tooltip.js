@@ -64,7 +64,8 @@ function stale(at) {
 export function hideIn(root) { const t = hover && hover.target; if (current && t && root && (root === t || root.contains(t))) hide(); }
 
 /** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
-const PRIMARY = '.btn.primary, #pp-go';
+// demo blind round 1 B: and the Furnace note's "Got it" while it shows (heat.js)
+const PRIMARY = '.btn.primary, #pp-go, #heat-intro:not(.hidden) .hi-f button';
 /**
  * Demo blind round 1 C (skipper s0260, s0352; newcomer s0305: a tip hid the Take the Road button of the ask): an open
  * confirm dialog (role alertdialog: the leave ask, the inn's ask, the flee ask) is never covered by a tip; when no spot
