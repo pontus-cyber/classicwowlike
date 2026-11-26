@@ -36,7 +36,7 @@ import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
 import { xpToNext } from './progress.js';
 import { zoneContent } from './content.js';
-import { deathblowOf, deathblowType } from './track.js';
+import { deathblowOf, deathblowType, signalPlan } from './track.js';
 import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
 import { isLegacy, bandNow, zoneBand, clMax } from './legacy.js';
 
@@ -49,6 +49,14 @@ export function ringRule(s, z) {
   if (!isLegacy(s)) return { band: ZONE_LEVELS * (z - 1) + 1, base: RING_CL_BASE, spread: RING_CL_SPREAD, cap: clMax(s) };
   return { band: zoneBand(s, z), base: RING_CL_BASE_HERO, spread: RING_CL_SPREAD_HERO, cap: clMax(s) };
 }
+
+/** The highest level of a zone's band (its outer ring's top, as the view's `bands`): rule from ringRule. */
+export const zoneTop = (rule) => clampCl(rule.band + rule.base[rule.base.length - 1] + rule.spread - 1, rule.cap);
+/**
+ * A demo zone's quests (blind demo round 1 A; demo.md 4.4, draft): in a demo run (state.demo) each quest of the zone is set
+ * up on one Quest node at most; zone 1 of a guided run keeps its scripted roles (tutorial.js) and draws as before.
+ */
+export const demoQuests = (s, z) => !!s.demo && !(s.tutorial && z === 1);
 
 // ---------------- Map modes (rules 1.9) ----------------
 /** Map modes of newRun: 'rows' (rules 1.4, the default until the switch-over) and 'expedition' (rules 1.9). */
@@ -222,7 +230,9 @@ export function generateExpZone(s, z) {
     n.type = NODE_DRAW_ORDER[weightedIndex(rng, NODE_DRAW_ORDER.map((t) => (n.ring === 1 && RING1_FORBIDDEN.includes(t) ? 0 : w[t])))];
   }
   // 6. Node setup; the contract sites (expedition.md 3.3, contracts.js) continue the map(z) stream from here (siteRng).
-  for (const n of nodes) setupExpNode(s, z, n, regs);
+  // blind demo round 1 (A; demo.md 4.4, draft): in a demo run every quest of a zone is offered once (the guided zone keeps its own)
+  const used = demoQuests(s, z) ? new Set() : null;
+  for (const n of nodes) setupExpNode(s, z, n, regs, used);
   const zone = {
     z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall), siteRng: rng,
     pos: 0, start: s.time, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
@@ -243,7 +253,7 @@ export function generateExpZone(s, z) {
  * REGION_FAMILY_SHARE: from the list's templates whose `family` is one of the region's families, when there is one),
  * then the pick. Dungeons keep their own lists. The hub has no setup (band minimum, resolved).
  */
-export function setupExpNode(s, z, n, regs) {
+export function setupExpNode(s, z, n, regs, used = null) {
   const c = s.content;
   const zn = zoneContent(c, z);
   const rule = ringRule(s, z); // Legacy (legacy.md 2.1): the band fixed at arrival and the *_HERO offsets
@@ -264,8 +274,12 @@ export function setupExpNode(s, z, n, regs) {
     const sub = inFamily && fam.length ? list.filter((t) => fam.includes(c.enemies[t].family)) : [];
     return pickFrom(rng, sub.length ? sub : list);
   };
+  // blind demo round 1 (A; demo.md 4.4): `used`, a demo zone's quests set up so far: a Quest node draws from the others,
+  // and once every quest of the zone is out it is a Grind node instead (no quest is offered twice)
+  if (used && n.type === 'quest' && zn.quests.every((q) => used.has(q))) n.type = 'grind';
   if (n.type === 'quest') {
-    const qid = pickFrom(rng, zn.quests);
+    const qid = pickFrom(rng, used ? zn.quests.filter((q) => !used.has(q)) : zn.quests);
+    if (used) used.add(qid);
     const q = c.quests[qid];
     const drawn = 1 + weightedIndex(rng, q.sizeWeights || [QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3]);
     // zone 1's cap; D146 (GATES.zone2InnerCap): also zone 2's rings 1..QUEST_CAP_Z2_RINGS. The size draw is made either way
@@ -276,6 +290,8 @@ export function setupExpNode(s, z, n, regs) {
     for (let i = 0; i < size; i++) mobs.push(pick(pool));
     mobs = composeEncounter(c, rng, mobs, pool, zn.normals);
     n.cl = cap(cl + QUEST_LEVEL_OFFSETS[nextInt(rng, QUEST_LEVEL_OFFSETS.length)]);
+    // blind demo round 1 (A; demo.md 4.4): a demo run's quest is never above its zone's band (the outer ring's highest level)
+    if (s.demo) n.cl = Math.min(n.cl, zoneTop(rule));
     n.quest = qid;
     n.mobs = mobs;
   } else if (n.type === 'grind') {
@@ -553,13 +569,15 @@ export function knowledge(s, n) {
  */
 function details(c, z, n) {
   const arch = (tid) => c.enemies[tid].archetype;
-  if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch) };
-  if (n.type === 'grind') return { archetypes: n.waves[0].map(arch) };
+  // blind demo round 1 (A): `calls`, the reinforcement the fight calls in (Signal: { count, round }), or null
+  const calls = (tids) => { const x = signalPlan(c, tids); return x ? { count: x.count, round: x.round } : null; };
+  if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch), calls: calls(n.mobs) };
+  if (n.type === 'grind') return { archetypes: n.waves[0].map(arch), calls: calls(n.waves[0]) };
   // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows. M2b v14 (row 2,
   // D112): its type only ('heavy' or 'cast'; every zone's elite pool has both, content.js), never id, name or kind.
-  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: deathblowType(c, n.elite, n.rare) };
+  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: deathblowType(c, n.elite, n.rare), calls: calls([n.elite, ...(n.add ? [n.add] : [])]) };
   if (n.type === 'dungeon') {
-    return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
+    return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), fightCalls: n.trash.map(calls), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
   }
   if (n.type === 'treasure') return { guarded: !!n.guard, trap: null, archetypes: n.guard ? [arch(n.guard)] : [] };
   if (n.type === 'vendor') return { ember: null };

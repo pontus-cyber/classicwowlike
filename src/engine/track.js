@@ -10,7 +10,8 @@
 // (`deathblow`; a damaging one × DEATHBLOW_MULT); with GATES.firstMeetWindup a normal enemy met for the first time in a
 // quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow); D149 (M3, draft): an
 // enemy the guided zone's overlay marks does so on its turn `windupTurn` (ONB_WINDUP_TURN). M2b v14 (D112):
-// deathblowType, the type alone for a map elite whose name is hidden.
+// deathblowType, the type alone for a map elite whose name is hidden. Blind demo round 1 (A): signalPlan and fightSignal,
+// the reinforcement a fight calls (Signal), for the map view and the node panels.
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
 import {
@@ -149,6 +150,42 @@ export function scriptedId(s, e, t) {
   // A skulker calls for help only when the fight started with at least 2 enemies; else it strikes.
   if (id === 'signal' && s.fight.startCount < 2) return basicAction(e).id;
   return id;
+}
+
+/**
+ * Signal before a fight (rules 7.12, combat v2; blind demo round 1 A, engine-api.md 10.3 `calls`): what a fight of the
+ * template ids `tids` (fight order) calls in. With at least 2 enemies at the start, the first whose archetype's opening
+ * script plays Signal on its turn t (a skulker, turn 3) calls SIGNAL_ADDS normal enemies at the end of round
+ * turn0 + t - 1 (turn0 2 with the engage round, every map fight; 1 without), once per fight, unless it is killed or its
+ * turn is cancelled first. The signature turns of elites, rares and dungeon bosses (SIGNATURE_TURN, SIGNATURE_TURN_2) are
+ * not the script's Signal turn (qa/engine s33). Returns { count, round, by } (by: the caller's index in tids) or null.
+ */
+export function signalPlan(content, tids, engage = true) {
+  if (!tids || tids.length < 2) return null;
+  for (let i = 0; i < tids.length; i++) {
+    const t = content.enemies[tids[i]];
+    const k = t ? (OPENING_SCRIPT[t.archetype] || []).indexOf('signal') : -1;
+    if (k >= 0) return { count: SCRIPT_ACTION.signal.adds, round: (engage ? 2 : 1) + k, by: i };
+  }
+  return null;
+}
+
+/**
+ * Signal in the fight under way (as signalPlan): { count, round, by (enemy index), name } while an enemy present at the
+ * start can still play it (alive, its Signal turn not passed or cancelled), else null (played, no caller, no help near).
+ */
+export function fightSignal(s) {
+  const f = s.fight;
+  if (!f || f.over || f.signalled || f.startCount < 2 || !f.addPool.length) return null;
+  for (const e of f.enemies) {
+    if (!e.alive || e.unscripted) continue;
+    for (let t = Math.max(1, turnOf(f, e)); t <= OPENING_TURNS; t++) {
+      if (scriptedId(s, e, t) !== 'signal') continue;
+      if (t === turnOf(f, e) && e.intent && e.intent.turn === t && e.intent.kind !== 'signal') break; // cancelled this turn
+      return { count: SCRIPT_ACTION.signal.adds, round: e.turn0 + t - 1, by: e.idx, name: e.name };
+    }
+  }
+  return null;
 }
 
 /**

@@ -56,7 +56,7 @@ import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat
 import { prepView as prepScreen, contractView as contractTracker } from './engine/contracts.js';
 import { createDebug } from './engine/debug.js';
 import { windupView as windups, autoplayEngage as autoEngage } from './engine/answers.js';
-import { deathblowOf, deathblowType } from './engine/track.js';
+import { deathblowOf, deathblowType, signalPlan, fightSignal as fightSignalOf } from './engine/track.js';
 import { damageView as dmgView } from './engine/damageview.js';
 import { heroView as heroNow, heroesView as heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, zoneTierDmg as tierDmgOf, econV2, xpRef } from './engine/legacy.js';
 
@@ -393,6 +393,15 @@ export function windupView(state) {
 }
 
 /**
+ * The reinforcement the fight under way calls in (rules 7.12 Signal; blind demo round 1 A, engine-api.md 6.2):
+ * { count, round, by, name } while an enemy present at the start can still call (the node panels' "calls 1 more in round
+ * 4"), else null. The map's own plan is mapView's `calls` (engine-api.md 10.3).
+ */
+export function fightSignal(state) {
+  return fightSignalOf(state);
+}
+
+/**
  * Autoplay's engage answer (M2b v13, rules 7.9 rule E2): in the engage round, the ENGAGE autoplay plays on a special
  * enemy's visible wind-up, { action, option, name ('Disrupt' or the option's name), target, enemy, windup: { turn, id, name,
  * deathblow } }, else null ("Autoplay will answer the Deathblow with <name>").
@@ -619,13 +628,15 @@ export function mapView(state) {
   const c = s.content;
   const scout = !!(s.meta && s.meta.scout);
   const arch = (tid) => c.enemies[tid].archetype;
+  const calls = (tids) => { const x = signalPlan(c, tids); return x ? { count: x.count, round: x.round } : null; }; // blind demo round 1 (A)
   const rows = s.zone.rows.map((row) => row.map((n) => {
     const v = { type: n.type, r: n.r, l: n.l, cl: n.cl, done: n.done };
-    if (n.type === 'quest') { v.title = c.quests[n.quest].title; v.archetypes = n.mobs.map(arch); }
-    if (n.type === 'grind') { v.archetypes = n.waves[0].map(arch); v.waves = grindMaxWaves(s); } // D144: its waves (wave 1: archetypes)
+    if (n.type === 'quest') { v.title = c.quests[n.quest].title; v.archetypes = n.mobs.map(arch); v.calls = calls(n.mobs); }
+    if (n.type === 'grind') { v.archetypes = n.waves[0].map(arch); v.waves = grindMaxWaves(s); v.calls = calls(n.waves[0]); } // D144: its waves (wave 1: archetypes)
     if (n.type === 'elite') {
       v.level = n.eliteLevel;
       v.archetypes = [arch(n.elite), ...(n.add ? [arch(n.add)] : [])];
+      v.calls = calls([n.elite, ...(n.add ? [n.add] : [])]);
       v.rare = scout ? n.rare : null;
       v.name = scout || !n.rare ? c.enemies[n.elite].name : null;
       // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye); M2b v14 (row 2, D112):
@@ -636,6 +647,7 @@ export function mapView(state) {
       v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel;
       // Combat v2 (rules 7.14): archetypes of each trash fight and of the boss, so a pull can be planned from the map.
       v.fights = n.trash.map((f) => f.map(arch));
+      v.fightCalls = n.trash.map(calls);
       v.bossArchetype = arch(n.boss);
       v.bossDeathblow = deathblowOf(c, n.boss, 'dboss'); // M2b v13 (UI list 7)
     }

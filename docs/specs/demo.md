@@ -153,6 +153,12 @@ The guided first run and its beats; first-time hints; the lean first run; the st
 - **Contract board:** from the third run the board draws its three slots from CONTRACT_BOARD_BANDS_DEMO ([[1, 1], [1, 2], [2, 2]]) in place of CONTRACT_BOARD_BANDS, so no offer names a zone the player cannot reach [source: 2026-11-20 returning player: offers for zones 4 and 5, none for zone 1]. The second run's one offer (CONTRACT_BOARD_FIRST_BANDS) and the first run's none are unchanged. Zone 2's hub contract is unchanged.
 - **Map:** zone 2's Roads keep their names; their tooltip and the leave confirmation carry the line of 1.3 (once, not on the node chips).
 
+### 4.4 Quests (draft; blind demo round 1, group A)
+[source: docs/feedback/2026-11-26-blind-demo-skipper.md items 2-3: the same quest three times in one run; a level 3 quest in a "Levels 1-2" zone, accepted on reflex and lost.]
+- **No quest twice:** a demo zone sets up each of its quests on one Quest node at most (each Quest node draws from the quests not yet set up). Content gives a zone 8-12 quests and a zone has more Quest nodes in about half the seeds; those extra Quest nodes become Grind nodes. Zone 1 of a guided run keeps its scripted quest roles.
+- **No quest above the band:** a demo quest's level is at most the zone's band top (the outer ring's highest level; QUEST_LEVEL_OFFSETS' +1 is cut there). On the hero scale a "Levels 1-2" zone then shows quests of level 1-2 only.
+- The full game is unchanged (sim/blindahash.mjs: run hashes identical with the demo switch off).
+
 ---
 
 ## 5. Done when (the demo build)

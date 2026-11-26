@@ -467,6 +467,12 @@ Tested over 1 500 combat steps of autoplay and built runs (qa/engine/s15-dot-pre
 start, every entry equals what the ticks then do; at the start of the round it does too whenever nothing the unit's ticks
 read changed in the round.
 
+### 6.1b `fightSignal(state)` (blind demo round 1 A, draft)
+The reinforcement the fight under way still calls in: `{ count, round, by (enemy index), name }` while an enemy present at
+the start can still play Signal (alive, its Signal turn not passed or cancelled this round), else null (played, a fight
+that started with one enemy, no caller). At round 1 it equals the map view's `calls` for the node's fight (10.3). The node
+panels read it ("calls 1 more in round 4").
+
 ### 6.2 Deathblow views (M2b v13; docs/specs/changes-m2b-v13.md "UI needs")
 `windupView(state)`: one item per wind-up in the living enemies' tracks (enemy index order, then turn; the end boss has
 none), null outside a fight:
@@ -666,10 +672,16 @@ node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from t
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
   quest { title (newcomer check 2026-11-15: null on an unresolved node marked `guided`, other than the node being played:
-    its quest is fixed only when it is entered, 14.1), archetypes }, grind { archetypes (wave 1), waves (D144: its waves in this map mode, EXPED_GRIND_MAX_WAVES) },
+    its quest is fixed only when it is entered, 14.1), archetypes, calls }, grind { archetypes (wave 1), waves (D144: its waves in this map mode, EXPED_GRIND_MAX_WAVES), calls (wave 1) },
   elite { level, archetypes ([null, the add's archetype]: one
   entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare), deathblow: { type }
-  (M2b v14, D112: 'heavy' or 'cast' only; M2b v13 hid it with the name) }, dungeon { name, level, bossLevel, fights, bossArchetype, bossDeathblow (M2b v13, 6.2) },
+  (M2b v14, D112: 'heavy' or 'cast' only; M2b v13 hid it with the name), calls }, dungeon { name, level, bossLevel, fights,
+  fightCalls (one `calls` per trash fight), bossArchetype, bossDeathblow (M2b v13, 6.2) },
+  calls (blind demo round 1 A, draft; also on the rows view): the reinforcement the fight calls in, { count (SIGNAL_ADDS),
+    round (4: the engage round, then the caller's script turn 3) } or null: track.js `signalPlan`, rules 7.12 Signal (a
+    fight of 2 or more enemies with a skulker; once per fight; it does not come when the caller dies or its turn is
+    cancelled first). An elite's `calls` can follow from its own hidden archetype (a skulker rare): shown all the same, so the map's
+    enemy count is the fight's real one (a D50 question for the Designer, hand-off engine-2026-11-26),
   treasure { guarded, trap: null, archetypes },
   vendor { ember: null }
 know 'type' (Pathfinder within its radius; the dungeon with Region Charts or a held Delve contract of the zone, prep) adds: type
@@ -1305,3 +1317,7 @@ Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` 
   rank (not available).
 - The board (demo.md 4.3): from the third run a demo run's board draws slot i from `C.CONTRACT_BOARD_BANDS_DEMO[i]`
   ([1, 1], [1, 2], [2, 2]); the first run's none and the second run's one zone 1 offer as before.
+- Quests (demo.md 4.4, draft; blind demo round 1 A): in a demo run a zone's Quest nodes are set up with distinct quests
+  (each Quest node draws from the zone's quests not yet set up, one draw as before; once every quest is out, a Quest node
+  is set up as a Grind node), and a quest's level is at most the zone's band top (the outer ring's highest level, the
+  view's `bands`). Zone 1 of a guided run keeps its draws (its scripted roles, 14.1). expedition.js `demoQuests`, `zoneTop`.
