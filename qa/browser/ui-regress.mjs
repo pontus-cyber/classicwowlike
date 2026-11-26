@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node qa/browser/ui-regress.mjs [--file <build>]   (no --file: builds /tmp/tbwcr-<worktree>/game.html from src/ first, build-path.mjs)
- *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC]
+ *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -168,7 +168,7 @@
  *      before T now expect the texts of D150 (no opening ruler; "stopped", never "answered"; no par, Ascendancy or "the
  *      Star's line") and the engine's D150 moments (engine-2026-11-14d: G7 in fight 1, G3 and G9 silent, G8's own line in S3).
  *   U  blind round 2 (docs/feedback/2026-11-14-blind-*.md; docs/handoffs/ui-2026-11-14e.md): Equip now on the spoils and
- *      chests, the trainer on the level-up banner, autoplay off after a rescue and at a fight in the Dimming, the map's
+ *      chests, the trainer on the level-up banner, autoplay off after a rescue (and on through a fight in the Dimming, demo blind round 1 D), the map's
  *      clicks out of reach, Esc and Key, tooltips (keys, own controls, neighbours), the dungeon's counts, full bags: see partU.
  *   V  blind round 2 leftovers (docs/handoffs/ui-2026-11-14f.md): Packed Satchel's potions on the item bar, the vendor's gear
  *      in view and its card's line, rank-only trainer rows, one ring after Tab, bags compact after closing, a closed chest's
@@ -235,7 +235,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = resolveBuild(arg('--file', null));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -1033,7 +1033,8 @@ async function partE(browser, W, H) {
       new MutationObserver(() => { if (!dm.classList.contains('hidden')) rec.death.push(dm.querySelector('.d2').textContent); }).observe(dm, { attributes: true });
     });
     await page.keyboard.press('KeyZ');
-    // blind round 2: autoplay switches off after a revive (app.js noteAutoStop); Z switches it on again, as a player would
+    // demo blind round 1 D: autoplay stays on through each revive (app.js noteAutoStop keeps it on after an Ember of Return); the
+    // part presses Z again only if it were off (it must not be), so a stop shows in the count
     let done = false; let autoStops = 0;
     for (let k = 0; k < 6 && !done; k++) {
       await page.waitForFunction(() => { const x = window.__ui.view(); return x.phase === 'SUMMARY' || !x.autoplay; }, null, { timeout: 120000, polling: 200 }).catch(() => null);
@@ -1042,7 +1043,7 @@ async function partE(browser, W, H) {
       if (!done && !(await page.evaluate(() => window.__ui.view().autoplay))) { autoStops++; await page.keyboard.press('KeyZ'); }
     }
     const rec = await page.evaluate(() => window.__e);
-    check('M2v3-2', `boss fight: autoplay stops after each revive (blind round 2) and Z starts it again (${autoStops} stops, ${twin.sources.length} revives)`, done && autoStops === twin.sources.length, `${autoStops} stops`);
+    check('M2v3-2', `boss fight: autoplay stays on through each revive (demo blind round 1 D): the fight ends with no stop (${autoStops} stops, ${twin.sources.length} revives)`, done && autoStops === 0, `${autoStops} stops`);
     v = await view(page);
     // D150 naming rule: the banner names the revive itself ("Boon of Return | You return to the fight"), never "Resurrected"
     const resBanners = rec.banners.filter((t) => / \| You return to the fight$/.test(t));
@@ -5825,11 +5826,15 @@ async function partU(browser, W, H) {
       const on = (await sv(page)).autoplay;
       await page.locator(`.expmap .mnode[data-node="${dimNode}"]`).click({ force: true }); await idle(page);
       const r = await page.evaluate(() => { const v = window.__ui.view(); return { node: v.node && v.node.type, fight: !!(v.combat && !v.combat.over), autoplay: v.autoplay, round: v.combat ? v.combat.round : null }; });
-      await page.waitForTimeout(400);
-      const r2 = await page.evaluate(() => { const v = window.__ui.view(); return { round: v.combat ? v.combat.round : null }; });
-      const said = await toastSeen(page, /^Autoplay off: a fight in the Dimming\.$/);
+      // demo blind round 1 D: autoplay stays on in a fight in the Dimming and plays it; one log line says so, once
+      await page.waitForFunction((r0) => { const v = window.__ui.view(); return !v.combat || v.combat.over || v.combat.round > r0; }, r.round, { timeout: 15000, polling: 100 }).catch(() => null);
+      await idle(page);
+      const r2 = await page.evaluate(() => { const v = window.__ui.view(); return { round: v.combat ? v.combat.round : null, over: !v.combat || v.combat.over, autoplay: v.autoplay }; });
+      const lines = await logLines(page);
+      const said = lines.filter((l) => l === 'Autoplay stays on in the Dimming. Press Z to take over.').length;
+      const stops = await page.evaluate(() => window.__ui.ownActions().filter((a) => a.type === 'SET_AUTOPLAY').length);
       await shot(page, 'U4-dim');
-      check('U-auto', 'a fight in the Dimming switches autoplay off at its start, with "Autoplay off: a fight in the Dimming."; nothing is played for the player', dimNode != null && on && r.node === 'dim' && r.fight && !r.autoplay && r2.round === r.round && said, JSON.stringify({ dimNode, on, r, r2, t: await toasts(page) }));
+      check('U-auto', 'a fight in the Dimming leaves autoplay on and plays it for the player; one log line says so, no own SET_AUTOPLAY', dimNode != null && on && r.autoplay === true && r2.autoplay === true && (!r.fight || r2.over || r2.round > r.round) && said === 1 && stops === 0, JSON.stringify({ dimNode, on, r, r2, said, stops }));
     } catch (e) { await shot(page, 'U4-error-dim'); check('U-4', 'part U4 (Dimming) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('U-4', 'part U4 (Dimming): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -7392,6 +7397,125 @@ async function partAA0(browser, W, H) {
   }
 }
 
+
+/**
+ * Part AD - demo blind round 1 D, fast path and noise (docs/handoffs/ui-2026-11-26c.md; feedback 2026-11-26-blind-demo-skipper
+ * and -newcomer), real engine at Instant speed.
+ *   AD1 the guided Rogue run (seed 8736, a new profile, hints on): in zone 1 no coach line covers the action bar, the control
+ *       row or a nameplate (an enemy's intents) in any fight; none of H24, H29 and U02 shows while the guide runs.
+ *   AD2 the speed button in the combat log's header: it follows Settings' Animation speed and cycles 1x, 2x, 4x, Instant.
+ *   AD3 a run to its end: "Same hero" goes from the summary to the start camp with the same class (END_RUN, START_RUN), and
+ *       "Begin a new run" still goes to hero select; with hints off the summary has no glowing Spend Echoes or nudge line and
+ *       the Legacy hall shows no coach line and no marked card.
+ *   AD4 the level-up banner: a toast that comes while it shows waits and follows it; a refusal shows at once.
+ */
+async function partAD(browser, W, H) {
+  // ---- AD1
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const over = []; let fights = 0; let inF = false; let zone1Lines = 0; let seen = [];
+      for (let i = 0; i < 400; i++) {
+        const st = await page.evaluate(() => {
+          const v = window.__ui.view(); const c = v.combat; const co = document.querySelector('#coach');
+          const vis = (x) => { const b = x.getBoundingClientRect(); return b.width > 0 && b.height > 0 && !x.closest('.hidden') ? b : null; };
+          const cr = co && !co.classList.contains('hidden') && !co.classList.contains('held') ? vis(co) : null;
+          const hit = cr ? [...document.querySelectorAll('#actionbar .ab, #actionbar .ctrl, #nameplates .np')].map((x) => [x, vis(x)]).filter(([, b]) => b && cr.left < b.right && cr.right > b.left && cr.top < b.bottom && cr.bottom > b.top).map(([x]) => x.id || x.className.toString().split(' ')[0]) : [];
+          return { z: v.zone ? v.zone.idx : null, fight: !!(c && !c.over && !v.loot), coach: window.__ui.coach().shown, hit, log: window.__ui.coach().log.map((x) => x.id) };
+        });
+        if (st.z >= 2 || (await page.evaluate(() => window.__ui.view().phase)) === 'SUMMARY') { seen = st.log; break; }
+        if (st.fight && !inF) fights++;
+        inF = st.fight;
+        if (st.fight && st.hit.length) over.push({ i, fights, coach: st.coach && st.coach.id, hit: st.hit });
+        seen = st.log;
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      zone1Lines = seen.length;
+      await shot(page, 'AD1-zone1');
+      check('AD-1', `zone 1 of the guided run (${fights} fights, ${zone1Lines} coach lines): no coach line covers the action bar, the control row or a nameplate`, fights >= 3 && over.length === 0, JSON.stringify(over.slice(0, 4)));
+      check('AD-1', 'the free map hints H24, H29 and U02 stay quiet while the guide runs', !seen.some((id) => ['H24', 'H29', 'U02'].includes(id)), seen.join(' '));
+    } catch (e) { await shot(page, 'AD1-error'); check('AD-1', 'part AD1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AD-1', 'part AD1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AD2
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 80 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } // the HUD shows from the first fight on
+      const btn = page.locator('#combatlog .speedbtn');
+      const read = async () => ({ text: (await btn.innerText()).replace(/\s+/g, ' '), speed: await page.evaluate(() => window.__ui.settings.get('speed')) });
+      const seq = [await read()];
+      for (let k = 0; k < 4; k++) { await btn.click(); seq.push(await read()); }
+      const want = [['Speed Instant', 0], ['Speed 1×', 1], ['Speed 2×', 2], ['Speed 4×', 4], ['Speed Instant', 0]];
+      check('AD-2', 'the speed button in the combat log header cycles Instant, 1×, 2×, 4×, Instant and sets Animation speed', seq.every((x, i) => x.text.toUpperCase() === want[i][0].toUpperCase() && x.speed === want[i][1]), JSON.stringify(seq));
+      await btn.click(); // 1x
+      await page.evaluate(() => window.__ui.openWin('settings')); await idle(page);
+      const on = await page.evaluate(() => [...document.querySelectorAll('#win-settings .seg button.on')].map((b) => b.textContent));
+      check('AD-2', 'Settings shows the same Animation speed as the button (1×)', on.includes('1×'), JSON.stringify(on));
+      await page.locator('#win-settings .seg button', { hasText: '4×' }).click(); await idle(page);
+      check('AD-2', 'a speed chosen in Settings shows on the button', (await read()).text.toUpperCase() === 'SPEED 4×', JSON.stringify(await read()));
+      await shot(page, 'AD2-speed');
+    } catch (e) { await shot(page, 'AD2-error'); check('AD-2', 'part AD2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AD-2', 'part AD2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AD3
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
+    try {
+      await page.locator('#create .ccard[data-cls="mage"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 3000 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      await page.locator('.summary .sfoot').waitFor(); await page.waitForTimeout(3200); await idle(page);
+      const foot = await page.evaluate(() => ({ same: !!document.querySelector('.summary .sfoot [data-same]'), glow: !!document.querySelector('.sfoot .btn.glow'), nudge: !!document.querySelector('.sfoot .nudgeline'), labels: [...document.querySelectorAll('.summary .sfoot .btn')].map((b) => b.textContent.replace(/\d+$/, '').trim()) }));
+      check('AD-3', 'the run end has "Same hero" beside "Begin a new run"; with hints off Spend Echoes does not glow and has no nudge line', foot.same && foot.labels.includes('Same hero') && foot.labels.includes('Begin a new run') && !foot.glow && !foot.nudge, JSON.stringify(foot));
+      // hints off: the hall shows no coach line and no marked card
+      await page.locator('.summary .sfoot .btn', { hasText: 'Spend Echoes' }).click(); await idle(page);
+      const hall = await page.evaluate(() => ({ open: window.__ui.metaOpen(), coach: !!document.querySelector('#coach:not(.hidden)'), card: !!document.querySelector('#meta .mcard.nudge'), shown: window.__ui.coach().shown }));
+      await shot(page, 'AD3-hall-hints-off');
+      check('AD-3', 'hints off: the Legacy hall shows no coach line and no marked card (s0071)', hall.open && !hall.coach && !hall.card && !hall.shown, JSON.stringify(hall));
+      await page.keyboard.press('Escape'); await idle(page);
+      // a second run to its end, then Same hero: the start camp with the same class, END_RUN then START_RUN
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 3000 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      await page.locator('.summary .sfoot').waitFor(); await page.waitForTimeout(3200); await idle(page);
+      const n0 = await page.evaluate(() => window.__ui.engineLog().length);
+      const cls0 = await page.evaluate(() => window.__ui.view().player.classId);
+      await page.locator('.summary .sfoot [data-same]').click(); await idle(page);
+      const after = await page.evaluate((n) => { const v = window.__ui.view(); return { phase: v.phase, cls: v.player && v.player.classId, log: window.__ui.engineLog().slice(n).map((a) => a.type), prep: !!document.querySelector('#prep') }; }, n0);
+      await shot(page, 'AD3-same-hero');
+      check('AD-3', '"Same hero" goes from the run end to the start camp with the same class (END_RUN, START_RUN)', after.phase === 'PREP' && after.cls === cls0 && after.log.join() === 'END_RUN,START_RUN' && after.prep, JSON.stringify({ cls0, ...after }));
+    } catch (e) { await shot(page, 'AD3-error'); check('AD-3', 'part AD3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AD-3', 'part AD3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AD4
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=1&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => { window.__ui.settings.set('speed', 1); window.__ui.levelBanner('Level 2', ['Health 100 to 112', 'New spell: Arcane Ward'], 1500); });
+      await page.waitForTimeout(100);
+      await page.evaluate(() => { window.__ui.toast('Contract complete: Cull reedfolk', 'good'); });
+      await page.waitForTimeout(100);
+      const during = await page.evaluate(() => ({ banner: document.querySelector('#banner').className, b1: document.querySelector('#banner .b1').textContent, toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent) }));
+      await page.evaluate(() => { window.__ui.toast('Not enough mana', 'err'); });
+      await page.waitForTimeout(100);
+      const err = await page.evaluate(() => [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent));
+      await shot(page, 'AD4-banner');
+      await page.waitForTimeout(1800);
+      const after = await page.evaluate(() => ({ banner: document.querySelector('#banner').className, toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent) }));
+      check('AD-4', 'while the level-up banner shows a toast waits (the banner is on, no toast covers it); a refusal shows at once; the waiting toast shows when the banner is gone',
+        /\bon\b/.test(during.banner) && /level/.test(during.banner) && during.b1 === 'Level 2' && during.toasts.length === 0 && err.length === 1 && err[0] === 'Not enough mana' && after.toasts.includes('Contract complete: Cull reedfolk') && !/\bon\b/.test(after.banner), JSON.stringify({ during, err, after }));
+    } catch (e) { await shot(page, 'AD4-error'); check('AD-4', 'part AD4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AD-4', 'part AD4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 /** fmtNum's digits with a plain space between thousands (the game's thin space: texts compared after \s+ to ' '). */
 const fmtN = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
@@ -7425,6 +7549,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('Z')) await partZ(browser, W, H);
   if (PARTS.includes('AA')) await partAA(browser, W, H);
   if (PARTS.includes('BC')) await partBC(browser, W, H);
+  if (PARTS.includes('AD')) await partAD(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

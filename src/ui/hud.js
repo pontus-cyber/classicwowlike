@@ -36,7 +36,7 @@ import { h, add, clear, fmtNum, moneyEl, clamp, rgba, lv as shownLv } from './ut
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, heroLook, petLook, foeLook, foeBeastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
-import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
+import { tip, spellTip, basicTip, itemTip, statusTip, refreshTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule, freeActionText } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt } from './tracks.js';
@@ -209,6 +209,9 @@ export function trackNewItems(set, uids, bag = null) {
   return set.size;
 }
 
+/** The animation speeds (settings.js speed: 0 is Instant) in the order the HUD's speed button takes them, and their words. */
+const SPEEDS = [1, 2, 4, 0];
+const SPEED_LABELS = ['1×', '2×', '4×', 'Instant'];
 export function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
@@ -239,6 +242,9 @@ export function createHud(root, ctx) {
   els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
+  // demo blind round 1 D (skipper: "no visible speed setting"): the fight animation speed in the combat log's header (the control row has no room beside the turn prompt), the same setting
+  // as Settings' Animation speed (settings.js speed: 1, 2, 4, or 0 = Instant); a click takes the next one
+  els.speed = h('button.speedbtn', { type: 'button', 'aria-label': 'Animation speed' }, 'Speed ', h('b', SPEED_LABELS[0]));
   // the flee ask (blind panel 2026-11-13, app.js ui.flee): over the control row while armed, until F, the button, another
   // action or Esc answers it; never a fading toast
   els.fleeAsk = h('div#fleeask.hidden', { role: 'alertdialog', 'aria-live': 'assertive', 'aria-label': 'Flee?' });
@@ -275,7 +281,7 @@ export function createHud(root, ctx) {
   els.tracker = h('div#tracker');
   els.logLines = h('div.lines');
   els.logToggle = h('button.xbtn', { style: { width: '1.9rem', height: '1.9rem', fontSize: '1rem' } }, '–');
-  els.log = h('div#combatlog', h('div.lh', h('span', 'Combat log'), els.logToggle), els.logLines);
+  els.log = h('div#combatlog', h('div.lh', h('span', 'Combat log'), els.speed, els.logToggle), els.logLines);
   els.logToggle.addEventListener('click', () => { els.log.classList.toggle('min'); els.logToggle.textContent = els.log.classList.contains('min') ? '+' : '–'; });
 
   root.append(els.nameplates, els.player, els.pet, els.target, els.boss, els.minimap, els.tracker, els.log, els.actionbar, els.micro, els.gold, els.xp);
@@ -345,6 +351,11 @@ export function createHud(root, ctx) {
   });
   els.auto.addEventListener('click', () => ctx.ui.toggleAuto());
   tip(els.auto, () => h('div', h('div.tt-name', 'Autoplay'), h('div.tt-line.desc', 'When on, the game picks each combat action for you (bar order is the priority). You can switch at any time, also mid-fight.'), h('div.tt-sub', 'Key: Z')));
+  els.speed.addEventListener('click', () => { settings.set('speed', SPEEDS[(SPEEDS.indexOf(settings.get('speed')) + 1) % SPEEDS.length]); showSpeed(); refreshTip(); });
+  tip(els.speed, () => h('div', h('div.tt-name', 'Animation speed'), h('div.tt-line.desc', 'How fast a fight plays: 1×, 2×, 4× or Instant. Click to change it. Settings has the same choice.'), h('div.tt-sub', 'Now: ' + SPEED_LABELS[Math.max(0, SPEEDS.indexOf(settings.get('speed')))])));
+  /** The button's word follows the setting (also when Settings or Speedrun mode changes it). */
+  function showSpeed() { const i = SPEEDS.indexOf(settings.get('speed')); els.speed.lastChild.textContent = SPEED_LABELS[i < 0 ? 0 : i]; els.speed.classList.toggle('fast', i !== 0); }
+  showSpeed();
   els.pass.addEventListener('click', () => ctx.ui.pass());
   els.flee.addEventListener('click', () => ctx.ui.flee());
   tip(els.flee, () => h('div', h('div.tt-name', 'Flee'), h('div.tt-line.desc', 'Try to escape. On success you leave the node with no further rewards.'), ctx.view.legal.fleeChance != null ? h('div.tt-line.num', `Chance: ${Math.round(ctx.view.legal.fleeChance * 100)} %`) : null, h('div.tt-sub', 'Key: F (press twice)')));
@@ -906,7 +917,7 @@ export function createHud(root, ctx) {
     if (atEnd) L.scrollTop = L.scrollHeight;
   }
   function clearLog() { clear(els.logLines); }
-  settings.on('change', (k) => { if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
+  settings.on('change', (k) => { if (k === 'speed' || k === 'speedrun') showSpeed(); if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
   if (!settings.get('showLog')) els.log.style.display = 'none';
 
   /** Show the queued next action (key: 'attack', 'spellN', 'itemN', 'pass', 'flee'; null clears it). */

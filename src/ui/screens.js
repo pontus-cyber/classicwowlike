@@ -1591,6 +1591,15 @@ function buildSummary(v, ctx) {
   if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
   if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
     after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
+  // demo blind round 1 D (skipper: four screens before the first fight): "Same hero" ends the run and starts the next one at once
+  // with the same hero (class, pet and the hero's level are kept by END_RUN), so the next screen is the start camp. Hero
+  // select stays on the other button, for changing class. Draft wording.
+  const same = v.meta ? btn('Same hero', async () => {
+    same.disabled = true;
+    const r = await ctx.act({ type: 'END_RUN' });
+    if (r && r.ok) await ctx.act({ type: 'START_RUN' }); else same.disabled = false;
+  }, '.big') : null;
+  if (same) { same.dataset.same = '1'; tip(same, () => h('div', h('div.tt-name', 'Same hero'), h('div.tt-line.desc', 'Start the next run with this hero, at the start camp. Your Echoes are kept.'), h('div.tt-hint', `${demoEnd ? DEMO_TEXT.nextRun : 'Begin a new run'} lets you choose another hero.`))); }
   if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select, where the Hall of Echoes is too. Your Echoes are kept.')));
   // M3 nudge (m3-onboarding.md 4.3 step 1): the first summary (and once more while Packed Satchel is not bought): Spend Echoes
   // glows, with one line under it; the Hall then highlights the Satchel (onboarding.js). Nothing is disabled.
@@ -1602,6 +1611,6 @@ function buildSummary(v, ctx) {
     spend.addEventListener('click', () => coach.armHall(), true);
     nudge = h('div.nudgeline', ctx.data.tutorial.table.nudge.summaryLine);
   }
-  win.appendChild(demoEnd ? h('div.sfoot', again, nudge ? h('div.spendcol', spend, nudge) : spend) : h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, again));
+  win.appendChild(demoEnd ? h('div.sfoot', again, same, nudge ? h('div.spendcol', spend, nudge) : spend) : h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, same, again));
   return win;
 }

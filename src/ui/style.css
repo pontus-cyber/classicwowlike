@@ -403,6 +403,11 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .ctrl { display: flex; flex-direction: column; gap: var(--sp-40); }
 .ctrl .btn { padding: var(--sp-35) var(--sp-80); font-size: var(--fs-small-8); }
 .ctrl .toggle { padding: var(--sp-30) var(--sp-70); }
+/* demo blind round 1 D: the fight speed button (hud.js els.speed) in the combat log's header; its number is lit when faster than 1x */
+#combatlog .lh .speedbtn { margin-left: auto; margin-right: var(--sp-60); padding: var(--sp-10) var(--sp-60); border-radius: var(--radius-sm-1); cursor: pointer; font: var(--fw-bold) var(--fs-small-5) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); }
+#combatlog .lh .speedbtn:hover { color: var(--ink-bright); box-shadow: inset 0 0 0 1px var(--accent-hi); }
+#combatlog .lh .speedbtn b { font-weight: var(--fw-heavy); color: var(--ink-bright); margin-left: var(--sp-20); }
+#combatlog .lh .speedbtn.fast b { color: var(--accent-hi); }
 .toggle { display: flex; align-items: center; gap: var(--sp-60); padding: var(--sp-35) var(--sp-80); border-radius: var(--radius-sm-3); cursor: pointer; background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); font: var(--fw-bold) var(--fs-body-1) var(--font-ui); color: var(--ink-dim); }
 .toggle .sw { position: relative; width: 3.2rem; height: 1.7rem; border-radius: var(--radius-xl-1); background: var(--surface-well); box-shadow: inset 0 0 0 1px var(--glint-10); transition: background var(--dur-base-1); }
 .toggle .sw::after { content: ''; position: absolute; top: .2rem; left: .2rem; width: 1.3rem; height: 1.3rem; border-radius: var(--radius-round); background: #8a7a60; transition: transform var(--dur-base-1), background var(--dur-base-1); }

@@ -36,7 +36,7 @@ import { enemyLook } from './art-actors.js';
 // telegraph colours (tokens.css --fx-tele-*): a heavy blow in orange (the target ring is red), a cast in its school's colour
 // (an unknown school: magic's), a wind-up in ember red
 import { TELE, TELE_CAST } from './theme.js';
-import { HEAT_WORDS, tolls, BAGS_FULL } from './ui-text.js';
+import { HEAT_WORDS, tolls, BAGS_FULL, AUTO_DIM_LINE } from './ui-text.js';
 
 export class App {
   constructor() {
@@ -402,16 +402,21 @@ export class App {
 
   /**
    * Blind round 2 (casual re-run s0234-s0249: autoplay walked from a rescue into the next forced fight and died there):
-   * autoplay switches off after a death that the run survives (a rescue or a revive) and when a fight in the Dimming
-   * starts, with one line saying why. The UI sends SET_AUTOPLAY itself (an own action, mirrored by the Node twins).
+   * autoplay switches off after a rescue (the hero was beaten and the fight is over) with one line saying why. The UI sends
+   * SET_AUTOPLAY itself (an own action, mirrored by the Node twins).
+   * Demo blind round 1 D (skipper s0061, s0263; docs/feedback/2026-11-26-blind-demo-skipper.md): autoplay stays on after
+   * an Ember of Return (the fight goes on) and in a fight in the Dimming, until the player turns it off. No rule forbids
+   * either, so nothing asks first; the first Dimming fight of a run says in one log line that autoplay plays it and how to
+   * take over (draft wording).
    */
   noteAutoStop(prev, next, events, action) {
+    if (next.phase === 'PREP' || next.phase === 'CREATE') this.dimAutoSaid = false; // a new run: say it again once
     if (!next.autoplay) return;
     const t = (x) => events.some((e) => e.t === x);
-    const why = t('rescue') || t('resurrect') ? 'Autoplay off after your death.'
-      : next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over) ? 'Autoplay off: a fight in the Dimming.'
-        : null;
-    if (!why || (action && action.type === 'SET_AUTOPLAY')) return;
+    const dimStart = next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over);
+    if (dimStart && !this.dimAutoSaid) { this.dimAutoSaid = true; this.hud.log(AUTO_DIM_LINE, 'lg-sys'); }
+    if (!t('rescue') || (action && action.type === 'SET_AUTOPLAY')) return;
+    const why = 'Autoplay off after your death.';
     clearTimeout(this.autoTimer);
     const a = { type: 'SET_AUTOPLAY', on: false };
     this.ownActions.push(a);
@@ -459,7 +464,7 @@ export class App {
     document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
     document.body.classList.toggle('boss-fight', !!(v.combat && !v.combat.over && !v.loot && v.combat.isBoss));
     // a banner shown as a fight comes on screen (an elite's name) steps aside once its panels are drawn
-    if (this.bannerEl.classList.contains('on')) this.placeBanner(); // in a fight, or beside the zone map (blind round 2)
+    if (this.bannerEl.classList.contains('on')) { this.placeBanner(); this.placeToasts(); } // in a fight, or beside the zone map (blind round 2); the toasts keep clear of it
   }
 
   syncScene(v, opts = {}) {
@@ -543,9 +548,9 @@ export class App {
     b.querySelector('.b2').textContent = sub || '';
     this.placeBanner(); this.placeToasts();
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
+    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.flushToasts(); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
-  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.placeToasts(); }
+  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.flushToasts(); this.placeToasts(); }
   /**
    * Economy v2 (legacy.md 4.7 E6.4; draft): the hero's level-up banner in the upper third: "Level up", the title ("Level 7",
    * "Level 7 (+2)") and its lines, for exactly ms (2.5 s; 1.2 s in Autoplay and Speedrun, the director's choice). Any key or
@@ -563,7 +568,7 @@ export class App {
     const done = () => {
       removeEventListener('keydown', done, true); removeEventListener('pointerdown', done, true);
       if (!b.classList.contains('hero') || !b.classList.contains('on')) return; // another banner took its place
-      clearTimeout(this.bannerT); b.className = 'level' + (b.classList.contains('side') ? ' side' : ''); this.placeToasts();
+      clearTimeout(this.bannerT); b.className = 'level' + (b.classList.contains('side') ? ' side' : ''); this.flushToasts(); this.placeToasts();
     };
     this.bannerT = setTimeout(done, ms);
     // the next input closes it (armed after this frame, so the click or key that caused the step does not)
@@ -626,6 +631,13 @@ export class App {
       }
       const q = this.toastQueue.find((x) => x.key === key);
       if (q) { q.n += 1; return; }
+    }
+    // demo blind round 1 D (newcomer s0405: the level-up banner faded behind the "Contract complete" toast): while the level-up
+    // banner shows, a new toast waits in the queue (a refusal and a heat change do not); the queue goes on when the banner goes
+    if (!first && kind !== 'err' && this.levelBannerOn()) {
+      this.toastQueue.push({ key, text, kind, n: 1 });
+      if (this.toastQueue.length > TOAST_QUEUE) this.toastQueue.shift();
+      return;
     }
     if (this.toasts.children.length >= TOAST_MAX) {
       // the heat change takes the place of the oldest other toast. QA playtest 2026-11-13 (finding 5): so does a refusal
@@ -703,10 +715,13 @@ export class App {
   /** A toast leaves after TOAST_MS; the next queued one takes its place while there is room. */
   armToast(t) {
     clearTimeout(t._toastT);
-    t._toastT = setTimeout(() => {
-      t.remove();
-      while (this.toastQueue.length && this.toasts.children.length < TOAST_MAX) this.showToast(this.toastQueue.shift());
-    }, TOAST_MS);
+    t._toastT = setTimeout(() => { t.remove(); this.flushToasts(); }, TOAST_MS);
+  }
+  /** The level-up banner is on screen (banner(..., 'level') or levelBanner). */
+  levelBannerOn() { const b = this.bannerEl; return !!b && b.classList.contains('on') && b.classList.contains('level'); }
+  /** Queued toasts take the free places (not while the level-up banner shows). */
+  flushToasts() {
+    while (this.toastQueue.length && this.toasts.children.length < TOAST_MAX && !this.levelBannerOn()) this.showToast(this.toastQueue.shift());
   }
   showDeath(on, text) {
     if (on) this.deathEl.querySelector('.d2').textContent = text || 'No resurrection remains. Your journey ends here.';
@@ -850,6 +865,8 @@ export class App {
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
       /** A toast, as the game shows one (tests of where toasts go). */
       toast: (t, k) => app.toast(t, k),
+      /** The hero's level-up banner, as the director shows it (demo blind round 1 D: the toasts wait behind it). */
+      levelBanner: (title, lines, ms) => app.levelBanner(title, lines || [], ms),
       /** Whether the Hall of Echoes is open (it shows over class select). */
       metaOpen: () => app.ui.metaOpen,
       /** The engine actions applied to this run, in order (engine mode; a Node twin replays them). */

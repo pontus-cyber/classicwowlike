@@ -25,6 +25,11 @@ export function econLine(texts, id, vars = {}) {
  */
 export const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
 /**
+ * Demo blind round 1 D (2026-11-26): autoplay stays on in a fight in the Dimming (no rule forbids it). One log line, once per
+ * run, at the first such fight. Draft, for the owner and content.
+ */
+export const AUTO_DIM_LINE = 'Autoplay stays on in the Dimming. Press Z to take over.';
+/**
  * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
  * "You sell 7 junk items for 42 c." (L5: money as gold, silver and copper) Draft, for the owner and content.
  */

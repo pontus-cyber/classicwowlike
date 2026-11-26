@@ -280,6 +280,8 @@ const LINE_ALSO = { 'G8.withEngage': ANCHOR.G8 };
 // ctx: 'fight' (gone when the fight ends or two rounds on), 'map' (gone at the next map step), else 'screen' (gone when
 // `when` no longer holds). Each `when` reads the view, the step's events (ev) and the UI.
 const inFight = (v) => !!(v.combat && !v.combat.over && !v.loot);
+/** The guided run is on (the engine's tutorial view: on, not skipped, not over). */
+const guidedNow = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
 /** The turn prompt on screen says it (D150: an instruction is said once; a hint gives way to the prompt's). */
 const promptSays = (re) => { const t = q('#turnprompt .tp-t'); return !!t && re.test(t.textContent); };
 const onMap = (v) => v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node;
@@ -338,12 +340,15 @@ const HINTS = {
   H21: { ctx: 'screen', when: (c) => !leanFirst(c.v) && !!(c.v.loot && c.v.loot.kind === 'contract'), anchor: () => q('#screens .dialog') },
   H22: { ctx: 'screen', when: (c) => !leanFirst(c.v) && c.v.phase === 'ZONE_HUB' && !c.v.node && !!q('#screens .hub-contract, #screens [data-hub-offer]'), anchor: () => q('#screens .hub-contract, #screens [data-hub-offer]') },
   H23: { ctx: 'screen', when: (c) => !leanFirst(c.v) && c.v.phase === 'PREP', anchor: () => q('#prep .pp-foot .pp-pts') || q('#prep .pp-foot') },
-  H24: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'elite' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'elite' && n.know !== 'none' && !n.done) },
+  // demo blind round 1 D (newcomer: about 16 bubbles in zone 1): while the guide runs, its own lines cover the map, so the free
+  // map hints H24 (elite), H29 (rest) and U02 (pass through) wait until the guide is over or skipped; the node's own tooltip
+  // says the same (hand-off ui-2026-11-26c)
+  H24: { ctx: 'map', when: (c) => !guidedNow(c.v) && seenNode(c.v, (n) => n.type === 'elite' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'elite' && n.know !== 'none' && !n.done) },
   H25: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && (e.rare || e.rank === 'rare')), anchor: () => q('#target-frame') },
   H26: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'dungeon' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'dungeon' && n.know !== 'none' && !n.done) },
   H27: { ctx: 'fight', when: (c) => inFight(c.v) && !!c.v.combat.engage && c.v.combat.kind === 'dboss', anchor: () => q('#engage'), done: (c) => c.a === 'ENGAGE' },
   H28: { ctx: 'screen', when: (c) => !!q('#screens .vendor-cols'), anchor: () => q('#screens .vendor-cols') },
-  H29: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'rest' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'rest' && n.know !== 'none' && !n.done) },
+  H29: { ctx: 'map', when: (c) => !guidedNow(c.v) && seenNode(c.v, (n) => n.type === 'rest' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'rest' && n.know !== 'none' && !n.done) },
   // D150 (Lead 2026-11-14): not while the turn prompt already says "Pass [X]" (the Deathblow's one instruction)
   H30: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans') && !promptSays(/\bPass\b/), anchor: () => q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans'), done: (c) => c.a === 'PASS' },
   H31: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.round <= 1 && !c.v.autoplay && (c.store.stats || {}).won >= c.r.autoplayAfter && !(c.store.stats || {}).auto, anchor: () => q('#actionbar .ctrl .toggle'), done: (c) => c.a === 'SET_AUTOPLAY' },
@@ -357,7 +362,7 @@ const HINTS = {
   // and its showing counts for U01), at the nearest Road's sign; U02 the first time a toll label turns red, at that node,
   // with its "Pass through" button shown beside it (the second marker), so X takes it
   U01: { ctx: 'map', once: true, when: (c) => onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && roadsOpen(c.v) && !!roadNum(c.v), anchor: roadSign, num: roadNum },
-  U02: { ctx: 'map', once: true, when: (c) => onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && redPassNode(c.v) != null, num: passNum,
+  U02: { ctx: 'map', once: true, when: (c) => !guidedNow(c.v) && onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && redPassNode(c.v) != null, num: passNum,
     anchor: (v) => { const id = redPassNode(v); return id == null ? null : q(`#screens .mnode[data-node="${id}"]`); },
     also: (v) => { const id = redPassNode(v); return id == null ? null : document.querySelector(`#screens .expmap .xpass[data-node="${id}"]`); } },
 };
@@ -399,7 +404,7 @@ export function createOnboarding(root, ctx) {
   const beatHintKeys = (id, line = null) => lineHints(id, line).map(keyOf);
   const markAll = (keys) => { for (const k of keys) hints.mark(k); };
   hints.need = r.hintShows || null; // ONB_HINT_SHOWS (src/constants.js) through the bridge
-  const guiding = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
+  const guiding = guidedNow;
   const momentOf = (spec, v) => (spec.ctx === 'fight' ? `f${fightNo}` : spec.ctx === 'map' ? `m${v.zone ? `${v.zone.idx}:${v.zone.exp ? v.zone.exp.pos : ''}` : ''}` : `s${v.phase}:${v.node ? v.node.type : ''}:${v.loot ? v.loot.kind : ''}`);
 
   function lineFor(id, alt) {
@@ -492,6 +497,9 @@ export function createOnboarding(root, ctx) {
 
   // ---------------------------------------------------------------- placement (spec 2.5)
   const PROTECT = ['#actionbar', '#engage .eg-opt, #engage button', '#heat', '#target-frame', '#pp-go', '#boss-frame', '#turnprompt'];
+  // demo blind round 1 D (newcomer s0029-s0102: bubbles over the action): in a fight a line also keeps clear of the control row
+  // (Autoplay, Pass, Flee, Speed), the flee ask, and every enemy's nameplate with its intent track
+  const FIGHT_PROTECT = ['#actionbar .ctrl', '#fleeask', '#nameplates .np'];
   const visible = (x) => { const b = x.getBoundingClientRect(); return b.width > 0 && b.height > 0 && !x.closest('.hidden') ? b : null; };
   function place() {
     if (!cur || el.classList.contains('hidden')) return;
@@ -508,8 +516,11 @@ export function createOnboarding(root, ctx) {
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
     const W = innerWidth; const H = innerHeight; const gap = 0.8 * rem;
     let b = el.getBoundingClientRect();
-    const w = b.width; const hh = b.height;
-    const rects = PROTECT.flatMap((s) => [...document.querySelectorAll(s)].map(visible).filter(Boolean));
+    // the layout size, not the drawn one: the line's entrance animation scales it, which made a line placed at once sit a few
+    // pixels low (over the control row) until the next render (demo blind round 1 D)
+    const w = el.offsetWidth || b.width; const hh = el.offsetHeight || b.height;
+    const fightNow = !!(lastV && lastV.combat && !lastV.combat.over);
+    const rects = (fightNow ? [...PROTECT, ...FIGHT_PROTECT] : PROTECT).flatMap((s) => [...document.querySelectorAll(s)].map(visible).filter(Boolean));
     const ar = anchorEl ? visible(anchorEl) : null;
     if (ar) rects.push(ar);
     const sr = alsoEl ? visible(alsoEl) : null; // the second marker is not covered either
@@ -518,6 +529,12 @@ export function createOnboarding(root, ctx) {
     // the one place: bottom centre, its bottom edge BOTTOM_REM over the window's bottom (over the bar's control row)
     let x = (W - w) / 2; let y = H - BOTTOM_REM * rem - hh;
     if (cur.kind === 'nudge' && ar) { x = Math.min(Math.max(ar.left + ar.width / 2 - w / 2, gap), W - w - gap); y = ar.bottom + gap; if (y + hh > H - gap) y = ar.top - hh - gap; }
+    // sideways first, at the same height (a line sits beside what it must not cover), then up
+    if (fightNow && hits(x, y)) {
+      const xs = [...new Set(rects.flatMap((k) => [k.left - gap - w, k.right + gap]).map(Math.round))].filter((c) => c >= gap && c + w <= W - gap).sort((p, q) => Math.abs(p - x) - Math.abs(q - x));
+      const side = xs.find((c) => !hits(c, y));
+      if (side !== undefined) x = side;
+    }
     for (let i = 0; i < 10; i++) { const k = hits(x, y); if (!k) break; y = k.top - hh - gap; }
     if (y < gap) { y = H - BOTTOM_REM * rem - hh; for (let i = 0; i < 10; i++) { const k = hits(x, y); if (!k) break; y = k.bottom + gap; } }
     y = Math.min(Math.max(gap, y), H - hh - gap);
@@ -675,7 +692,7 @@ export function createOnboarding(root, ctx) {
   // ---------------------------------------------------------------- the nudge (spec 4.3)
   /** The summary shows the nudge: the welcome was paid (first summary) or the Satchel is still not bought (once more). */
   function summaryNudge(v) {
-    if (!T || !v || v.phase !== 'SUMMARY' || !v.summary || v.summary.dev || !v.meta) return false;
+    if (hints.off || !T || !v || v.phase !== 'SUMMARY' || !v.summary || v.summary.dev || !v.meta) return false;
     const owned = (v.meta.unlocks[T.nudge.unlock] || 0) > 0;
     if (owned) return false;
     const n = store().nudge.summary;
@@ -689,7 +706,7 @@ export function createOnboarding(root, ctx) {
     if (nudgeRun === id) return;
     nudgeRun = id; store().nudge.summary += 1; hints.save();
   }
-  function armHall() { if (!store().nudge.hall) nudgeHall = true; }
+  function armHall() { if (!hints.off && !store().nudge.hall) nudgeHall = true; } // hints off: no bubble in the hall (demo blind round 1 D, s0071)
   function closeNudge() {
     if (cur && cur.kind === 'nudge') hide(false);
     if (nudgeHall) { store().nudge.hall = true; hints.save(); }
@@ -704,6 +721,10 @@ export function createOnboarding(root, ctx) {
     const held = !!ctx.ui.overlay;
     el.classList.toggle('held', held);
     if (held) return;
+    if (hints.off && (nudgeHall || (cur && cur.kind === 'nudge'))) { // hints off: no bubble in the hall (demo blind round 1 D, s0071); not marked seen
+      if (cur && cur.kind === 'nudge') hide(false);
+      nudgeHall = false; document.querySelectorAll('#meta .mcard.nudge').forEach((x) => x.classList.remove('nudge'));
+    }
     if (nudgeHall && ctx.ui.metaOpen && v.phase === 'CREATE' && T) {
       const card = document.querySelector(`#meta .mcard[data-id="${T.nudge.unlock}"]`);
       const owned = v.meta && (v.meta.unlocks[T.nudge.unlock] || 0) > 0;
