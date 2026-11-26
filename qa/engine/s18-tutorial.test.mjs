@@ -500,7 +500,7 @@ describe('M3 D150: the coach lines\' moments (owner text pass; docs/feedback/202
   test('G5 at the first hub (before the map), G7 in fight 1 (one enemy) and its ENGAGE learns it, G4 on the first upgrade in a fight\'s spoils and never at a reward choice; content lines as approved', () => {
     const T = CONTENT.tutorial;
     const line = (id) => T.beats.find((b) => b.id === id).line;
-    assert.equal(line('G5'), 'Every move costs tolls. Spend too many and the final boss gets stronger.');
+    assert.equal(line('G5'), 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.'); // demo blind round 1 B (draft)
     assert.equal(line('G7'), 'Round 1 is yours: they act from round 2. Open with {key_engage1}, {key_engage2} or {key_engage3}.');
     assert.equal(line('G4'), 'Green arrow means upgrade. Equip it in your bags {key_bags}.');
     assert.equal(line('G12'), 'The dark spreads from the purple star. Places it reaches are lost.');

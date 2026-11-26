@@ -761,3 +761,55 @@ export function nearestRoad(mv) {
   const r = walk((n) => n.dimmed || n.barred) || walk((n) => n.barred);
   return r ? { ...r, tolls: r.hops * (mv.walkTime || 0) + (mv.travelTime || 0) } : null;
 }
+
+// ------------------------------------------------------------------ the way out of a zone (demo blind round 1 C, draft)
+/**
+ * Demo blind round 1 C (2026-11-26; docs/feedback/2026-11-26-blind-demo-skipper.md items 5-7, 22, -newcomer.md s0248,
+ * s0303): every line here is a draft until the owner approves it. The Roads' signs name the goal ("Next zone »", as zone 2's
+ * "End of the demo »" in the demo); the Bell's button says where it takes you and what its number is; the Bell's and the
+ * Road's tooltips differ; a ring that ends in a Dimming fight says so before the click. The Bell keeps its name (lore canon,
+ * docs/lore/style.md); a rename is proposed in docs/handoffs/ui-2026-11-26b.md.
+ * `to`: 'next' (a zone follows), 'camp' (the Camp follows; name in `camp`), 'demo' (the demo ends).
+ */
+export const EXIT_WORDS = {
+  nextZone: 'Next zone',
+  demoEnd: 'end of the demo',
+  bellLabel: 'Ring the Bell: {where} ({n} left)',
+  bellWhereNext: 'next zone',
+  bellTitle: 'Homeward Bell',
+  bellLine: 'Rings you on to the next zone, the hub of {zone}, from anywhere on this map. No way back.',
+  bellLineCamp: 'Rings you on to {zone}, from anywhere on this map. No way back.',
+  bellCharges: 'The number on the button: {n} {charges} left this run. A Road needs none.',
+  roadTitle: 'Take the Road',
+  roadLine: 'You stand on a Road: walk on to {zone}.',
+  roadFree: 'Uses no Bell charge.',
+  fightNear: 'A fight comes first: the Dimming reaches you while the Bell rings.',
+  fightIn: 'A fight comes first: you stand in the Dimming.',
+};
+const fillW = (s, vars) => s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? String(vars[k]) : m));
+/** The Bell's button: "Ring the Bell: next zone (1 left)" ("...: end of the demo (1 left)", "...: Camp of ... (1 left)"). */
+export function bellLabel(n, to, name = '') {
+  const where = to === 'demo' ? EXIT_WORDS.demoEnd : to === 'camp' ? name : EXIT_WORDS.bellWhereNext;
+  return fillW(EXIT_WORDS.bellLabel, { where, n });
+}
+/** The Bell's tooltip line on where it takes you ('' in the demo's last zone, whose leave line says it). */
+export function bellLine(to, zone) {
+  if (to === 'demo') return '';
+  return fillW(to === 'camp' ? EXIT_WORDS.bellLineCamp : EXIT_WORDS.bellLine, { zone });
+}
+/** What the Bell's "(1)" means. */
+export const bellCharges = (n) => fillW(EXIT_WORDS.bellCharges, { n, charges: plural(n, 'charge') });
+/** The Road's tooltip line ('' in the demo's last zone). */
+export const roadLine = (to, zone) => (to === 'demo' ? '' : fillW(EXIT_WORDS.roadLine, { zone }));
+/** A Road's sign: "Next zone", the Camp's name, or the demo's sign. */
+export function roadSignWord(to, name, demoSign) {
+  return to === 'demo' ? demoSign : to === 'camp' ? name : EXIT_WORDS.nextZone;
+}
+/**
+ * The line of a ring (or any leave) whose heat preview ends in a Dimmed encounter (heatPreview `dimFight`, or a cost part
+ * `dimFight`): '' when no fight comes first. inDim: the player stands on a Dimmed node.
+ */
+export function leaveFightLine(p, inDim = false) {
+  const fight = !!(p && (p.dimFight || (p.parts || []).some((x) => x.why === 'dimFight')));
+  return fight ? (inDim ? EXIT_WORDS.fightIn : EXIT_WORDS.fightNear) : '';
+}

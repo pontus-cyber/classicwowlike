@@ -62,7 +62,7 @@ test('redPassNode: a reachable node whose MOVE ends Burning or Infernal (a red t
 
 test('the Furnace while the Dimming sets the state: the line says why, the tooltip has the clock; the diamond\'s line', () => {
   assert.equal(meterText({ by: 'dim', heat: -3, dimIn: 2 }), DIM_NEAR_WORDS);
-  assert.equal(DIM_NEAR_WORDS, 'The Dimming is near');
+  assert.equal(DIM_NEAR_WORDS, 'Raised by the Dimming nearby'); // demo blind round 1 B (draft; was 'The Dimming is near')
   assert.equal(meterText({ by: 'run', heat: -3, dimIn: 2 }), '3 tolls to spare');
   assert.match(dimTipLine({ heat: -3, dimIn: 1 }), /^Your node dims in 1 toll\. Tolls: 3 to spare\./);
   assert.ok(DIM_MARK_LINE.startsWith('◆'));

@@ -326,9 +326,10 @@ const HINTS = {
   H13: { ctx: 'map', when: (c) => has(c.ev, 'learn', (e) => c.v.player && !c.v.player.bar.includes(e.id)), anchor: () => q('#actionbar'), done: (c) => c.a === 'SET_BAR' },
   H14: { ctx: 'screen', when: (c) => !inFight(c.v) && !!c.v.player && c.v.player.talentPoints > 0, anchor: () => q('#micromenu .mm[aria-label="Talents"]'), done: (c) => c.a === 'SPEND_TALENT' },
   H15: { ctx: 'map', when: (c) => onMap(c.v), anchor: () => q('#screens .mnode.here') },
-  // D150 (Lead 2026-11-14): at the hub, G5's moment (the first hub screen); while the guide runs G5 stands in for it, so the
-  // two never show both (BEAT_OF), and G5 learned marks it seen
-  H16: { ctx: 'screen', when: (c) => c.v.phase === 'ZONE_HUB' && !!c.v.heat, anchor: () => q('#heat') },
+  // D150 (Lead 2026-11-14): while the guide runs G5 stands in for it (the first hub), so the two never show both (BEAT_OF),
+  // and G5 learned marks it seen. Demo blind round 1 B (2026-11-26): outside the guide at the first map, where the tolls are
+  // spent (with hints off the Furnace's own note says it there: heat.js, furnaceNoteWanted)
+  H16: { ctx: 'map', when: (c) => onMap(c.v) && !!c.v.heat, anchor: () => q('#heat') },
   H17: { ctx: 'screen', when: (c) => !!(c.v.node && (c.v.node.heat === 'hot' || c.v.node.heat === 'scorched')), anchor: () => q('#heat') },
   H18: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.dimmed), anchor: () => q('#screens .xdimp') },
   H19: { ctx: 'map', when: (c) => onMap(c.v) && bellMoment(c.v) !== null, anchor: ANCHOR.G13, alt: (c) => bellMoment(c.v), done: (c) => c.a === 'TAKE_ROAD' || c.a === 'RING_BELL' },
@@ -752,8 +753,22 @@ export function createOnboarding(root, ctx) {
     return !!(st.seen.H16 || (st.shows.H16 || 0) > 0);
   }
 
+  /**
+   * Demo blind round 1 B (pure on the hint store): the Furnace's first-map note (heat.js) is wanted when no coach line
+   * carries its sentence: hints off (no G5 or H16 would come) and neither line ever shown (H16 seen or shown, kept across
+   * runs; G5's line marks H16 seen).
+   */
+  function furnaceNoteWanted() {
+    if (!T) return true;
+    const st = store();
+    if (st.seen.H16 || (st.shows.H16 || 0) > 0) return false;
+    return !!hints.off;
+  }
+  /** The note has shown: H16 counts as seen, so hints turned on later do not say it again. */
+  function furnaceNoted() { hints.mark('H16'); }
+
   return {
-    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced, refusedLine,
+    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced, refusedLine, furnaceNoteWanted, furnaceNoted,
     /** Settings "Reset hints" / "Hints" / "Play the guide again". */
     reset() { hints.reset(); dismissed.clear(); cool.clear(); queue = []; hide(false); },
     /** Dev menu "Reset onboarding": the hint store cleared as on a new profile (hints on, nothing seen, no nudge). */

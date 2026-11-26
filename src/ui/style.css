@@ -739,6 +739,7 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 /* tooltip */
 .tooltip { position: fixed; left: 0; top: 0; z-index: var(--z-tooltip); max-width: 34rem; padding: var(--sp-100) var(--sp-120); pointer-events: none; opacity: 0; transition: opacity var(--dur-fast-2); border-radius: var(--radius-md-2); background: linear-gradient(180deg, rgba(14, 16, 30, .97), rgba(8, 9, 18, .97)); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px rgba(150, 160, 210, .45), 0 .6rem 2rem var(--shade-70); font-size: var(--fs-body-5); line-height: var(--lh-normal-4); }
 .tooltip.on { opacity: 1; }
+.tooltip.on.off-dialog { opacity: 0; } /* demo blind round 1 C: never over a confirm dialog (tooltip.js) */
 .tt-head { display: flex; gap: var(--sp-90); align-items: center; margin-bottom: var(--sp-40); }
 .tt-icon { width: 3.6rem; height: 3.6rem; border-radius: var(--radius-sm-2); border: 1px solid var(--shade); }
 .tt-name { font: var(--fw-bold) var(--fs-label-6) var(--font-ui); color: var(--ink-bright); }
@@ -950,7 +951,7 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 #heat .ht-span.back { background: repeating-linear-gradient(135deg, rgba(143, 208, 245, .5) 0 .3rem, rgba(143, 208, 245, .12) .3rem .6rem); }
 #heat.flash { animation: heatflash var(--dur-long-1) ease-out; }
 @keyframes heatflash { 0% { box-shadow: inset 0 0 0 1px var(--edge), 0 0 0 2px var(--hc), 0 0 2.4rem var(--hc); } }
-/* the first-time note, on the first hub, above the meter */
+/* the first-time note (demo blind round 1 B: at the first map), under the meter */
 #heat-intro { position: absolute; left: calc(50% - 26rem); bottom: 16rem; width: 30rem; padding: var(--sp-90) var(--sp-110) var(--sp-80); border-radius: var(--radius-md-4); background: linear-gradient(180deg, rgba(36, 30, 50, .97), rgba(14, 11, 22, .97)); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .55), 0 .8rem 2rem var(--shade-70); z-index: var(--z-hud-callout); }
 #heat-intro::after { content: ''; position: absolute; right: 2.2rem; bottom: -.8rem; border: .8rem solid transparent; border-top-color: rgba(190, 160, 255, .7); border-bottom: 0; }
 #heat-intro .hi-t { font: var(--fw-semibold) var(--fs-title-1) var(--font-title); color: var(--gold); margin-bottom: var(--sp-30); }
@@ -969,6 +970,8 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .tt-heat .th-l .chg { color: var(--ink-dim); font-weight: var(--fw-semibold); }
 .tt-heat .th-p { color: var(--ink-dim); }
 .tt-heat .th-p.paid { color: var(--hc-tx); font-weight: var(--fw-bold); }
+/* demo blind round 1 B: what a coloured toll tag's colour means */
+.tt-heat .th-tag { display: flex; align-items: center; gap: var(--sp-40); color: var(--ink-dim); }
 .tt-heat .th-w { color: #c9b2ff; font-weight: var(--fw-bold); }
 .tt-heat .th-s { color: var(--ink-dim); font-size: var(--fs-body-1); }
 .tt-heatstates { display: grid; grid-template-columns: auto auto 1fr; gap: var(--sp-15) var(--sp-60); margin: var(--sp-45) 0 var(--sp-35); font-size: var(--fs-body-1); }
@@ -1149,6 +1152,20 @@ body.in-fight #toasts { top: calc(11.2rem + var(--furnace-h)); }
 #heat[data-by="dim"] .ht-mark.run::before { display: none; }
 /* the first-time note: under the Furnace, its arrow pointing up at it */
 #heat-intro { left: 50%; bottom: auto; top: calc(var(--furnace-h) + 1.2rem); transform: translateX(-50%); z-index: var(--z-hud-callout); }
+/* demo blind round 1 B: the note at the first map takes no clicks but its button's, so it never blocks a map node */
+/* at the coach line's place (bottom centre, over the action bar's control row: onboarding.js BOTTOM_REM), so it covers
+   neither the map's head and buttons nor its Roads; the meter carries a ring while it is up (#heat.noted) */
+#heat-intro { pointer-events: none; width: max-content; max-width: min(64rem, calc(100vw - 2rem)); top: auto; bottom: 14.8rem; display: flex; align-items: center; gap: var(--sp-90); padding: var(--sp-50) var(--sp-90); }
+#heat-intro::after { display: none; }
+#heat.noted { box-shadow: inset 0 0 0 1px var(--edge), 0 0 0 2px rgba(190, 160, 255, .8), 0 0 1.6rem rgba(190, 160, 255, .55); }
+#heat-intro .hi-t { flex: none; margin: 0; font-size: var(--fs-body-3); }
+#heat-intro .hi-t::before { content: '▲ '; font-size: .8em; opacity: .8; }
+#heat-intro .hi-f button { white-space: nowrap; }
+#heat-intro .hi-b { flex: 1 1 auto; min-width: 0; }
+#heat-intro .hi-b p { margin: 0; font-size: var(--fs-body-1); line-height: var(--lh-normal-4); }
+#heat-intro .hi-f button { pointer-events: auto; }
+/* demo blind round 1 B (newcomer s0246): the Key's nine icons each with its name, at rest, in one column */
+.expmap .xkey .xkicons { grid-template-columns: max-content; row-gap: var(--sp-15); }
 #heat-intro::after { right: auto; left: 50%; bottom: auto; top: -.8rem; transform: translateX(-50%); border-top-color: transparent; border-bottom: .8rem solid rgba(190, 160, 255, .7); border-top: 0; }
 
 /* ---- what to do now: the turn prompt over the action bar's right half (hud.js turnPrompt), and the bar's frame */
@@ -1347,6 +1364,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .leavewarn .lw-t { font: var(--fw-bold) var(--fs-label-8) var(--font-title); color: #ffd0a0; }
 .leavewarn .lw-l { margin: var(--sp-35) 0 var(--sp-80); font-size: var(--fs-body-3); line-height: var(--lh-normal-4); color: #f2dcc4; }
 .leavewarn .lw-b { gap: var(--sp-80); align-items: center; }
+/* demo blind round 1 C: a Dimming fight that comes before the Bell takes you, said first */
+.leavewarn .lw-l.lw-fight { margin-bottom: var(--sp-30); color: #ffb0a0; font-weight: var(--fw-bold); }
 .btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem var(--shade-50); }
 /* the chart: the Lantern paper chart for every theme (D129; tokens.css, the .expmap block): flat paper with an ink edge */
 .expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: var(--sp-80); margin: 0 var(--sp-100) var(--sp-100); padding: var(--sp-60); background: linear-gradient(175deg, var(--chart-paper-1), var(--chart-paper-2)); box-shadow: inset 0 0 0 1px var(--chart-ink-edge), .15rem .25rem 0 var(--shade-35); }
@@ -1618,8 +1637,6 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 #target-frame.stopped .wstk { display: none; }
 /* the map at rest (D150 word budget): the Key's rows on hover of its panel; a closed Road's sign says only "Closed" */
 .expmap .xkey:not(:hover) .xk { display: none; }
-.expmap .xroad.rclosed .xsign b { display: none; }
-.expmap .xroad.rclosed .xsign .xshut { margin-top: 0; }
 /* item 24: the stopped line is a sentence: sentence case, and it may wrap (two lines) rather than run over the tracker */
 .np .wub.stopped .wu-b { text-transform: none; letter-spacing: 0; white-space: normal; text-align: left; max-width: 22rem; }
 .np .wub.db.stopped { margin: 0; }
@@ -1641,8 +1658,9 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 .expmap .xki { display: flex; align-items: center; gap: var(--sp-30); }
 .expmap .xki img { width: 1.9rem; height: 1.9rem; flex: none; }
 .expmap .xki b { display: none; font: var(--fw-semibold) var(--fs-micro-9) var(--font-ui); color: var(--ink-dim); white-space: nowrap; }
-.expmap .xkey:hover .xkicons { grid-template-columns: repeat(2, max-content); column-gap: var(--sp-90); }
-.expmap .xkey:hover .xki b { display: inline; }
+/* demo blind round 1 B (newcomer s0246: "nine unlabelled icons"): every icon of the Key carries its name, at rest */
+.expmap .xkey .xki img { width: 1.5rem; height: 1.5rem; }
+.expmap .xkey .xki b { display: inline; }
 /* the combat log grows upward while hovered, so the lines before can be read and scrolled (tactician re-run section 3) */
 #combatlog:not(.min):hover { height: 26rem; z-index: var(--z-hud-callout); background: linear-gradient(180deg, rgba(10, 8, 6, .82), rgba(10, 8, 6, .9)); }
 /* four or more enemies (casual re-run s0162, s0166: chips over the next plate, "Rust-Shackled Gua", "Shiel..."): the plate

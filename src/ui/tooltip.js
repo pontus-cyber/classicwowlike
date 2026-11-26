@@ -65,6 +65,18 @@ export function hideIn(root) { const t = hover && hover.target; if (current && t
 
 /** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
 const PRIMARY = '.btn.primary, #pp-go';
+/**
+ * Demo blind round 1 C (skipper s0260, s0352; newcomer s0305: a tip hid the Take the Road button of the ask): an open
+ * confirm dialog (role alertdialog: the leave ask, the inn's ask, the flee ask) is never covered by a tip; when no spot
+ * keeps clear of it, the tip is not shown.
+ */
+const DIALOG = '[role="alertdialog"]:not(.hidden)';
+/** The rects of the open confirm dialogs, except one the hovered element lies in. */
+function dialogRects() {
+  const t = hover && hover.target;
+  return [...document.querySelectorAll(DIALOG)].filter((d) => !(t && d.contains(t)))
+    .map((d) => d.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
+}
 /** The parts of a hovered element its own tip keeps clear of: its buttons, a row's right column (price), a rank counter. */
 const OWN = 'button, .btn, .right, .rk, .rank, .eqnow';
 /** Rects the tip must not cover: visible primary buttons and the tip's own `avoid` elements, never the hovered one. */
@@ -91,11 +103,13 @@ function place(x, y) {
     const g = [...document.querySelectorAll(hover.avoid)].map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0);
     if (g.length) spots.push([Math.max(...g.map((q) => q.right)) + 12, tr.top], [Math.min(...g.map((q) => q.left)) - w - 12, tr.top]);
   }
-  const clearOf = keepClear();
+  const clearOf = keepClear(); const dialogs = dialogRects();
   const area = (a, b) => Math.max(0, Math.min(a[2], b.right) - Math.max(a[0], b.left)) * Math.max(0, Math.min(a[3], b.bottom) - Math.max(a[1], b.top));
+  const overDialog = (p) => { const [tx, ty] = fit(p); const box = [tx, ty, tx + w, ty + ht]; return dialogs.some((q) => area(box, q) > 0); };
   const cost = (p) => {
     const [tx, ty] = fit(p); const box = [tx, ty, tx + w, ty + ht];
     let k = 0; for (const q of clearOf) k += area(box, q);
+    for (const q of dialogs) { const a = area(box, q); if (a > 0) k += 1e8 + a; } // a dialog weighs more than all else
     // never under the pointer itself
     if (x >= box[0] - 4 && x <= box[2] + 4 && y >= box[1] - 4 && y <= box[3] + 4) k += 1e7;
     return k;
@@ -108,6 +122,8 @@ function place(x, y) {
   spot = best;
   const [tx, ty] = fit(spots[best]);
   el.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px)`;
+  // never over a confirm dialog: with every spot over one, the tip stays hidden (it comes back when a spot is free)
+  el.classList.toggle('off-dialog', dialogs.length > 0 && overDialog(spots[best]));
 }
 
 /**

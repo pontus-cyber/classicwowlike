@@ -123,8 +123,9 @@ export const TUTORIAL = {
     { id: 'G4', name: 'Loot', hint: 'H11', anchor: 'loot window',
       line: 'Green arrow means upgrade. Equip it in your bags {key_bags}.' },
     // G5 (D150 item 12, draft): at the first hub (it came five tolls late and named the bar's geometry)
+    // demo blind round 1 B (2026-11-26, draft): the Furnace's one sentence, as its tooltip (ui heat.js FURNACE_LINE)
     { id: 'G5', name: 'The Furnace', hint: 'H16', anchor: 'the Furnace',
-      line: 'Every move costs tolls. Spend too many and the final boss gets stronger.' },
+      line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.' },
     { id: 'G6', name: 'Intents', hint: 'H02', anchor: "enemy's track",
       line: 'Its next three moves, in order. The big one is marked.' },
     { id: 'G7', name: 'Engage round', hint: 'H01', anchor: 'engage panel',
@@ -208,7 +209,7 @@ export const TUTORIAL = {
     { id: 'H13', system: 'Spell bar', line: 'Drag your new spell onto the bar (spellbook, {key_spellbook}).' },
     { id: 'H14', system: 'Talents', line: 'Talent point: spend it in Talents ({key_talents}).' },
     { id: 'H15', system: 'Fog', line: 'You see the nodes next to you. Walking shows more.' },
-    { id: 'H16', system: 'The Furnace', line: 'Every move costs tolls. Spend too many and the final boss gets stronger.' },
+    { id: 'H16', system: 'The Furnace', line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.' }, // demo blind round 1 B (draft)
     { id: 'H17', system: 'Burning', line: 'Burning: more XP, gold and better drops, but the final boss gets stronger.' },
     { id: 'H18', system: 'The Dimming', line: 'The dark spreads from the purple star. Places it reaches are lost.' },
     { id: 'H19', system: 'Homeward Bell', sameAs: 'G13' },

@@ -27,6 +27,7 @@ import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
 import { numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL } from './ui-text.js';
+import { EXIT_WORDS, bellLabel, bellLine, bellCharges, roadLine, roadSignWord, leaveFightLine } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -343,7 +344,7 @@ function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null, idle =
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
-    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx)), { avoid: '.svc-card' }); // blind round 2 (skipper s0147): not over the other services
+    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx, { tag: true })), { avoid: '.svc-card' }); // blind round 2 (skipper s0147): not over the other services
     ghostOn(el, heat.ctx, heat.action);
   }
   return el;
@@ -362,8 +363,9 @@ function innCard(v, ctx, name, meta, used, heat) {
   }
   const hp = heatOf(v, heat.action); const cost = tolls(hp ? hp.time : hr.inn);
   const pc = (a, b) => `${Math.floor((100 * a) / Math.max(1, b))} %`;
-  const yes = btn(`Rest · ${cost}`, rest, '.danger'); yes.dataset.inn = 'rest';
-  const no = btn('Cancel', () => { innAsk.armed = null; ctx.ui.refreshScreens(); }, '.primary'); no.dataset.inn = 'cancel';
+  // demo blind round 1 C: the action the player chose (Rest) is the highlighted one, not Cancel
+  const yes = btn(`Rest · ${cost}`, rest, '.primary'); yes.dataset.inn = 'rest';
+  const no = btn('Cancel', () => { innAsk.armed = null; ctx.ui.refreshScreens(); }); no.dataset.inn = 'cancel';
   return h('div.svc-card.ask', { role: 'alertdialog', 'aria-label': `Rest at the ${name}?` }, h('img', { src: icon('rest', 'fire'), alt: '' }),
     h('div', h('div.nm', `Rest anyway?`), h('div.meta', `Health ${pc(p.hp, p.maxHp)}${p.res.kind === 'mana' ? `, mana ${pc(p.res.cur, p.res.max)}` : ''}: nearly full`)),
     h('div.ask-b', yes, no));
@@ -563,6 +565,12 @@ function roadTo(v, ctx) {
   if (zs[z] && zs[z].name) return zs[z].name;
   return (ctx.data.camp && ctx.data.camp.name) || 'the Camp';
 }
+/** Demo blind round 1 C: what follows this zone: 'demo' (the demo ends), 'next' (a zone), 'camp' (the Camp). */
+function exitKind(v, ctx) {
+  if (atDemoExit(v, ctx)) return 'demo';
+  const zs = ctx.data.zones || [];
+  return zs[v.zone.idx] && zs[v.zone.idx].name ? 'next' : 'camp';
+}
 /** The fog state of a node: 'seen' (in sight now), 'known' (seen before, or its type known), 'unknown'. */
 function fogState(n, mv) { return n.hub ? 'seen' : n.know === 'full' ? (n.hops <= mv.vision.radius ? 'seen' : 'remembered') : n.know === 'type' ? 'typed' : 'unknown'; }
 
@@ -577,8 +585,11 @@ function buildExpMap(v, ctx, readOnly) {
   const z = v.zone; const mv = z.exp; const p = v.player;
   const win = h('div.mapwin.panel.expmap' + (spy.armed && !readOnly ? '.spying' : ''));
   const acts = [];
+  // demo blind round 1 C (draft): the Bell's button says where it takes you and what its number is
+  const ek = exitKind(v, ctx);
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
-  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
+  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([bellLabel(mv.bell.charges, ek, roadTo(v, ctx)), { type: 'RING_BELL' }]);
+  const meNode = mv.nodes[mv.pos];
   const expiring = readOnly ? [] : expiringHere(v);
   // blind panel 2026-11-13 (item 8): the Bell (one charge a run, it leaves the zone) always asks first; a Road asks when
   // contracts of this zone would expire
@@ -589,9 +600,19 @@ function buildExpMap(v, ctx, readOnly) {
   const btns = acts.map(([label, a]) => {
     const b = btn(label, () => { if (asks(a.type) && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
     b.dataset.leave = a.type;
-    tip(b, () => h('div', h('div.tt-name', label), demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx)) : a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
-      expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx),
-      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null), { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
+    // demo blind round 1 C (draft): the Bell's and the Road's tips differ: where each takes you, the Bell's charges (its
+    // button's number), that a Road needs none, and a Dimming fight that comes first, before the click
+    const bell = a.type === 'RING_BELL';
+    tip(b, () => {
+      const p = heatOf(ctx.view, a); const where = bell ? bellLine(ek, roadTo(v, ctx)) : roadLine(ek, roadTo(v, ctx));
+      const fl = bell ? leaveFightLine(p, !!(meNode && meNode.dimmed)) : '';
+      return h('div', h('div.tt-name', bell ? EXIT_WORDS.bellTitle : EXIT_WORDS.roadTitle),
+        demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx)) : null, where ? h('div.tt-line.lw-where', where) : null,
+        h('div.tt-sub.lw-charges', bell ? bellCharges(mv.bell.charges) : EXIT_WORDS.roadFree),
+        fl ? h('div.tt-warn.lw-fight', fl) : null,
+        expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(p, ctx),
+        asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null);
+    }, { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -606,13 +627,16 @@ function buildExpMap(v, ctx, readOnly) {
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
-    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
-    const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
+    // demo blind round 1 C (skipper item 22, s0261, s0352): the action the player chose is the highlighted one, not Stay
+    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.primary');
+    go.dataset.go = a.type;
+    const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); });
     // section 7 (D150): the tolls and the fight that comes first are the engine's preview of the ring (RING_BELL), as on its tooltip
     const bp = !road ? heatOf(v, a) : null;
+    const fight = !road ? leaveFightLine(bp, !!(meNode && meNode.dimmed)) : ''; // demo blind round 1 C (skipper item 7)
     const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `${demoExit ? '' : `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. `}${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`}${demoExit ? '' : ` No way back to ${z.name}.`}`) : null;
     win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
-      h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), bell,
+      h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), fight ? h('div.lw-l.lw-fight', fight) : null, bell,
       demoExit ? h('div.lw-l.lw-demo', demoLeaveLine(ctx)) : null,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
       h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
@@ -695,6 +719,9 @@ function buildExpMap(v, ctx, readOnly) {
   }
   // ---- the Roads: signposts on the rim with the zone they lead to
   const to = roadTo(v, ctx);
+  // demo blind round 1 C (draft): the sign names the goal, "Next zone »" (zone 2 of the demo: "End of the demo »"; the last
+  // zone: the Camp's name); the zone's name is on the sign's tooltip. A closed Road shows it too, with its Closed tag
+  const signWord = roadSignWord(ek, to, DEMO_TEXT.roadSign);
   (mv.roads || []).forEach((rid, i) => {
     const n = mv.nodes[rid]; if (!n) return;
     const side = Math.abs(Math.cos((n.angle * Math.PI) / 180)) > 0.6; // at the left or right edge: the board stands above its post
@@ -705,7 +732,7 @@ function buildExpMap(v, ctx, readOnly) {
     // cover the post line and the Road's node
     const down = side && Math.sin((n.angle * Math.PI) / 180) > 0.05;
     const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (down ? '.down' : '') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid, angle: n.angle } },
-      h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
+      h('span.xpost'), h('span.xsign', h('b', side ? signWord : `${right ? '' : '« '}${signWord}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
     // blind round 2 (casual re-run s0235-s0237: a click on the sign did nothing): standing on the Road, the sign takes it
     // (the Take the Road button, with its ask); elsewhere a short line says what to do
     if (!readOnly) {
@@ -1082,7 +1109,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (m && !(m.barred || n.barred)) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
     const hp = heatOf(ctx.view, act);
-    const pb = previewBlock(hp, ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
+    const pb = previewBlock(hp, ctx, { tag: true }); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one; the tag's colour
     if (pb) box.appendChild(pb);
     const dl = m.via === 'enter' ? dimsLine(hp) : ''; // D163 (draft): the places the Dimming takes while inside
     if (dl) box.appendChild(h('div.tt-line.xdims', dl));
@@ -1157,7 +1184,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
   // node ends in, H.4), else the node type's tolls
   const hrs = ctx.data.nodeTime ? ctx.data.nodeTime[n.type] : null;
-  const pb = hp ? previewBlock(hp, ctx) : null; // null without the heat rules (the mock): never appended
+  const pb = hp ? previewBlock(hp, ctx, { tag: true }) : null; // null without the heat rules (the mock): never appended
   if (pb) box.appendChild(pb);
   else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Costs ${tolls(hrs)} a wave.` : `Costs ${tolls(hrs)}.`));
   const H = ctx.data.rules.heat;

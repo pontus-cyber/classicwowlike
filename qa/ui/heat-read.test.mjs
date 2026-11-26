@@ -40,10 +40,16 @@ function bridgeRun(seed, legacy, fn) {
 
 test('the draft lines read as written', () => {
   assert.deepEqual(CLOCK_TAG, { run: 'Set by your tolls', dim: 'Set by this place' });
-  assert.deepEqual(clockTag({ by: 'dim', dimIn: 3, stateDim: 'warm' }), { by: 'dim', glyph: '◆', text: 'Set by this place' });
+  // demo blind round 1 B (2026-11-26, draft): while the Dimming sets the state the meter's line says so; no tag
+  assert.equal(clockTag({ by: 'dim', dimIn: 3, stateDim: 'warm' }), null);
   assert.deepEqual(clockTag({ by: 'run', dimIn: 9, stateDim: 'clear' }), { by: 'run', glyph: '▼', text: 'Set by your tolls' });
   assert.equal(clockTag({ by: 'run', dimIn: null, stateDim: null }), null, 'one clock only (today\'s map, the Camp): no tag');
-  assert.equal(countsLine({ node: { state: 'clear' } }), 'This place counts as Calm');
+  assert.equal(countsLine({ node: { state: 'clear' }, state: 'clear' }), 'This place counts as Calm');
+  // demo blind round 1 B (draft): a hotter meter than the place's state says why; only inside a place, not at a hub service
+  assert.equal(countsLine({ node: { state: 'clear' }, state: 'warm' }), 'Entered while Calm: this place still counts as Calm');
+  assert.equal(countsLine({ node: { state: 'warm' }, state: 'warm' }, { phase: 'NODE', node: { type: 'quest' } }), 'This place counts as Smouldering');
+  assert.equal(countsLine({ node: { state: 'clear' }, state: 'clear' }, { phase: 'ZONE_HUB', node: { type: 'vendor', origin: 'hub' } }), '');
+  assert.equal(countsLine({ node: { state: 'clear' }, state: 'clear' }, { phase: 'MAP', node: null }), '');
   assert.equal(countsLine({ node: null }), '');
   const hv = (carried, share = 20, z = 2) => ({ z, heat: carried - share, carry: { cumulative: true, carried, share } });
   assert.equal(arrivalLine(hv(-10)), 'Zone 2 gives you 20 tolls, plus the 10 you saved: 30 to spare.');
@@ -69,13 +75,17 @@ for (const [arm, legacy] of [['Legacy on', true], ['Legacy off', false]]) {
     for (const seed of [3, 7]) {
       bridgeRun(seed, legacy, (prev, v, br) => {
         const hv = v.heat; if (!hv) return;
-        const m = meterReading(hv, br.data.rules.heat);
+        const m = meterReading(hv, br.data.rules.heat, v);
         views += 1;
         if (hv.dimIn === null || hv.dimIn === undefined) assert.equal(m.clock, null);
+        else if (hv.by === 'dim') { assert.equal(m.clock, null); assert.match(m.line, /Dimming/); assert.equal(m.setter.sets, true); tags.dim += 1; } // demo blind round 1 B: the line names it
         else { assert.equal(m.clock.by, hv.by); assert.equal(m.clock.text, CLOCK_TAG[hv.by]); assert.equal(m.setter.sets, true); tags[hv.by] += 1; }
-        if (hv.node) {
+        const inside = v.phase === 'NODE' && v.node && v.node.origin !== 'hub' && v.node.origin !== 'camp';
+        if (hv.node && inside) {
           inNode += 1;
-          assert.equal(m.counts, `This place counts as ${HEAT_NAME[hv.node.state]}`);
+          const was = HEAT_NAME[hv.node.state];
+          // demo blind round 1 B (draft): a meter in another state says why the place still counts as its entry state
+          assert.equal(m.counts, hv.node.state !== hv.state ? `Entered while ${was}: this place still counts as ${was}` : `This place counts as ${was}`);
           if (hv.node.state !== hv.state) differs += 1;
         } else assert.equal(m.counts, '');
       });

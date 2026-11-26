@@ -20,8 +20,8 @@ const { createBridge } = await import('../../src/ui/engine-bridge.js');
 test('section 4: the Furnace line and tooltip by heatView `by`', () => {
   assert.equal(meterText({ by: 'run', heat: -4, dimIn: 6 }), '4 tolls to spare');
   // newcomer check 2026-11-15: the line says why the Dimming sets the state; the node's clock moved to the tooltip
-  assert.equal(meterText({ by: 'dim', heat: -4, dimIn: 3 }), 'The Dimming is near');
-  assert.equal(meterText({ by: 'dim', heat: -4, dimIn: 1 }), 'The Dimming is near');
+  assert.equal(meterText({ by: 'dim', heat: -4, dimIn: 3 }), 'Raised by the Dimming nearby');
+  assert.equal(meterText({ by: 'dim', heat: -4, dimIn: 1 }), 'Raised by the Dimming nearby');
   assert.equal(meterText({ by: 'dim', heat: -1, dimIn: 0 }), 'You stand in the Dimming');
   assert.equal(heatToast({ state: 'scorched', heat: -1, by: 'dim', dimIn: 0 }), 'The Furnace: Infernal · You stand in the Dimming.');
   assert.equal(dimTipLine({ heat: -4 }), 'Tolls: 4 to spare. The dark near you sets the Furnace now.');

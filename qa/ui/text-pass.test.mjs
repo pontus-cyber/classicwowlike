@@ -32,12 +32,12 @@ test('items 1, 25: the Furnace reads "Calm · 18 tolls to spare"; Boss only abov
   assert.equal(bossShown(0.06), 'Boss +6 %');
   // D152 (changes-m3-v2.md 4): when the Dimming sets the state, the Dimming's own words (as on the map)
   assert.equal(heatToast({ state: 'warm', heat: -8, by: 'run' }), 'The Furnace: Smouldering · 8 tolls to spare.', 'item 25: no "the Dimming draws near"');
-  assert.equal(heatToast({ state: 'warm', heat: -8, by: 'dim', dimIn: 3 }), 'The Furnace: Smouldering · The Dimming is near.');
+  assert.equal(heatToast({ state: 'warm', heat: -8, by: 'dim', dimIn: 3 }), 'The Furnace: Smouldering · Raised by the Dimming nearby.');
   for (const st of ['clear', 'warm', 'hot', 'scorched']) assert.doesNotMatch(heatToast({ state: st, heat: 3 }), BANNED);
 });
 
 test('item 5: the tooltip is one sentence and the four states, from the engine\'s thresholds and rewards', () => {
-  assert.equal(FURNACE_LINE, 'Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.');
+  assert.equal(FURNACE_LINE, 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.'); // demo blind round 1 B (draft)
   const H = { hotAt: C.HEAT_HOT_AT, scorchAt: C.HEAT_SCORCH_AT, gain: C.HEAT_GAIN, rarityUp: C.HEAT_RARITY_UP };
   const rows = stateRows(H);
   assert.deepEqual(rows.map((r) => r[0]), ['clear', 'warm', 'hot', 'scorched']);

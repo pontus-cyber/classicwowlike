@@ -47,7 +47,9 @@ import { DEMO_TEXT, demoOn } from './demo.js';
 
 export const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
 export const HEAT_COLOR = HEAT; // the --heat-* tokens of tokens.css (theme.js), read when used
-const INTRO_KEY = 'tbwcr.heatIntro.v1'; // the first-time note was shown (localStorage)
+// the first-time note at the first map was shown (localStorage; demo blind round 1 B). The hub note's old key,
+// tbwcr.heatIntro.v1, is read by onboarding.js as H16 seen.
+export const NOTE_KEY = 'tbwcr.furnaceNote.v1';
 const STATES = ['clear', 'warm', 'hot', 'scorched'];
 
 /** Key of a time-costing engine action in view.heat.next (the bridge keys heatView.next with it). */
@@ -84,10 +86,16 @@ export function standText(x) {
 export function meterText(x) {
   if (x.by !== 'dim' || x.dimIn == null) return standText(x);
   // newcomer check 2026-11-15 (s0133: "Burning" with 3 tolls to spare, the reason only on hover): the line says why
-  return x.dimIn > 0 ? DIM_NEAR_WORDS : 'You stand in the Dimming';
+  // demo blind round 1 B (2026-11-26, newcomer s0272, skipper s0251): the line itself says the Dimming set the state
+  return x.dimIn > 0 ? DIM_NEAR_WORDS : DIM_IN_WORDS;
 }
-/** Newcomer check 2026-11-15 (draft): the meter's line while the Dimming near the player sets the state. */
-export const DIM_NEAR_WORDS = 'The Dimming is near';
+/**
+ * Demo blind round 1 B (draft; was "The Dimming is near", newcomer check 2026-11-15): the meter's line while the Dimming
+ * near the player sets the state, so a hotter state than the tolls give is explained in the label itself.
+ */
+export const DIM_NEAR_WORDS = 'Raised by the Dimming nearby';
+/** The meter's line while the player stands in the Dimming (it sets the state). */
+export const DIM_IN_WORDS = 'You stand in the Dimming';
 /**
  * D152 (changes-m3-v2.md 4, draft): the tooltip's first line while the Dimming sets the state: the player's node's clock
  * (newcomer check 2026-11-15: the meter's line no longer holds it) and the tolls against the line.
@@ -120,16 +128,25 @@ export const CLOCK_GLYPH = { run: '▼', dim: '◆' };
 /** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
 export function clockTag(hv) {
   if (!hv || hv.dimIn === null || hv.dimIn === undefined || !hv.stateDim) return null;
-  const by = hv.by === 'dim' ? 'dim' : 'run';
-  return { by, glyph: CLOCK_GLYPH[by], text: CLOCK_TAG[by] };
+  // demo blind round 1 B (draft): while the Dimming sets the state the line names it (DIM_NEAR_WORDS, DIM_IN_WORDS), so no
+  // tag; "Set by this place" next to "This place counts as Calm" read as a contradiction to both testers
+  if (hv.by === 'dim') return null;
+  return { by: 'run', glyph: CLOCK_GLYPH.run, text: CLOCK_TAG.run };
 }
 /**
  * D163 (engine-2026-11-20b recommendation 2; draft): inside a node, the state it counts as (heatView.node: the state it was
  * entered in, which fixes its rewards and the summary's count; rules 1.7.3); '' outside a node.
  */
-export function countsLine(hv) {
-  return hv && hv.node && hv.node.state ? `This place counts as ${HEAT_NAME[hv.node.state]}` : '';
+export function countsLine(hv, v = null) {
+  if (!hv || !hv.node || !hv.node.state) return '';
+  // demo blind round 1 B (draft): only inside a place (a node on the map), never at a hub service or the camp
+  if (v && !insidePlace(v)) return '';
+  const was = HEAT_NAME[hv.node.state];
+  // a hotter (or cooler) state on the meter than the place counts as: the line says why the two differ
+  return hv.node.state !== hv.state ? `Entered while ${was}: this place still counts as ${was}` : `This place counts as ${was}`;
 }
+/** Inside a place of the map (a node), not a hub's or the camp's service (view.node.origin 'hub' or 'camp'). */
+export const insidePlace = (v) => !!(v && v.phase === 'NODE' && v.node && v.node.origin !== 'hub' && v.node.origin !== 'camp');
 /** D163 (draft): the meter tooltip's reason for countsLine, inside a node. */
 export const COUNTS_WHY = 'A place counts in the state you entered it in, whatever the Furnace shows later.';
 /**
@@ -218,7 +235,7 @@ export function segmentAt(x, H) {
  * (heatView `by`). Every part of the meter is drawn from this; the setter always lies in the segment the line names
  * (qa/ui/heat-state.test.mjs). H: data.rules.heat.
  */
-export function meterReading(hv, H) {
+export function meterReading(hv, H, v = null) {
   const bar = hv.bar;
   const run = { x: bar.marker, beyond: bar.beyond, sets: hv.by !== 'dim' };
   const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
@@ -227,7 +244,7 @@ export function meterReading(hv, H) {
     state: hv.state, name: HEAT_NAME[hv.state], line: meterText(hv), boss: bossShown(hv.ascIfPar), lit: hv.state,
     run, dim, setter: hv.by === 'dim' && dim ? dim : run,
     // D163 (draft): the clock tag (null where only the run clock runs) and, inside a node, the state it counts as
-    clock: dim ? clockTag(hv) : null, counts: countsLine(hv), countsState: hv.node ? hv.node.state : null,
+    clock: dim ? clockTag(hv) : null, counts: countsLine(hv, v), countsState: hv.node ? hv.node.state : null,
   };
 }
 
@@ -256,14 +273,20 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     h('div.ht-row', els.state, h('span.ht-sep', '·'), els.num, els.boss, els.clock), els.bar, els.counts);
   host.appendChild(els.el);
   tip(els.el, () => heatTip(ctx));
-  // the first-time note (H.4 wording: "Heat", "the Star's line"), once per browser profile, on the first hub until
-  // "Got it" or setting out
+  // demo blind round 1 B (2026-11-26, draft): the first-time note, revived as the Furnace's one sentence (furnaceLine) under
+  // the meter at the first map, once per browser profile, when no coach line carries it (onboarding.js furnaceNoteWanted:
+  // hints off, and H16 or G5 never shown); "Got it" or the first step off the map closes it for good. It takes no clicks
+  // but its button's (style.css), so it never blocks a node under it.
   els.introBtn = h('button.btn.small', { type: 'button' }, 'Got it');
   els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': `About ${HW.name}` }, h('div.hi-t', HW.Name), h('div.hi-b'), h('div.hi-f', els.introBtn));
   noteRoot.appendChild(els.intro);
-  // M3 (m3-onboarding.md 3.3, U4): the first-time note is retired into hint H16 (onboarding.js); its seen state moved over
-  let introSeen = true;
-  const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { store.set(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
+  let introSeen = (() => { try { return !!store.get(NOTE_KEY); } catch { return false; } })();
+  let introUp = false;
+  const closeIntro = () => {
+    introSeen = true; introUp = false; els.intro.classList.add('hidden'); els.el.classList.remove('noted');
+    try { store.set(NOTE_KEY, '1'); } catch { /* storage blocked */ }
+    if (ctx.coach && ctx.coach.furnaceNoted) ctx.coach.furnaceNoted();
+  };
   els.introBtn.addEventListener('click', closeIntro);
 
   let built = false;
@@ -311,12 +334,12 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     const intro = !ctx.coach || !ctx.coach.furnaceIntroduced || ctx.coach.furnaceIntroduced(v);
     const show = !!(hv && H && v.player && v.phase !== 'CREATE' && v.phase !== 'SUMMARY' && intro);
     els.el.classList.toggle('hidden', !show);
-    if (!show) { els.intro.classList.add('hidden'); ghost = null; return; }
+    if (!show) { if (introUp) closeIntro(); els.intro.classList.add('hidden'); ghost = null; return; }
     build();
     if (ghost && ghostAt !== `${v.phase}|${hv.time}|${hv.z}`) { ghost = null; ghostAt = null; }
     const bar = hv.bar;
     // one reading (meterReading): the line, the lit segment and both markers come from the same heatView
-    const m = meterReading(hv, H);
+    const m = meterReading(hv, H, v);
     els.el.dataset.state = m.state; els.el.dataset.by = hv.by;
     for (const s of STATES) els.segs[s].classList.toggle('on', s === m.lit);
     els.state.querySelector('.ht-sname').textContent = m.name;
@@ -351,16 +374,14 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     }
     drawGhost(hv);
     els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}${m.clock ? `, ${m.clock.text}` : ''}${m.counts ? `. ${m.counts}` : ''}`);
-    // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
+    // the first-time note (demo blind round 1 B): at the first map view, until "Got it" or the first step off the map
     if (!introSeen) {
-      const svcOpen = !!(v.node && v.node.origin === 'hub');
-      if (v.phase === 'ZONE_HUB' && svcOpen) els.intro.classList.add('hidden');
-      else if (v.phase === 'ZONE_HUB') {
-        if (els.intro.classList.contains('hidden')) {
-          add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
-          els.intro.classList.remove('hidden');
-        }
-      } else if (!els.intro.classList.contains('hidden')) closeIntro();
+      const onMap = v.phase === 'MAP' && !v.node && !v.loot;
+      if (introUp && !onMap) closeIntro();
+      else if (!introUp && onMap && (!ctx.coach || !ctx.coach.furnaceNoteWanted || ctx.coach.furnaceNoteWanted(v))) {
+        add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
+        els.intro.classList.remove('hidden'); els.el.classList.add('noted'); introUp = true;
+      }
     }
   }
 
@@ -406,7 +427,8 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
 
 // ------------------------------------------------------------------ tooltips
 /** D150 item 5: the meter's one sentence (its tooltip, and the retired first-time note). */
-export const FURNACE_LINE = 'Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.';
+// demo blind round 1 B (2026-11-26, draft): what overspending costs in the full game, the demo's line and the final boss
+export const FURNACE_LINE = 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.';
 /** L1 (MD D.5, draft): the meter's sentence; in the demo, which meets no boss, DEMO_TEXT.furnaceLine. */
 export const furnaceLine = (ctx) => (demoOn(ctx) ? DEMO_TEXT.furnaceLine : FURNACE_LINE);
 /** The four states as the tooltip's table rows (D150 item 5): [state, when, bonus or ''] from the engine's thresholds. */
@@ -425,7 +447,7 @@ export function heatTip(ctx) {
   box.appendChild(h('div.tt-line.desc', furnaceLine(ctx)));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
-  if (hv.node && hv.node.state) box.appendChild(h('div.tt-line.ht-countswhy', `${countsLine(hv)}. ${COUNTS_WHY}`)); // D163 (draft)
+  const cw = countsLine(hv, ctx.view); if (cw) box.appendChild(h('div.tt-line.ht-countswhy', `${cw}. ${COUNTS_WHY}`)); // D163 (draft)
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
   return box;
 }
@@ -451,14 +473,23 @@ export function costText(p) {
   }
   return `Costs ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ', then a fight in the Dimming' : ''}.`;
 }
-export function previewBlock(p, ctx) {
+export function previewBlock(p, ctx, opts = null) {
   const H = ctx.data.rules.heat;
   if (!p || !H) return null;
   const box = h('div.tt-heat', { dataset: { hs: p.state } });
   box.appendChild(h('div.th-l', costText(p)));
   const pt = p.pays ? payText(p.pays, H) : null;
   if (pt) box.appendChild(h('div.th-p.paid', { dataset: { hs: p.pays } }, `${HEAT_NAME[p.pays]} bonus: ${pt}.`));
+  // demo blind round 1 B (newcomer s0411, draft): a toll tag in a state's colour (screens.js tollLabel, heatView `change`)
+  // says what the colour means, on the tooltip of the element that carries the tag (opts.tag)
+  const tl = opts && opts.tag ? tagLine(p) : '';
+  if (tl) box.appendChild(h('div.th-tag', { dataset: { hs: p.state } }, h('i.ht-dot', { dataset: { hs: p.state } }), tl));
   return box;
+}
+/** Demo blind round 1 B (draft): the line on a coloured toll tag's colour, '' when the tag is plain (no change of state). */
+export function tagLine(p) {
+  if (!p || !p.change || !HEAT_NAME[p.state]) return '';
+  return `Tag colour: after this ${HW.name} turns ${HEAT_NAME[p.state]}.`;
 }
 
 /** A small badge for a node entered Hot or Scorched (its rewards) or an item heat raised; null in Clear and Warm. */
