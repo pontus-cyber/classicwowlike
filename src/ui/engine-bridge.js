@@ -33,6 +33,7 @@
 //   hub:     { used: { trainer, vendor, inn } }
 //   trainer: R.trainerView ({ learn, train, next, useful }; D144: the hub's welcome line and Trainer card), or null
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
+//            calls (in a fight: R.fightSignal { count, round, name } or null), fights and fightCalls (a dungeon: its mapView entry)
 //   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent, track, role, offBalance,
 //              ccImmune }], target, cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph },
 //              over, title, fightNo, fights, engage }
@@ -943,6 +944,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     else if (n.stage === 'reward') { const r0 = n.rewards[0]; v.step = r0.kind === 'boons' ? 'shrine' : r0.story ? 'story' : 'reward'; if (r0.kind === 'boons') v.boons = r0.boons.map((id) => ({ id, name: C.BOON[id].name, text: TXT.boonText(id, CONTENT) })); }
     if (n.type === 'quest') { const q = CONTENT.quests[n.quest] || {}; Object.assign(v, { questId: n.quest, title: q.title, giver: q.giver, text: q.text, turnIn: q.turnIn }); }
     if (f) v.mobs = f.enemies.filter((e) => !e.summoned).map((e) => ({ name: e.name, level: e.level }));
+    // blind demo round 1 (A): the reinforcement the fight still calls in (R.fightSignal: { count, round, name }), for the panels
+    if (f && R.fightSignal) { const sg = R.fightSignal(s); v.calls = sg ? { count: sg.count, round: sg.round, name: sg.name } : null; }
+    // a dungeon's intro lists its fights from the map view (counts, archetypes and each fight's `calls`, engine-api.md 10.3)
+    if (n.type === 'grind' && !f && n.id != null) { const mn = R.mapView(s); const x = mn && mn.nodes ? mn.nodes[n.id] : null; v.calls = x && x.calls ? { ...x.calls } : null; }
+    if (n.type === 'dungeon' && n.id != null) { const mn = R.mapView(s); const x = mn && mn.nodes ? mn.nodes[n.id] : null; if (x && x.fights) { v.fights = x.fights.map((a) => a.length); v.fightCalls = x.fightCalls || []; } }
     if (n.type === 'grind' && !f) { const mn = convZone(s).rows[n.r - 1]; v.mobs = ((mn && mn[n.l] && mn[n.l].enemyNames) || []).map((nm) => ({ name: nm })); }
     if (n.type === 'elite' && f) { const e0 = f.enemies[0]; v.eliteName = e0.name; v.rare = e0.kind === 'rare'; v.elite = { text: (CONTENT.enemies[e0.tid] || {}).text || '' }; const add = f.enemies[1]; v.add = add ? { name: add.name } : null; }
     if (n.type === 'dungeon' && zc) { v.dungeon = zc.dungeon.name; v.dungeonText = zc.dungeon.text; v.bossName = (CONTENT.enemies[zc.dungeon.boss] || {}).name || 'the boss'; }

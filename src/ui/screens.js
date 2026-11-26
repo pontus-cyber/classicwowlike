@@ -67,6 +67,15 @@ function archChips(list) {
   return h('span.archs', [...counts.entries()].map(([a, k]) => h('span.arch', { dataset: { arch: a } }, h('img', { src: roleIcon(a), alt: '' }), `${k > 1 ? `${k} × ` : ''}${(ROLE_INFO[a] || {}).name || humanize(a)}`)));
 }
 const enemies = (k) => `${k} ${k === 1 ? 'enemy' : 'enemies'}`;
+/**
+ * Blind demo round 1 (A, draft lines): a fight's real enemy count, those it calls in later included (mapView `calls`,
+ * engine-api.md 10.3), and the call in words: "Calls 1 more in round 4 unless stopped." (who: the caller's name).
+ */
+export const foeCount = (n) => (n.archetypes ? n.archetypes.length : 0) + (n.calls ? n.calls.count : 0);
+export const callsText = (c, who = null) => (c ? `${who ? `${who} calls` : 'Calls'} ${c.count} more in round ${c.round} unless stopped.` : '');
+const foesWord = (k) => `${k} ${k === 1 ? 'foe' : 'foes'}`;
+/** A dungeon fight's head: "Fight 1: 3 enemies, calls 1 more in round 4". */
+const fightHead = (i, k, c) => `Fight ${i + 1}: ${enemies(k)}${c ? `, calls ${c.count} more in round ${c.round}` : ''}`;
 /** What a node holds, in words; counts and offsets from the rules table (ctx.data.rules, the engine's constants). */
 function nodeDesc(type, r) {
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
@@ -94,8 +103,11 @@ export const nodeLevel = (n) => (n.type === 'elite' && n.level ? n.level : n.cl)
 export function expNodeDesc(n, p, rules) {
   if (n.type === 'elite' && n.level && p) {
     const gap = lv(n.level) - lv(p.level); // Legacy: the gap on the hero scale, as both levels show
-    return `One powerful enemy at level ${lv(n.level)}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}. High experience and a guaranteed good item.`;
+    // blind demo round 1 (A): with an escort the line says so (the tooltip's "Foes: 2 enemies" and "One powerful enemy" disagreed)
+    const escort = n.archetypes && n.archetypes.length > 1;
+    return `${escort ? 'A powerful enemy' : 'One powerful enemy'} at level ${lv(n.level)}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}${escort ? ', and its escort' : ''}. High experience and a guaranteed good item.`;
   }
+  if (n.type === 'treasure' && n.guarded !== undefined) return treasureDesc(n);
   if (n.type === 'grind' && n.waves) {
     const foes = n.archetypes && n.archetypes.length ? ` of ${enemies(n.archetypes.length)}` : '';
     return `${n.waves === 1 ? `One wave${foes}` : `1 to ${n.waves} waves; the first${foes}`}. Steady experience, gold and more drops.`;
@@ -103,6 +115,8 @@ export function expNodeDesc(n, p, rules) {
   // blind round 2 (competitive s0143): the expedition map's counts (its dungeon's own fights when they are known)
   return nodeDesc(n.type, { ...rules, dungeonTrashFights: n.fights && n.fights.length ? n.fights.length : rules.expDungeonTrashFights ?? rules.dungeonTrashFights, grindMaxWaves: rules.expGrindMaxWaves ?? rules.grindMaxWaves });
 }
+/** A seen chest (mapView `guarded` known): only the trap stays unknown (blind demo round 1: "Unguarded" then "may be guarded"). */
+const treasureDesc = (n) => (n.guarded ? 'A chest with gold and an item, watched by a guard. It may also be trapped.' : 'A chest with gold and an item. It may be trapped.');
 /** The rules table with this run's map counts (blind round 2: the expedition map's dungeons have 2 fights before the boss). */
 const rulesOf = (v, r) => (v && v.mapMode === 'expedition' ? { ...r, dungeonTrashFights: r.expDungeonTrashFights ?? r.dungeonTrashFights, grindMaxWaves: r.expGrindMaxWaves ?? r.grindMaxWaves } : r);
 
@@ -776,9 +790,10 @@ function buildExpMap(v, ctx, readOnly) {
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(shownLvl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
-    // enemy count on a seen fight node (BUG-QA-02)
-    const foes = full && !n.hub && !n.done ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? n.archetypes.length : null) : null;
-    if (foes) el.appendChild(h('div.xfoes', { dataset: { foes } }, `×${foes}`));
+    // enemy count on a seen fight node (BUG-QA-02); blind demo round 1 (A): in words, those the fight calls in later
+    // included (mapView `calls`), on a neutral chip (red is danger's alone, D120; the level's colour says the danger)
+    const foes = full && !n.hub && !n.done && !n.lost ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? foeCount(n) : null) : null;
+    if (foes) el.appendChild(h('div.xfoes', { dataset: { foes, ...(n.calls ? { calls: n.calls.count } : {}) } }, foesWord(foes)));
     const marks = siteBadge(n, v); // contract site marks (prep): only the ones the player sees; a hidden node stays unnamed
     if (marks) el.appendChild(marks);
     // the Dimming's clock: "dims in N" on every node within two hops of its front; the player's own count stands out at 2 or less
@@ -833,8 +848,11 @@ function buildExpMap(v, ctx, readOnly) {
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
     h('div.xk', h('i.xk-seen'), 'In sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Seen from afar'), h('div.xk', h('i.xk-unk'), 'Unknown'),
-    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
-  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
+    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'),
+    // blind demo round 1 (A, draft): the node badges, so the level and the enemy count read with hints off
+    h('div.xk.xk-badges', h('i.xk-lvl', { style: { color: conColor(p.level, p.level) } }, String(lv(p.level))), 'Fight level'), h('div.xk.xk-badges', h('i.xk-foes', '3 foes'), 'Every enemy'));
+  tip(key, () => h('div', h('div.tt-name', 'What you see'),
+    h('div.tt-line.xk-lvltip', 'A fight\'s level is coloured against yours: green easier, yellow about your level, orange harder, red deadly.'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
     mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types up to ${mv.vision.typeRadius} steps away.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
@@ -1083,14 +1101,17 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
     if (n.type === 'dungeon' && n.name) box.appendChild(h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.name));
     const dbl = deathblowLine(n.type === 'elite' ? n.deathblow : n.type === 'dungeon' ? n.bossDeathblow : null, n.type === 'dungeon'); // M2b v13 (UI needs 7)
     if (dbl) box.appendChild(dbl);
-    if (n.type === 'dungeon' && n.fights && n.fights.length) {
-      n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
+    // blind demo round 1 (A): a node lost to the Dimming shows only the Dimmed line below (what it held is gone, so its
+    // enemies, chest and type text would contradict it); every fight lists the enemy it calls in later (mapView `calls`)
+    if (n.lost) { /* the Dimmed line says it */ } else if (n.type === 'dungeon' && n.fights && n.fights.length) {
+      n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', fightHead(i, f.length, n.fightCalls && n.fightCalls[i])), archChips(f))));
       if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', 'Boss'), archChips([n.bossArchetype])));
-    } else if (n.archetypes && n.archetypes.length) box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' && n.waves > 1 ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
-    else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
-    if (n.type) box.appendChild(h('div.tt-line.desc', expNodeDesc(n, p, ctx.data.rules)));
-    if (n.lost) box.appendChild(h('div.tt-warn', 'Lost to the Dimming: it can no longer be done.'));
-    else if (n.done) box.appendChild(h('div.tt-hint', 'Done'));
+    } else if (n.archetypes && n.archetypes.length) {
+      box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' && n.waves > 1 ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+      if (n.calls) box.appendChild(h('div.tt-line.tt-calls', callsText(n.calls)));
+    } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
+    if (n.type && !n.lost) box.appendChild(h('div.tt-line.desc', expNodeDesc(n, p, ctx.data.rules)));
+    if (n.done && !n.lost) box.appendChild(h('div.tt-hint', 'Done'));
   }
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); const rn = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'; box.appendChild(atDemoExit(v, ctx) ? h('div.tt-line.demo-leave', `${rn}. ${demoLeaveLine(ctx)}`) : h('div.tt-line', `${rn}: leads to ${roadTo(v, ctx)}`)); }
   if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
@@ -1172,13 +1193,15 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   if (dbl) box.appendChild(dbl);
   // the enemies (combat v2, mapView): count and role badges per fight; a dungeon lists each trash fight and its boss
   if (n.type === 'dungeon' && n.fights && n.fights.length) {
-    n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
+    n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', fightHead(i, f.length, n.fightCalls && n.fightCalls[i])), archChips(f))));
     if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', `Boss: ${n.bossName || 'the boss'}`), archChips([n.bossArchetype])));
   } else if (n.archetypes && n.archetypes.length) {
     box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+    if (n.calls) box.appendChild(h('div.tt-line.tt-calls', callsText(n.calls))); // blind demo round 1 (A)
   } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
   else if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-line.foes', `Foes: ${n.enemyNames.join(', ')}`)); // mock engine: names only
-  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, n.type === 'dungeon' && n.fights && n.fights.length ? { ...ctx.data.rules, dungeonTrashFights: n.fights.length } : rulesOf(ctx.view, ctx.data.rules))));
+  const escort = n.type === 'elite' && n.archetypes && n.archetypes.length > 1; // blind demo round 1 (A): no "One powerful enemy" beside "Foes: 2"
+  box.appendChild(h('div.tt-line.desc', n.type === 'treasure' && n.guarded !== undefined ? treasureDesc(n) : escort ? nodeDesc('elite', ctx.data.rules).replace('One powerful enemy', 'A powerful enemy and its escort') : nodeDesc(n.type, n.type === 'dungeon' && n.fights && n.fights.length ? { ...ctx.data.rules, dungeonTrashFights: n.fights.length } : rulesOf(ctx.view, ctx.data.rules))));
   const danger = nodeDanger(n, ctx.data.rules);
   if (danger) box.appendChild(h('div.tt-warn.danger', danger));
   // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
@@ -1206,10 +1229,13 @@ function btn(label, onClick, cls = '') { const b = h('button.btn' + cls, label);
 
 function foeList(v, list, ctx) {
   const p = v.player;
+  // each enemy at its own level (an elite's is above its escort's), same name and level counted once: "2 × Barn Wolf"
   const counts = new Map();
-  for (const t of list || []) counts.set(t.name, (counts.get(t.name) || 0) + 1);
-  return h('div.foes', [...counts.entries()].map(([nm, k]) => h('div.foe', h('span.con', { style: { color: conColor(v.node.cl, p.level) } }, String(lv(v.node.cl))), `${k > 1 ? k + ' × ' : ''}${nm}`)));
+  for (const t of list || []) { const L = t.level ?? v.node.cl; const key = `${L}|${t.name}`; const x = counts.get(key) || { nm: t.name, L, k: 0 }; x.k++; counts.set(key, x); }
+  return h('div.foes', [...counts.values()].map(({ nm, L, k }) => h('div.foe', h('span.con', { style: { color: conColor(L, p.level) } }, String(lv(L))), `${k > 1 ? k + ' × ' : ''}${nm}`)));
 }
+/** Blind demo round 1 (A): the panel's line for the enemy a fight calls in later (the view's `calls`), or null. */
+const callsLine = (c) => (c ? h('div.foes-calls', callsText(c, c.name)) : null);
 
 function buildNode(v, ctx) {
   const n = v.node; const p = v.player;
@@ -1219,7 +1245,7 @@ function buildNode(v, ctx) {
   if (n.type === 'quest' && n.step === 'intro') {
     return dialog(n.title, `Quest · level ${lv(n.cl)}`, [
       h('div.qtext.parchment', h('div.giver', `${n.giver} says:`), h('div', `“${n.text}”`)),
-      h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx),
+      h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), callsLine(n.calls),
       h('div.dim', { style: { fontSize: '1.2rem' } }, 'Reward: experience, gold and a choice of two items.'),
     ], [btn('Accept', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
@@ -1237,20 +1263,24 @@ function buildNode(v, ctx) {
       return b;
     };
     const waves = ks.map(w);
-    return dialog('Grind', `Level ${lv(n.cl)}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
+    return dialog('Grind', `Level ${lv(n.cl)}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), callsLine(n.calls), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
     // section 7 (D150): the elite's own level (its fight's, as the map shows it), not the node's
     return dialog(n.eliteName, `${n.rare ? 'Rare elite' : 'Elite'} · level ${lv(n.mobs && n.mobs[0] && n.mobs[0].level ? n.mobs[0].level : n.cl)}`, [
       e.text ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, e.text) : null,
-      h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add ? h('dt', 'Escort') : null, n.add ? h('dd', n.add.name) : null),
+      h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add && !(n.mobs && n.mobs.length) ? h('dt', 'Escort') : null, n.add && !(n.mobs && n.mobs.length) ? h('dd', n.add.name) : null),
+      // blind demo round 1 (A): every enemy of the fight at its level, and the one it calls in later
+      n.mobs && n.mobs.length ? h('div.subtitle', 'Enemies') : null, n.mobs && n.mobs.length ? foeList(v, n.mobs, ctx) : null, callsLine(n.calls),
     ], [btn('Engage', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: h('span.row', { style: { gap: '.5rem' } }, hb, h('span.rank-tag' + (n.rare ? '.rare' : ''), n.rare ? 'Rare' : 'Elite')) });
   }
   if (n.type === 'dungeon' && n.step === 'intro') {
     return dialog(n.dungeon, `Dungeon · level ${lv(n.cl)}`, [
       n.dungeonText ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.dungeonText) : null,
       h('dl.kv', h('dt', 'Fights'), h('dd', `${n.trash ?? ctx.data.rules.dungeonTrashFights} ${plural(n.trash ?? ctx.data.rules.dungeonTrashFights, 'group')}, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
+      // blind demo round 1 (A): each fight's enemies, the one it calls in later included (mapView `fights`, `fightCalls`)
+      n.fights && n.fights.length ? h('div.foes.dfights', n.fights.map((k, i) => h('div.foe', fightHead(i, k, n.fightCalls && n.fightCalls[i]))), h('div.foe', `Then ${n.bossName}`)) : null,
     ], [btn('Enter the dungeon', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'intro') {

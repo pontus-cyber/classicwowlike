@@ -1433,6 +1433,14 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .mnode.here { z-index: var(--z-local-4); }
 .expmap .mnode .flagm { top: -1.7rem; width: 1.5rem; height: 1.9rem; }
 .expmap .mnode .xfoes { position: absolute; right: -.7rem; bottom: -.35rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
+/* blind demo round 1 (A): the enemy count in words ("3 foes") on a neutral ink chip: red is danger's alone (D120), and the
+   level's own colour says the danger */
+.expmap .mnode .xfoes { right: auto; left: 50%; bottom: auto; top: 100%; transform: translate(.9rem, .2rem); white-space: nowrap; background: rgba(40, 28, 12, .88); color: var(--accent-cream); box-shadow: 0 0 0 1px var(--shade); font-family: var(--font-ui); }
+.expmap .xk-badges i { width: auto; height: auto; min-width: 1.2rem; border-radius: var(--radius-sm-1); padding: 0 var(--sp-30); font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); font-style: normal; text-align: center; background: rgba(40, 28, 12, .88); box-shadow: 0 0 0 1px var(--shade); }
+.expmap .xk-badges .xk-foes { color: var(--accent-cream); font-family: var(--font-ui); white-space: nowrap; }
+.foes-calls, .tt-calls { color: #ffd9a0; font-weight: var(--fw-semibold); }
+.foes-calls { margin-top: var(--sp-40); }
+.dfights { flex-direction: column; margin-top: var(--sp-50); }
 .expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.45rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
 /* D152: the held corridor's lamp (no "dims in" chip while the guide holds the dark off the node) */
 .expmap .mnode .xheld { position: absolute; left: 50%; top: calc(100% + 1.35rem); transform: translateX(-50%); width: 1.3rem; height: 1.6rem; filter: drop-shadow(0 0 .45rem rgba(255, 210, 122, .85)); pointer-events: none; }

@@ -3339,7 +3339,8 @@ function fogDiff(d, mv, nextZone) {
     // D144 (engine-2026-11-13d UI need 5): an elite's label is its own level (mapView `level`), not the node's
     const lvl = n.type === 'elite' && n.level ? n.level : n.cl;
     if (n.know === 'full' && !n.hub && n.cl && e.label !== String(lvl)) out.push(`seen node ${n.id} level ${e.label} (view ${lvl})`);
-    const foes = n.know === 'full' && !n.hub && !n.done && n.type !== 'dungeon' && n.archetypes && n.archetypes.length ? n.archetypes.length : null;
+    // blind demo round 1 (A): the count includes the enemy the fight calls in later (mapView `calls`); none on a node lost to the Dimming
+    const foes = n.know === 'full' && !n.hub && !n.done && !n.lost && n.type !== 'dungeon' && n.archetypes && n.archetypes.length ? n.archetypes.length + (n.calls ? n.calls.count : 0) : null;
     if (e.foes !== foes) out.push(`node ${n.id} enemy count ${e.foes} (view ${foes})`);
     const clock = !mv.dim.off && !n.dimmed && Number.isFinite(n.dimsIn) && (hs[n.id] <= front + 2 || (n.id === mv.pos && n.dimsIn <= 2)) ? n.dimsIn : null;
     if (e.clock !== clock) out.push(`node ${n.id} clock ${e.clock} (view ${clock}: dimsIn ${n.dimsIn}, ${hs[n.id]} hops from the Shardfall, front ${front})`);
@@ -4807,7 +4808,7 @@ async function partS(browser, W, H) {
       // D144 (engine-2026-11-13d UI need 5; casual: "one level higher" for a level 17 elite at level 10): the elite's own level
       // (mapView `level`, above the node's cl) on the node, in the tooltip, and its gap to the player's level in words
       const gapText = (x) => { const g = x.level - x.pl; return g > 0 ? `${g} level${g === 1 ? '' : 's'} above you` : g < 0 ? `${-g} level${g === -1 ? '' : 's'} below you` : 'your level'; };
-      const badElite = eliteTips.filter((x) => !(x.level > x.cl && x.label === String(x.level) && x.tip && x.tip.includes(`Level ${x.level}`) && x.tip.includes(`One powerful enemy at level ${x.level}, ${gapText(x)}.`)));
+      const badElite = eliteTips.filter((x) => !(x.level > x.cl && x.label === String(x.level) && x.tip && x.tip.includes(`Level ${x.level}`) && (x.tip.includes(`One powerful enemy at level ${x.level}, ${gapText(x)}.`) || x.tip.includes(`A powerful enemy at level ${x.level}, ${gapText(x)}, and its escort.`))));
       check('D144-5', `every elite node says its own level (${eliteTips.map((x) => `${x.level} vs node ${x.cl}`).join(', ')}) on the map and in its tooltip, with the gap to the player's level in words`, eliteTips.length >= 2 && !badElite.length, JSON.stringify(badElite.map((x) => ({ id: x.id, level: x.level, cl: x.cl, pl: x.pl, label: x.label, tip: x.tip && x.tip.slice(0, 160) }))));
       // bags: a bag of gear (set up: two pieces worn now and a second head piece), the item's tooltip goes with the bags
       await load(page, (s0) => {
