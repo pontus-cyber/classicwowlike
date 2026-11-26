@@ -636,7 +636,7 @@ function buildExpMap(v, ctx, readOnly) {
       const fl = bell ? leaveFightLine(p, !!(meNode && meNode.dimmed)) : '';
       return h('div', h('div.tt-name', bell ? EXIT_WORDS.bellTitle : EXIT_WORDS.roadTitle),
         demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx, v)) : null, where ? h('div.tt-line.lw-where', where) : null,
-        h('div.tt-sub.lw-charges', bell ? bellCharges(mv.bell.charges) : EXIT_WORDS.roadFree),
+        bell && demoBell ? null : h('div.tt-sub.lw-charges', bell ? bellCharges(mv.bell.charges) : EXIT_WORDS.roadFree), // demo.md 1.2a: the zone 2 Bell's label has no number to explain
         fl ? h('div.tt-warn.lw-fight', fl) : null,
         expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(p, ctx),
         asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null);

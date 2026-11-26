@@ -82,7 +82,7 @@ export function buildLeftHead(s, ctx) {
   return h('div.demoleft', { dataset: { demo: 'left' } },
     h('div.t1.subtitle', 'The run has ended'),
     h('div.t2', fill('leftHeading', { who: named, last: lastName(ctx) })),
-    h('div.dl-line', fill('leftLine', { need: numWord(d.need), last: lastName(ctx), wins: numWord(d.wins) })),
+    h('div.dl-line', fill('leftLine', { need: numWord(d.need), last: lastName(ctx), wins: d.wins > 0 ? numWord(d.wins) : 'none' })),
     d.welcome ? h('div.dl-welcome', DEMO_TEXT.welcomeWaits) : null);
 }
 /** "Vex, Rogue" or "Rogue" (a hero without a name of its own). */

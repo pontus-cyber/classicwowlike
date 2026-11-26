@@ -132,7 +132,9 @@ async function oneRun(n, cls) {
     }
     // demo.md 1.2a: zone 2's map: the progress chip and the Bell's own label and look
     if (v.phase === 'MAP' && v.z === 2 && z2bell.length < 6) {
-      z2bell.push(await page.evaluate(() => { const b = document.querySelector('#screens .expmap .mhead [data-leave="RING_BELL"]'); const c = document.querySelector('#screens .expmap .mhead .demoprog'); return { chip: c ? c.textContent : null, bell: b ? b.textContent : null, cls: b ? b.className : '' }; }));
+      // sampled once the map screen shows zone 2 (its header title is zone 2's name; it is rebuilt after the travel animation)
+      const x = await page.evaluate(() => { const t = document.querySelector('#screens .expmap .mhead .title'); if (!t || t.textContent !== window.__ui.view().zone.name) return null; const b = document.querySelector('#screens .expmap .mhead [data-leave="RING_BELL"]'); const c = document.querySelector('#screens .expmap .mhead .demoprog'); return { chip: c ? c.textContent : null, bell: b ? b.textContent : null, cls: b ? b.className : '' }; });
+      if (x) z2bell.push(x);
     }
     maxZone = Math.max(maxZone, v.z);
     if (v.z > 2 || v.camp || v.boss || v.phase === 'CAMP' || v.phase === 'BOSS') { check(false, `run ${n}: zone ${v.z}, camp ${v.camp}, boss ${v.boss}`); break; }
@@ -229,8 +231,8 @@ const c2 = await campaign('B');
 log(`zone 2 map (chip, Bell): ${JSON.stringify(z2bell.slice(0, 3))}`);
 check(z2bell.length > 0 && z2bell.every((x) => x.chip && /^Demo end/.test(x.chip)), `zone 2's map lacks the demo end chip: ${JSON.stringify(z2bell.slice(0, 2))}`);
 check(z2bell.filter((x) => x.bell).every((x) => /demoexit/.test(x.cls) && /^End (the demo run|this run early)$/.test(x.bell.trim())), `zone 2's Bell button: ${JSON.stringify(z2bell.filter((x) => x.bell).slice(0, 2))}`);
-async function earlyRun() {
-  await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle();
+async function earlyRun(cls) {
+  await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle();
   await page.getByRole('button', { name: 'Enter the world' }).click(); await idle();
   for (let i = 0; i < 6000; i++) {
     const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, z: x.zone ? x.zone.idx : 0 }; });
@@ -238,8 +240,17 @@ async function earlyRun() {
     if (v.phase === 'ZONE_HUB' && v.z === 2) { await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(); continue; }
     await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle();
   }
+  // the map screen is rebuilt after the zone travel's animation: wait for zone 2's header (its demo end chip) first
+  await page.waitForSelector('#screens .expmap .mhead .demoprog', { timeout: 15000 }).catch(() => null);
   const bell = page.locator('#screens .expmap .mhead [data-leave="RING_BELL"]');
-  if (await bell.count() !== 1) { log('early run: no Bell button on zone 2\'s map (died, or no charge); skipped'); return null; }
+  if (await bell.count() !== 1) {
+    log(`early run (${cls}): no Bell button on zone 2's map (died, or the charge was rung in zone 1); next class`);
+    if ((await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY') await page.evaluate(() => window.__ui.act({ type: 'ABANDON_RUN' }));
+    for (let i = 0; i < 400 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(); }
+    await page.waitForSelector('.summary .sfoot button', { timeout: 15000 }).catch(() => null);
+    await page.getByRole('button', { name: 'Begin a new run' }).click().catch(() => null); await idle();
+    return null;
+  }
   check((await bell.innerText()).trim() === 'End this run early' && /early/.test(await bell.getAttribute('class')), `early run: the Bell reads "${await bell.innerText()}"`);
   await bell.click(); await idle();
   const ask = await page.locator('#screens .leavewarn .lw-t').innerText().catch(() => '');
@@ -256,7 +267,9 @@ async function earlyRun() {
   await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle();
   return out.outcome;
 }
-const early = await earlyRun();
+let early = null;
+for (const cls of CLASSES) { early = await earlyRun(cls); if (early) break; }
+check(early !== null, 'no early-leave run could be played (no class reached zone 2 with a Bell charge)');
 const keys = await page.evaluate(() => Object.keys(localStorage));
 check(keys.length > 0 && keys.every((k) => k.startsWith('tbwcr.demo.')), `storage keys outside tbwcr.demo.: ${keys.filter((k) => !k.startsWith('tbwcr.demo.')).join(', ')}`);
 check(requests.length === 0, `requests besides the file: ${requests.slice(0, 3).join(', ')}`);
