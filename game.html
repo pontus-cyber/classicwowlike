@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="b59f7f7 2026-11-25T23:25:29Z">
+<meta name="build" content="69d82b4 2026-11-26T07:02:21Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -871,6 +871,11 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .ctrl { display: flex; flex-direction: column; gap: var(--sp-40); }
 .ctrl .btn { padding: var(--sp-35) var(--sp-80); font-size: var(--fs-small-8); }
 .ctrl .toggle { padding: var(--sp-30) var(--sp-70); }
+/* demo blind round 1 D: the fight speed button (hud.js els.speed) in the combat log's header; its number is lit when faster than 1x */
+#combatlog .lh .speedbtn { margin-left: auto; margin-right: var(--sp-60); padding: var(--sp-10) var(--sp-60); border-radius: var(--radius-sm-1); cursor: pointer; font: var(--fw-bold) var(--fs-small-5) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); }
+#combatlog .lh .speedbtn:hover { color: var(--ink-bright); box-shadow: inset 0 0 0 1px var(--accent-hi); }
+#combatlog .lh .speedbtn b { font-weight: var(--fw-heavy); color: var(--ink-bright); margin-left: var(--sp-20); }
+#combatlog .lh .speedbtn.fast b { color: var(--accent-hi); }
 .toggle { display: flex; align-items: center; gap: var(--sp-60); padding: var(--sp-35) var(--sp-80); border-radius: var(--radius-sm-3); cursor: pointer; background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); font: var(--fw-bold) var(--fs-body-1) var(--font-ui); color: var(--ink-dim); }
 .toggle .sw { position: relative; width: 3.2rem; height: 1.7rem; border-radius: var(--radius-xl-1); background: var(--surface-well); box-shadow: inset 0 0 0 1px var(--glint-10); transition: background var(--dur-base-1); }
 .toggle .sw::after { content: ''; position: absolute; top: .2rem; left: .2rem; width: 1.3rem; height: 1.3rem; border-radius: var(--radius-round); background: #8a7a60; transition: transform var(--dur-base-1), background var(--dur-base-1); }
@@ -1207,6 +1212,7 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 /* tooltip */
 .tooltip { position: fixed; left: 0; top: 0; z-index: var(--z-tooltip); max-width: 34rem; padding: var(--sp-100) var(--sp-120); pointer-events: none; opacity: 0; transition: opacity var(--dur-fast-2); border-radius: var(--radius-md-2); background: linear-gradient(180deg, rgba(14, 16, 30, .97), rgba(8, 9, 18, .97)); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px rgba(150, 160, 210, .45), 0 .6rem 2rem var(--shade-70); font-size: var(--fs-body-5); line-height: var(--lh-normal-4); }
 .tooltip.on { opacity: 1; }
+.tooltip.on.off-dialog { opacity: 0; } /* demo blind round 1 C: never over a confirm dialog (tooltip.js) */
 .tt-head { display: flex; gap: var(--sp-90); align-items: center; margin-bottom: var(--sp-40); }
 .tt-icon { width: 3.6rem; height: 3.6rem; border-radius: var(--radius-sm-2); border: 1px solid var(--shade); }
 .tt-name { font: var(--fw-bold) var(--fs-label-6) var(--font-ui); color: var(--ink-bright); }
@@ -1418,7 +1424,7 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 #heat .ht-span.back { background: repeating-linear-gradient(135deg, rgba(143, 208, 245, .5) 0 .3rem, rgba(143, 208, 245, .12) .3rem .6rem); }
 #heat.flash { animation: heatflash var(--dur-long-1) ease-out; }
 @keyframes heatflash { 0% { box-shadow: inset 0 0 0 1px var(--edge), 0 0 0 2px var(--hc), 0 0 2.4rem var(--hc); } }
-/* the first-time note, on the first hub, above the meter */
+/* the first-time note (demo blind round 1 B: at the first map), under the meter */
 #heat-intro { position: absolute; left: calc(50% - 26rem); bottom: 16rem; width: 30rem; padding: var(--sp-90) var(--sp-110) var(--sp-80); border-radius: var(--radius-md-4); background: linear-gradient(180deg, rgba(36, 30, 50, .97), rgba(14, 11, 22, .97)); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .55), 0 .8rem 2rem var(--shade-70); z-index: var(--z-hud-callout); }
 #heat-intro::after { content: ''; position: absolute; right: 2.2rem; bottom: -.8rem; border: .8rem solid transparent; border-top-color: rgba(190, 160, 255, .7); border-bottom: 0; }
 #heat-intro .hi-t { font: var(--fw-semibold) var(--fs-title-1) var(--font-title); color: var(--gold); margin-bottom: var(--sp-30); }
@@ -1437,6 +1443,8 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .tt-heat .th-l .chg { color: var(--ink-dim); font-weight: var(--fw-semibold); }
 .tt-heat .th-p { color: var(--ink-dim); }
 .tt-heat .th-p.paid { color: var(--hc-tx); font-weight: var(--fw-bold); }
+/* demo blind round 1 B: what a coloured toll tag's colour means */
+.tt-heat .th-tag { display: flex; align-items: center; gap: var(--sp-40); color: var(--ink-dim); }
 .tt-heat .th-w { color: #c9b2ff; font-weight: var(--fw-bold); }
 .tt-heat .th-s { color: var(--ink-dim); font-size: var(--fs-body-1); }
 .tt-heatstates { display: grid; grid-template-columns: auto auto 1fr; gap: var(--sp-15) var(--sp-60); margin: var(--sp-45) 0 var(--sp-35); font-size: var(--fs-body-1); }
@@ -1617,6 +1625,20 @@ body.in-fight #toasts { top: calc(11.2rem + var(--furnace-h)); }
 #heat[data-by="dim"] .ht-mark.run::before { display: none; }
 /* the first-time note: under the Furnace, its arrow pointing up at it */
 #heat-intro { left: 50%; bottom: auto; top: calc(var(--furnace-h) + 1.2rem); transform: translateX(-50%); z-index: var(--z-hud-callout); }
+/* demo blind round 1 B: the note at the first map takes no clicks but its button's, so it never blocks a map node */
+/* at the coach line's place (bottom centre, over the action bar's control row: onboarding.js BOTTOM_REM), so it covers
+   neither the map's head and buttons nor its Roads; the meter carries a ring while it is up (#heat.noted) */
+#heat-intro { pointer-events: none; width: max-content; max-width: min(64rem, calc(100vw - 2rem)); top: auto; bottom: 14.8rem; display: flex; align-items: center; gap: var(--sp-90); padding: var(--sp-50) var(--sp-90); }
+#heat-intro::after { display: none; }
+#heat.noted { box-shadow: inset 0 0 0 1px var(--edge), 0 0 0 2px rgba(190, 160, 255, .8), 0 0 1.6rem rgba(190, 160, 255, .55); }
+#heat-intro .hi-t { flex: none; margin: 0; font-size: var(--fs-body-3); }
+#heat-intro .hi-t::before { content: '▲ '; font-size: .8em; opacity: .8; }
+#heat-intro .hi-f button { white-space: nowrap; }
+#heat-intro .hi-b { flex: 1 1 auto; min-width: 0; }
+#heat-intro .hi-b p { margin: 0; font-size: var(--fs-body-1); line-height: var(--lh-normal-4); }
+#heat-intro .hi-f button { pointer-events: auto; }
+/* demo blind round 1 B (newcomer s0246): the Key's nine icons each with its name, at rest, in one column */
+.expmap .xkey .xkicons { grid-template-columns: max-content; row-gap: var(--sp-15); }
 #heat-intro::after { right: auto; left: 50%; bottom: auto; top: -.8rem; transform: translateX(-50%); border-top-color: transparent; border-bottom: .8rem solid rgba(190, 160, 255, .7); border-top: 0; }
 
 /* ---- what to do now: the turn prompt over the action bar's right half (hud.js turnPrompt), and the bar's frame */
@@ -1815,6 +1837,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .leavewarn .lw-t { font: var(--fw-bold) var(--fs-label-8) var(--font-title); color: #ffd0a0; }
 .leavewarn .lw-l { margin: var(--sp-35) 0 var(--sp-80); font-size: var(--fs-body-3); line-height: var(--lh-normal-4); color: #f2dcc4; }
 .leavewarn .lw-b { gap: var(--sp-80); align-items: center; }
+/* demo blind round 1 C: a Dimming fight that comes before the Bell takes you, said first */
+.leavewarn .lw-l.lw-fight { margin-bottom: var(--sp-30); color: #ffb0a0; font-weight: var(--fw-bold); }
 .btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem var(--shade-50); }
 /* the chart: the Lantern paper chart for every theme (D129; tokens.css, the .expmap block): flat paper with an ink edge */
 .expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: var(--sp-80); margin: 0 var(--sp-100) var(--sp-100); padding: var(--sp-60); background: linear-gradient(175deg, var(--chart-paper-1), var(--chart-paper-2)); box-shadow: inset 0 0 0 1px var(--chart-ink-edge), .15rem .25rem 0 var(--shade-35); }
@@ -1882,6 +1906,14 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .mnode.here { z-index: var(--z-local-4); }
 .expmap .mnode .flagm { top: -1.7rem; width: 1.5rem; height: 1.9rem; }
 .expmap .mnode .xfoes { position: absolute; right: -.7rem; bottom: -.35rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
+/* blind demo round 1 (A): the enemy count in words ("3 foes") on a neutral ink chip: red is danger's alone (D120), and the
+   level's own colour says the danger */
+.expmap .mnode .xfoes { right: auto; left: 50%; bottom: auto; top: 100%; transform: translate(.9rem, .2rem); white-space: nowrap; background: rgba(40, 28, 12, .88); color: var(--accent-cream); box-shadow: 0 0 0 1px var(--shade); font-family: var(--font-ui); }
+.expmap .xk-badges i { width: auto; height: auto; min-width: 1.2rem; border-radius: var(--radius-sm-1); padding: 0 var(--sp-30); font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); font-style: normal; text-align: center; background: rgba(40, 28, 12, .88); box-shadow: 0 0 0 1px var(--shade); }
+.expmap .xk-badges .xk-foes { color: var(--accent-cream); font-family: var(--font-ui); white-space: nowrap; }
+.foes-calls, .tt-calls { color: #ffd9a0; font-weight: var(--fw-semibold); }
+.foes-calls { margin-top: var(--sp-40); }
+.dfights { flex-direction: column; margin-top: var(--sp-50); }
 .expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.45rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
 /* D152: the held corridor's lamp (no "dims in" chip while the guide holds the dark off the node) */
 .expmap .mnode .xheld { position: absolute; left: 50%; top: calc(100% + 1.35rem); transform: translateX(-50%); width: 1.3rem; height: 1.6rem; filter: drop-shadow(0 0 .45rem rgba(255, 210, 122, .85)); pointer-events: none; }
@@ -2086,8 +2118,6 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 #target-frame.stopped .wstk { display: none; }
 /* the map at rest (D150 word budget): the Key's rows on hover of its panel; a closed Road's sign says only "Closed" */
 .expmap .xkey:not(:hover) .xk { display: none; }
-.expmap .xroad.rclosed .xsign b { display: none; }
-.expmap .xroad.rclosed .xsign .xshut { margin-top: 0; }
 /* item 24: the stopped line is a sentence: sentence case, and it may wrap (two lines) rather than run over the tracker */
 .np .wub.stopped .wu-b { text-transform: none; letter-spacing: 0; white-space: normal; text-align: left; max-width: 22rem; }
 .np .wub.db.stopped { margin: 0; }
@@ -2109,8 +2139,9 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 .expmap .xki { display: flex; align-items: center; gap: var(--sp-30); }
 .expmap .xki img { width: 1.9rem; height: 1.9rem; flex: none; }
 .expmap .xki b { display: none; font: var(--fw-semibold) var(--fs-micro-9) var(--font-ui); color: var(--ink-dim); white-space: nowrap; }
-.expmap .xkey:hover .xkicons { grid-template-columns: repeat(2, max-content); column-gap: var(--sp-90); }
-.expmap .xkey:hover .xki b { display: inline; }
+/* demo blind round 1 B (newcomer s0246: "nine unlabelled icons"): every icon of the Key carries its name, at rest */
+.expmap .xkey .xki img { width: 1.5rem; height: 1.5rem; }
+.expmap .xkey .xki b { display: inline; }
 /* the combat log grows upward while hovered, so the lines before can be read and scrolled (tactician re-run section 3) */
 #combatlog:not(.min):hover { height: 26rem; z-index: var(--z-hud-callout); background: linear-gradient(180deg, rgba(10, 8, 6, .82), rgba(10, 8, 6, .9)); }
 /* four or more enemies (casual re-run s0162, s0166: chips over the next plate, "Rust-Shackled Gua", "Shiel..."): the plate
@@ -2178,8 +2209,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (b59f7f7 2026-11-25T23:25:29Z) from 71 modules.
-const __BUILD__ = "b59f7f7 2026-11-25T23:25:29Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (69d82b4 2026-11-26T07:02:21Z) from 71 modules.
+const __BUILD__ = "69d82b4 2026-11-26T07:02:21Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -5782,7 +5813,7 @@ function nextLanes(zone) {
 
 });
 __bundle.def("src/engine/track.js", function* (__ns, __link) {
-let ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2, HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION, DEATHBLOW_MULT; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["PET", (v) => { PET = v; }], ["INTENT_TRACK_LEN", (v) => { INTENT_TRACK_LEN = v; }], ["OPENING_TURNS", (v) => { OPENING_TURNS = v; }], ["SIGNATURE_TURN", (v) => { SIGNATURE_TURN = v; }], ["SIGNATURE_TURN_2", (v) => { SIGNATURE_TURN_2 = v; }], ["HEAVY_SCRIPT_MULT", (v) => { HEAVY_SCRIPT_MULT = v; }], ["CAST_SCRIPT_MULT", (v) => { CAST_SCRIPT_MULT = v; }], ["OPENING_SCRIPT", (v) => { OPENING_SCRIPT = v; }], ["SCRIPT_ACTION", (v) => { SCRIPT_ACTION = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["DEATHBLOW_MULT", (v) => { DEATHBLOW_MULT = v; }]]); let nextFloat, weightedIndex; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let snapshot, mitigation, addStatus, removeStatus, findSt, hasSt, petAlive, gainOffBalance, answerWindup; __link.imp("src/engine/damage.js", [["snapshot", (v) => { snapshot = v; }], ["mitigation", (v) => { mitigation = v; }], ["addStatus", (v) => { addStatus = v; }], ["removeStatus", (v) => { removeStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }]]); let SHARD_ACTION, bossEntry; __link.imp("src/engine/boss.js", [["SHARD_ACTION", (v) => { SHARD_ACTION = v; }], ["bossEntry", (v) => { bossEntry = v; }]]); __link.exp({ "isEngageRound": () => isEngageRound, "turnOf": () => turnOf, "controlOf": () => controlOf, "enemyActions": () => enemyActions, "basicAction": () => basicAction, "lowestHpAlly": () => lowestHpAlly, "wardOf": () => wardOf, "assignWard": () => assignWard, "signatures": () => signatures, "deathblowOf": () => deathblowOf, "deathblowType": () => deathblowType, "scriptedId": () => scriptedId, "updateTracks": () => updateTracks, "fillTrack": () => fillTrack, "hitEst": () => hitEst, "nowIntent": () => nowIntent, "refreshTrack": () => refreshTrack, "isSingle": () => isSingle });
+let ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2, HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION, DEATHBLOW_MULT; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["PET", (v) => { PET = v; }], ["INTENT_TRACK_LEN", (v) => { INTENT_TRACK_LEN = v; }], ["OPENING_TURNS", (v) => { OPENING_TURNS = v; }], ["SIGNATURE_TURN", (v) => { SIGNATURE_TURN = v; }], ["SIGNATURE_TURN_2", (v) => { SIGNATURE_TURN_2 = v; }], ["HEAVY_SCRIPT_MULT", (v) => { HEAVY_SCRIPT_MULT = v; }], ["CAST_SCRIPT_MULT", (v) => { CAST_SCRIPT_MULT = v; }], ["OPENING_SCRIPT", (v) => { OPENING_SCRIPT = v; }], ["SCRIPT_ACTION", (v) => { SCRIPT_ACTION = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["DEATHBLOW_MULT", (v) => { DEATHBLOW_MULT = v; }]]); let nextFloat, weightedIndex; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let snapshot, mitigation, addStatus, removeStatus, findSt, hasSt, petAlive, gainOffBalance, answerWindup; __link.imp("src/engine/damage.js", [["snapshot", (v) => { snapshot = v; }], ["mitigation", (v) => { mitigation = v; }], ["addStatus", (v) => { addStatus = v; }], ["removeStatus", (v) => { removeStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }]]); let SHARD_ACTION, bossEntry; __link.imp("src/engine/boss.js", [["SHARD_ACTION", (v) => { SHARD_ACTION = v; }], ["bossEntry", (v) => { bossEntry = v; }]]); __link.exp({ "isEngageRound": () => isEngageRound, "turnOf": () => turnOf, "controlOf": () => controlOf, "enemyActions": () => enemyActions, "basicAction": () => basicAction, "lowestHpAlly": () => lowestHpAlly, "wardOf": () => wardOf, "assignWard": () => assignWard, "signatures": () => signatures, "deathblowOf": () => deathblowOf, "deathblowType": () => deathblowType, "scriptedId": () => scriptedId, "signalPlan": () => signalPlan, "fightSignal": () => fightSignal, "updateTracks": () => updateTracks, "fillTrack": () => fillTrack, "hitEst": () => hitEst, "nowIntent": () => nowIntent, "refreshTrack": () => refreshTrack, "isSingle": () => isSingle });
 yield;
 // Intent track (rules 7.11, combat v2) and opening scripts (rules 7.12): every living enemy shows its next
 // INTENT_TRACK_LEN actions. An entry is drawn from the fight stream when it enters the track and never later (the
@@ -5796,7 +5827,8 @@ yield;
 // (`deathblow`; a damaging one × DEATHBLOW_MULT); with GATES.firstMeetWindup a normal enemy met for the first time in a
 // quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow); D149 (M3, draft): an
 // enemy the guided zone's overlay marks does so on its turn `windupTurn` (ONB_WINDUP_TURN). M2b v14 (D112):
-// deathblowType, the type alone for a map elite whose name is hidden.
+// deathblowType, the type alone for a map elite whose name is hidden. Blind demo round 1 (A): signalPlan and fightSignal,
+// the reinforcement a fight calls (Signal), for the map view and the node panels.
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
 
@@ -5935,6 +5967,42 @@ function scriptedId(s, e, t) {
   // A skulker calls for help only when the fight started with at least 2 enemies; else it strikes.
   if (id === 'signal' && s.fight.startCount < 2) return basicAction(e).id;
   return id;
+}
+
+/**
+ * Signal before a fight (rules 7.12, combat v2; blind demo round 1 A, engine-api.md 10.3 `calls`): what a fight of the
+ * template ids `tids` (fight order) calls in. With at least 2 enemies at the start, the first whose archetype's opening
+ * script plays Signal on its turn t (a skulker, turn 3) calls SIGNAL_ADDS normal enemies at the end of round
+ * turn0 + t - 1 (turn0 2 with the engage round, every map fight; 1 without), once per fight, unless it is killed or its
+ * turn is cancelled first. The signature turns of elites, rares and dungeon bosses (SIGNATURE_TURN, SIGNATURE_TURN_2) are
+ * not the script's Signal turn (qa/engine s33). Returns { count, round, by } (by: the caller's index in tids) or null.
+ */
+function signalPlan(content, tids, engage = true) {
+  if (!tids || tids.length < 2) return null;
+  for (let i = 0; i < tids.length; i++) {
+    const t = content.enemies[tids[i]];
+    const k = t ? (OPENING_SCRIPT[t.archetype] || []).indexOf('signal') : -1;
+    if (k >= 0) return { count: SCRIPT_ACTION.signal.adds, round: (engage ? 2 : 1) + k, by: i };
+  }
+  return null;
+}
+
+/**
+ * Signal in the fight under way (as signalPlan): { count, round, by (enemy index), name } while an enemy present at the
+ * start can still play it (alive, its Signal turn not passed or cancelled), else null (played, no caller, no help near).
+ */
+function fightSignal(s) {
+  const f = s.fight;
+  if (!f || f.over || f.signalled || f.startCount < 2 || !f.addPool.length) return null;
+  for (const e of f.enemies) {
+    if (!e.alive || e.unscripted) continue;
+    for (let t = Math.max(1, turnOf(f, e)); t <= OPENING_TURNS; t++) {
+      if (scriptedId(s, e, t) !== 'signal') continue;
+      if (t === turnOf(f, e) && e.intent && e.intent.turn === t && e.intent.kind !== 'signal') break; // cancelled this turn
+      return { count: SCRIPT_ACTION.signal.adds, round: e.turn0 + t - 1, by: e.idx, name: e.name };
+    }
+  }
+  return null;
 }
 
 /**
@@ -6579,7 +6647,7 @@ function bossEndOfRound(s, ev) {
 
 });
 __bundle.def("src/engine/expedition.js", function* (__ns, __link) {
-let ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, QUEST_CAP_Z2_RINGS, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, TIME_QUEST, TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE, TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3, EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS, VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME, XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE, EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS, ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED, DIM_FRONT_TIME_NOCAP, DIM_MAX_PER_TOLL, ONB_HOLD_RELEASE, RING_CL_BASE_HERO, RING_CL_SPREAD_HERO, DUNGEON_LEVEL_OFFSET_HERO, DUNGEON_BOSS_LEVEL_OFFSET, HERO_XP_UNIT; __link.imp("src/constants.js", [["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["NODE_DRAW_ORDER", (v) => { NODE_DRAW_ORDER = v; }], ["QUEST_LEVEL_OFFSETS", (v) => { QUEST_LEVEL_OFFSETS = v; }], ["ELITE_LEVEL_OFFSET", (v) => { ELITE_LEVEL_OFFSET = v; }], ["RARE_CHANCE", (v) => { RARE_CHANCE = v; }], ["QUEST_SIZE_W1", (v) => { QUEST_SIZE_W1 = v; }], ["QUEST_SIZE_W2", (v) => { QUEST_SIZE_W2 = v; }], ["QUEST_SIZE_W3", (v) => { QUEST_SIZE_W3 = v; }], ["QUEST_MAX_SIZE_Z1", (v) => { QUEST_MAX_SIZE_Z1 = v; }], ["QUEST_CAP_Z2_RINGS", (v) => { QUEST_CAP_Z2_RINGS = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["ELITE_ADD_CHANCE", (v) => { ELITE_ADD_CHANCE = v; }], ["DUNGEON_SIZE_W2", (v) => { DUNGEON_SIZE_W2 = v; }], ["DUNGEON_SIZE_W3", (v) => { DUNGEON_SIZE_W3 = v; }], ["TREASURE_GUARD_CHANCE", (v) => { TREASURE_GUARD_CHANCE = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_IDS", (v) => { BOON_IDS = v; }], ["SHRINE_BOON_COUNT", (v) => { SHRINE_BOON_COUNT = v; }], ["GRIND_MAX_WAVES", (v) => { GRIND_MAX_WAVES = v; }], ["TIME_QUEST", (v) => { TIME_QUEST = v; }], ["TIME_GRIND_WAVE", (v) => { TIME_GRIND_WAVE = v; }], ["TIME_ELITE", (v) => { TIME_ELITE = v; }], ["TIME_DUNGEON", (v) => { TIME_DUNGEON = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["TIME_TREASURE", (v) => { TIME_TREASURE = v; }], ["TIME_SHRINE", (v) => { TIME_SHRINE = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_TRAVEL", (v) => { TIME_TRAVEL = v; }], ["RING_NODES", (v) => { RING_NODES = v; }], ["RING_CL_BASE", (v) => { RING_CL_BASE = v; }], ["RING_CL_SPREAD", (v) => { RING_CL_SPREAD = v; }], ["EDGE_KEEP_R1", (v) => { EDGE_KEEP_R1 = v; }], ["EDGE_KEEP_R2", (v) => { EDGE_KEEP_R2 = v; }], ["EDGE_KEEP_R3", (v) => { EDGE_KEEP_R3 = v; }], ["EDGE_DIAG_R23", (v) => { EDGE_DIAG_R23 = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_FAMILY_SHARE", (v) => { REGION_FAMILY_SHARE = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["REGION_KINDS", (v) => { REGION_KINDS = v; }], ["RING1_FORBIDDEN", (v) => { RING1_FORBIDDEN = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["VISION_RADIUS", (v) => { VISION_RADIUS = v; }], ["VISION_RADIUS_MAX", (v) => { VISION_RADIUS_MAX = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["PATHFINDER_RADIUS", (v) => { PATHFINDER_RADIUS = v; }], ["DIM_GRACE", (v) => { DIM_GRACE = v; }], ["DIM_FRONT_HOPS", (v) => { DIM_FRONT_HOPS = v; }], ["DIM_FRONT_TIME", (v) => { DIM_FRONT_TIME = v; }], ["TIME_DIM_FIGHT", (v) => { TIME_DIM_FIGHT = v; }], ["TIME_DIM_ESCAPE", (v) => { TIME_DIM_ESCAPE = v; }], ["BELL_CHANNEL_TIME", (v) => { BELL_CHANNEL_TIME = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["EXPED_GRIND_MAX_WAVES", (v) => { EXPED_GRIND_MAX_WAVES = v; }], ["EXPED_DUNGEON_TRASH_FIGHTS", (v) => { EXPED_DUNGEON_TRASH_FIGHTS = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["EXPED_TIME_ELITE", (v) => { EXPED_TIME_ELITE = v; }], ["EXPED_TIME_GRIND_WAVE", (v) => { EXPED_TIME_GRIND_WAVE = v; }], ["EXPED_TIME_DUNGEON", (v) => { EXPED_TIME_DUNGEON = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["EXPED_DROP_MULT", (v) => { EXPED_DROP_MULT = v; }], ["EXPED_DUNGEON_BOSS_DROPS", (v) => { EXPED_DUNGEON_BOSS_DROPS = v; }], ["DUNGEON_BOSS_DROPS", (v) => { DUNGEON_BOSS_DROPS = v; }], ["ROAD_SWIFT_TOLLS", (v) => { ROAD_SWIFT_TOLLS = v; }], ["ROAD_SWIFT_XP_FRAC", (v) => { ROAD_SWIFT_XP_FRAC = v; }], ["GATES", (v) => { GATES = v; }], ["TUTORIAL_SEED", (v) => { TUTORIAL_SEED = v; }], ["DIM_FRONT_TIME_NOCAP", (v) => { DIM_FRONT_TIME_NOCAP = v; }], ["DIM_MAX_PER_TOLL", (v) => { DIM_MAX_PER_TOLL = v; }], ["ONB_HOLD_RELEASE", (v) => { ONB_HOLD_RELEASE = v; }], ["RING_CL_BASE_HERO", (v) => { RING_CL_BASE_HERO = v; }], ["RING_CL_SPREAD_HERO", (v) => { RING_CL_SPREAD_HERO = v; }], ["DUNGEON_LEVEL_OFFSET_HERO", (v) => { DUNGEON_LEVEL_OFFSET_HERO = v; }], ["DUNGEON_BOSS_LEVEL_OFFSET", (v) => { DUNGEON_BOSS_LEVEL_OFFSET = v; }], ["HERO_XP_UNIT", (v) => { HERO_XP_UNIT = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let xpToNext; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let deathblowOf, deathblowType; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }]]); let composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom; __link.imp("src/engine/map.js", [["composeEncounter", (v) => { composeEncounter = v; }], ["vendorStock", (v) => { vendorStock = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }], ["clampCl", (v) => { clampCl = v; }], ["pickFrom", (v) => { pickFrom = v; }]]); let isLegacy, bandNow, zoneBand, clMax; __link.imp("src/engine/legacy.js", [["isLegacy", (v) => { isLegacy = v; }], ["bandNow", (v) => { bandNow = v; }], ["zoneBand", (v) => { zoneBand = v; }], ["clMax", (v) => { clMax = v; }]]); __link.exp({ "ringRule": () => ringRule, "MAP_MODES": () => MAP_MODES, "isExpedition": () => isExpedition, "firstRun": () => firstRun, "leanFirst": () => leanFirst, "bellHidden": () => bellHidden, "zoneSeed": () => zoneSeed, "grindMaxWaves": () => grindMaxWaves, "xpWeight": () => xpWeight, "killDropMult": () => killDropMult, "bossDropRolls": () => bossDropRolls, "nodeTime": () => nodeTime, "RING_START": () => RING_START, "NODE_COUNT": () => NODE_COUNT, "angDist": () => angDist, "hops": () => hops, "zoneRegions": () => zoneRegions, "generateExpZone": () => generateExpZone, "setupExpNode": () => setupExpNode, "zoneTime": () => zoneTime, "frontTime": () => frontTime, "frontAt": () => frontAt, "dimAtHops": () => dimAtHops, "dimSchedule": () => dimSchedule, "heldNow": () => heldNow, "dimClock": () => dimClock, "dimAt": () => dimAt, "dimmedAt": () => dimmedAt, "outwardStep": () => outwardStep, "dimFightTime": () => dimFightTime, "dimmedNow": () => dimmedNow, "frontNextIn": () => frontNextIn, "dimmedIds": () => dimmedIds, "nextDim": () => nextDim, "paceBound": () => paceBound, "swiftXp": () => swiftXp, "swiftView": () => swiftView, "canEnter": () => canEnter, "visionKit": () => visionKit, "visionRadius": () => visionRadius, "refreshVision": () => refreshVision, "siteView": () => siteView, "knowledge": () => knowledge, "roadNameOf": () => roadNameOf, "expeditionTexts": () => expeditionTexts, "expMapView": () => expMapView });
+let ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, QUEST_CAP_Z2_RINGS, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, TIME_QUEST, TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE, TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3, EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS, VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME, XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE, EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS, ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED, DIM_FRONT_TIME_NOCAP, DIM_MAX_PER_TOLL, ONB_HOLD_RELEASE, RING_CL_BASE_HERO, RING_CL_SPREAD_HERO, DUNGEON_LEVEL_OFFSET_HERO, DUNGEON_BOSS_LEVEL_OFFSET, HERO_XP_UNIT; __link.imp("src/constants.js", [["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["NODE_DRAW_ORDER", (v) => { NODE_DRAW_ORDER = v; }], ["QUEST_LEVEL_OFFSETS", (v) => { QUEST_LEVEL_OFFSETS = v; }], ["ELITE_LEVEL_OFFSET", (v) => { ELITE_LEVEL_OFFSET = v; }], ["RARE_CHANCE", (v) => { RARE_CHANCE = v; }], ["QUEST_SIZE_W1", (v) => { QUEST_SIZE_W1 = v; }], ["QUEST_SIZE_W2", (v) => { QUEST_SIZE_W2 = v; }], ["QUEST_SIZE_W3", (v) => { QUEST_SIZE_W3 = v; }], ["QUEST_MAX_SIZE_Z1", (v) => { QUEST_MAX_SIZE_Z1 = v; }], ["QUEST_CAP_Z2_RINGS", (v) => { QUEST_CAP_Z2_RINGS = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["ELITE_ADD_CHANCE", (v) => { ELITE_ADD_CHANCE = v; }], ["DUNGEON_SIZE_W2", (v) => { DUNGEON_SIZE_W2 = v; }], ["DUNGEON_SIZE_W3", (v) => { DUNGEON_SIZE_W3 = v; }], ["TREASURE_GUARD_CHANCE", (v) => { TREASURE_GUARD_CHANCE = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_IDS", (v) => { BOON_IDS = v; }], ["SHRINE_BOON_COUNT", (v) => { SHRINE_BOON_COUNT = v; }], ["GRIND_MAX_WAVES", (v) => { GRIND_MAX_WAVES = v; }], ["TIME_QUEST", (v) => { TIME_QUEST = v; }], ["TIME_GRIND_WAVE", (v) => { TIME_GRIND_WAVE = v; }], ["TIME_ELITE", (v) => { TIME_ELITE = v; }], ["TIME_DUNGEON", (v) => { TIME_DUNGEON = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["TIME_TREASURE", (v) => { TIME_TREASURE = v; }], ["TIME_SHRINE", (v) => { TIME_SHRINE = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_TRAVEL", (v) => { TIME_TRAVEL = v; }], ["RING_NODES", (v) => { RING_NODES = v; }], ["RING_CL_BASE", (v) => { RING_CL_BASE = v; }], ["RING_CL_SPREAD", (v) => { RING_CL_SPREAD = v; }], ["EDGE_KEEP_R1", (v) => { EDGE_KEEP_R1 = v; }], ["EDGE_KEEP_R2", (v) => { EDGE_KEEP_R2 = v; }], ["EDGE_KEEP_R3", (v) => { EDGE_KEEP_R3 = v; }], ["EDGE_DIAG_R23", (v) => { EDGE_DIAG_R23 = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_FAMILY_SHARE", (v) => { REGION_FAMILY_SHARE = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["REGION_KINDS", (v) => { REGION_KINDS = v; }], ["RING1_FORBIDDEN", (v) => { RING1_FORBIDDEN = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["VISION_RADIUS", (v) => { VISION_RADIUS = v; }], ["VISION_RADIUS_MAX", (v) => { VISION_RADIUS_MAX = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["PATHFINDER_RADIUS", (v) => { PATHFINDER_RADIUS = v; }], ["DIM_GRACE", (v) => { DIM_GRACE = v; }], ["DIM_FRONT_HOPS", (v) => { DIM_FRONT_HOPS = v; }], ["DIM_FRONT_TIME", (v) => { DIM_FRONT_TIME = v; }], ["TIME_DIM_FIGHT", (v) => { TIME_DIM_FIGHT = v; }], ["TIME_DIM_ESCAPE", (v) => { TIME_DIM_ESCAPE = v; }], ["BELL_CHANNEL_TIME", (v) => { BELL_CHANNEL_TIME = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["EXPED_GRIND_MAX_WAVES", (v) => { EXPED_GRIND_MAX_WAVES = v; }], ["EXPED_DUNGEON_TRASH_FIGHTS", (v) => { EXPED_DUNGEON_TRASH_FIGHTS = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["EXPED_TIME_ELITE", (v) => { EXPED_TIME_ELITE = v; }], ["EXPED_TIME_GRIND_WAVE", (v) => { EXPED_TIME_GRIND_WAVE = v; }], ["EXPED_TIME_DUNGEON", (v) => { EXPED_TIME_DUNGEON = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["EXPED_DROP_MULT", (v) => { EXPED_DROP_MULT = v; }], ["EXPED_DUNGEON_BOSS_DROPS", (v) => { EXPED_DUNGEON_BOSS_DROPS = v; }], ["DUNGEON_BOSS_DROPS", (v) => { DUNGEON_BOSS_DROPS = v; }], ["ROAD_SWIFT_TOLLS", (v) => { ROAD_SWIFT_TOLLS = v; }], ["ROAD_SWIFT_XP_FRAC", (v) => { ROAD_SWIFT_XP_FRAC = v; }], ["GATES", (v) => { GATES = v; }], ["TUTORIAL_SEED", (v) => { TUTORIAL_SEED = v; }], ["DIM_FRONT_TIME_NOCAP", (v) => { DIM_FRONT_TIME_NOCAP = v; }], ["DIM_MAX_PER_TOLL", (v) => { DIM_MAX_PER_TOLL = v; }], ["ONB_HOLD_RELEASE", (v) => { ONB_HOLD_RELEASE = v; }], ["RING_CL_BASE_HERO", (v) => { RING_CL_BASE_HERO = v; }], ["RING_CL_SPREAD_HERO", (v) => { RING_CL_SPREAD_HERO = v; }], ["DUNGEON_LEVEL_OFFSET_HERO", (v) => { DUNGEON_LEVEL_OFFSET_HERO = v; }], ["DUNGEON_BOSS_LEVEL_OFFSET", (v) => { DUNGEON_BOSS_LEVEL_OFFSET = v; }], ["HERO_XP_UNIT", (v) => { HERO_XP_UNIT = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let xpToNext; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let deathblowOf, deathblowType, signalPlan; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }], ["signalPlan", (v) => { signalPlan = v; }]]); let composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom; __link.imp("src/engine/map.js", [["composeEncounter", (v) => { composeEncounter = v; }], ["vendorStock", (v) => { vendorStock = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }], ["clampCl", (v) => { clampCl = v; }], ["pickFrom", (v) => { pickFrom = v; }]]); let isLegacy, bandNow, zoneBand, clMax; __link.imp("src/engine/legacy.js", [["isLegacy", (v) => { isLegacy = v; }], ["bandNow", (v) => { bandNow = v; }], ["zoneBand", (v) => { zoneBand = v; }], ["clMax", (v) => { clMax = v; }]]); __link.exp({ "ringRule": () => ringRule, "zoneTop": () => zoneTop, "demoQuests": () => demoQuests, "MAP_MODES": () => MAP_MODES, "isExpedition": () => isExpedition, "firstRun": () => firstRun, "leanFirst": () => leanFirst, "bellHidden": () => bellHidden, "zoneSeed": () => zoneSeed, "grindMaxWaves": () => grindMaxWaves, "xpWeight": () => xpWeight, "killDropMult": () => killDropMult, "bossDropRolls": () => bossDropRolls, "nodeTime": () => nodeTime, "RING_START": () => RING_START, "NODE_COUNT": () => NODE_COUNT, "angDist": () => angDist, "hops": () => hops, "zoneRegions": () => zoneRegions, "generateExpZone": () => generateExpZone, "setupExpNode": () => setupExpNode, "zoneTime": () => zoneTime, "frontTime": () => frontTime, "frontAt": () => frontAt, "dimAtHops": () => dimAtHops, "dimSchedule": () => dimSchedule, "heldNow": () => heldNow, "dimClock": () => dimClock, "dimAt": () => dimAt, "dimmedAt": () => dimmedAt, "outwardStep": () => outwardStep, "dimFightTime": () => dimFightTime, "dimmedNow": () => dimmedNow, "frontNextIn": () => frontNextIn, "dimmedIds": () => dimmedIds, "nextDim": () => nextDim, "paceBound": () => paceBound, "swiftXp": () => swiftXp, "swiftView": () => swiftView, "canEnter": () => canEnter, "visionKit": () => visionKit, "visionRadius": () => visionRadius, "refreshVision": () => refreshVision, "siteView": () => siteView, "knowledge": () => knowledge, "roadNameOf": () => roadNameOf, "expeditionTexts": () => expeditionTexts, "expMapView": () => expMapView });
 yield;
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7 and 9.5): the roamable zone graph and
 // its generation (stream map(z)), node setup by region (stream nodeId(z,id)), hop distances, the Dimming's front (off
@@ -6632,6 +6700,14 @@ function ringRule(s, z) {
   if (!isLegacy(s)) return { band: ZONE_LEVELS * (z - 1) + 1, base: RING_CL_BASE, spread: RING_CL_SPREAD, cap: clMax(s) };
   return { band: zoneBand(s, z), base: RING_CL_BASE_HERO, spread: RING_CL_SPREAD_HERO, cap: clMax(s) };
 }
+
+/** The highest level of a zone's band (its outer ring's top, as the view's `bands`): rule from ringRule. */
+const zoneTop = (rule) => clampCl(rule.band + rule.base[rule.base.length - 1] + rule.spread - 1, rule.cap);
+/**
+ * A demo zone's quests (blind demo round 1 A; demo.md 4.4, draft): in a demo run (state.demo) each quest of the zone is set
+ * up on one Quest node at most; zone 1 of a guided run keeps its scripted roles (tutorial.js) and draws as before.
+ */
+const demoQuests = (s, z) => !!s.demo && !(s.tutorial && z === 1);
 
 // ---------------- Map modes (rules 1.9) ----------------
 /** Map modes of newRun: 'rows' (rules 1.4, the default until the switch-over) and 'expedition' (rules 1.9). */
@@ -6805,7 +6881,9 @@ function generateExpZone(s, z) {
     n.type = NODE_DRAW_ORDER[weightedIndex(rng, NODE_DRAW_ORDER.map((t) => (n.ring === 1 && RING1_FORBIDDEN.includes(t) ? 0 : w[t])))];
   }
   // 6. Node setup; the contract sites (expedition.md 3.3, contracts.js) continue the map(z) stream from here (siteRng).
-  for (const n of nodes) setupExpNode(s, z, n, regs);
+  // blind demo round 1 (A; demo.md 4.4, draft): in a demo run every quest of a zone is offered once (the guided zone keeps its own)
+  const used = demoQuests(s, z) ? new Set() : null;
+  for (const n of nodes) setupExpNode(s, z, n, regs, used);
   const zone = {
     z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall), siteRng: rng,
     pos: 0, start: s.time, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
@@ -6826,7 +6904,7 @@ function generateExpZone(s, z) {
  * REGION_FAMILY_SHARE: from the list's templates whose `family` is one of the region's families, when there is one),
  * then the pick. Dungeons keep their own lists. The hub has no setup (band minimum, resolved).
  */
-function setupExpNode(s, z, n, regs) {
+function setupExpNode(s, z, n, regs, used = null) {
   const c = s.content;
   const zn = zoneContent(c, z);
   const rule = ringRule(s, z); // Legacy (legacy.md 2.1): the band fixed at arrival and the *_HERO offsets
@@ -6847,8 +6925,12 @@ function setupExpNode(s, z, n, regs) {
     const sub = inFamily && fam.length ? list.filter((t) => fam.includes(c.enemies[t].family)) : [];
     return pickFrom(rng, sub.length ? sub : list);
   };
+  // blind demo round 1 (A; demo.md 4.4): `used`, a demo zone's quests set up so far: a Quest node draws from the others,
+  // and once every quest of the zone is out it is a Grind node instead (no quest is offered twice)
+  if (used && n.type === 'quest' && zn.quests.every((q) => used.has(q))) n.type = 'grind';
   if (n.type === 'quest') {
-    const qid = pickFrom(rng, zn.quests);
+    const qid = pickFrom(rng, used ? zn.quests.filter((q) => !used.has(q)) : zn.quests);
+    if (used) used.add(qid);
     const q = c.quests[qid];
     const drawn = 1 + weightedIndex(rng, q.sizeWeights || [QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3]);
     // zone 1's cap; D146 (GATES.zone2InnerCap): also zone 2's rings 1..QUEST_CAP_Z2_RINGS. The size draw is made either way
@@ -6859,6 +6941,8 @@ function setupExpNode(s, z, n, regs) {
     for (let i = 0; i < size; i++) mobs.push(pick(pool));
     mobs = composeEncounter(c, rng, mobs, pool, zn.normals);
     n.cl = cap(cl + QUEST_LEVEL_OFFSETS[nextInt(rng, QUEST_LEVEL_OFFSETS.length)]);
+    // blind demo round 1 (A; demo.md 4.4): a demo run's quest is never above its zone's band (the outer ring's highest level)
+    if (s.demo) n.cl = Math.min(n.cl, zoneTop(rule));
     n.quest = qid;
     n.mobs = mobs;
   } else if (n.type === 'grind') {
@@ -7136,13 +7220,15 @@ function knowledge(s, n) {
  */
 function details(c, z, n) {
   const arch = (tid) => c.enemies[tid].archetype;
-  if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch) };
-  if (n.type === 'grind') return { archetypes: n.waves[0].map(arch) };
+  // blind demo round 1 (A): `calls`, the reinforcement the fight calls in (Signal: { count, round }), or null
+  const calls = (tids) => { const x = signalPlan(c, tids); return x ? { count: x.count, round: x.round } : null; };
+  if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch), calls: calls(n.mobs) };
+  if (n.type === 'grind') return { archetypes: n.waves[0].map(arch), calls: calls(n.waves[0]) };
   // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows. M2b v14 (row 2,
   // D112): its type only ('heavy' or 'cast'; every zone's elite pool has both, content.js), never id, name or kind.
-  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: deathblowType(c, n.elite, n.rare) };
+  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: deathblowType(c, n.elite, n.rare), calls: calls([n.elite, ...(n.add ? [n.add] : [])]) };
   if (n.type === 'dungeon') {
-    return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
+    return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), fightCalls: n.trash.map(calls), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
   }
   if (n.type === 'treasure') return { guarded: !!n.guard, trap: null, archetypes: n.guard ? [arch(n.guard)] : [] };
   if (n.type === 'vendor') return { ember: null };
@@ -15343,7 +15429,7 @@ function damageView(s) {
 
 });
 __bundle.def("src/rules.js", function* (__ns, __link) {
-const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide, noDeathblowMet; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parTime", (v) => { parTime = v; }], ["migrateProfile", (v) => { migrateProfile = v; }], ["setGuide", (v) => { setGuide = v; }], ["noDeathblowMet", (v) => { noDeathblowMet = v; }]]); let guidedView; __link.imp("src/engine/tutorial.js", [["tutorialView", (v) => { guidedView = v; }]]); let zoneDanger, defaultTgt, previewTicks; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }], ["pendingTicks", (v) => { previewTicks = v; }]]); let availablePets, metaFromProfile, travelAt, trainerOffer; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }], ["trainerOffer", (v) => { trainerOffer = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError, itemAmount, spellHitChance, mainHitEstimate, spellHitEstimate, bigHitReady; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }], ["itemAmount", (v) => { itemAmount = v; }], ["spellHitChance", (v) => { spellHitChance = v; }], ["mainHitEstimate", (v) => { mainHitEstimate = v; }], ["spellHitEstimate", (v) => { spellHitEstimate = v; }], ["bigHitReady", (v) => { bigHitReady = v; }]]); let resurrectOrder, offBalanceOpen, findSt, maimedHeal; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }], ["maimedHeal", (v) => { maimedHeal = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView, grindMaxWaves; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let prepScreen, contractTracker; __link.imp("src/engine/contracts.js", [["prepView", (v) => { prepScreen = v; }], ["contractView", (v) => { contractTracker = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); let windups, autoEngage; __link.imp("src/engine/answers.js", [["windupView", (v) => { windups = v; }], ["autoplayEngage", (v) => { autoEngage = v; }]]); let deathblowOf, deathblowType; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }]]); let dmgView; __link.imp("src/engine/damageview.js", [["damageView", (v) => { dmgView = v; }]]); let heroNow, heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, tierDmgOf, econV2, xpRef; __link.imp("src/engine/legacy.js", [["heroView", (v) => { heroNow = v; }], ["heroesView", (v) => { heroList = v; }], ["shownLevelOf", (v) => { shownLevelOf = v; }], ["powerOf", (v) => { powerOf = v; }], ["heroXpToNext", (v) => { heroXpToNext = v; }], ["learnHeroLevel", (v) => { learnHeroLevel = v; }], ["zoneTierDmg", (v) => { tierDmgOf = v; }], ["econV2", (v) => { econV2 = v; }], ["xpRef", (v) => { xpRef = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "migrateProfile": () => migrateProfile, "setGuide": () => setGuide, "tutorialView": () => tutorialView, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "heroView": () => heroView, "heroesView": () => heroesView, "shownLevel": () => shownLevel, "learnLevel": () => learnLevel, "zoneTierDmg": () => zoneTierDmg, "powerOfLevel": () => powerOf, "heroXpToNext": () => heroXpToNext, "econV2": () => econV2, "xpRef": () => xpRef, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "trainerView": () => trainerView, "heatView": () => heatView, "heatPreview": () => heatPreview, "prepView": () => prepView, "contractView": () => contractView, "fleeChance": () => fleeChance, "freePotion": () => freePotion, "potionInfo": () => potionInfo, "windupView": () => windupView, "autoplayEngage": () => autoplayEngage, "pendingTicks": () => pendingTicks, "damageView": () => damageView, "talentInfo": () => talentInfo, "newRun": () => newRun, "applyDemo": () => applyDemo, "setGates": () => setGates, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
+const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide, noDeathblowMet; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parTime", (v) => { parTime = v; }], ["migrateProfile", (v) => { migrateProfile = v; }], ["setGuide", (v) => { setGuide = v; }], ["noDeathblowMet", (v) => { noDeathblowMet = v; }]]); let guidedView; __link.imp("src/engine/tutorial.js", [["tutorialView", (v) => { guidedView = v; }]]); let zoneDanger, defaultTgt, previewTicks; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }], ["pendingTicks", (v) => { previewTicks = v; }]]); let availablePets, metaFromProfile, travelAt, trainerOffer; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }], ["trainerOffer", (v) => { trainerOffer = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError, itemAmount, spellHitChance, mainHitEstimate, spellHitEstimate, bigHitReady; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }], ["itemAmount", (v) => { itemAmount = v; }], ["spellHitChance", (v) => { spellHitChance = v; }], ["mainHitEstimate", (v) => { mainHitEstimate = v; }], ["spellHitEstimate", (v) => { spellHitEstimate = v; }], ["bigHitReady", (v) => { bigHitReady = v; }]]); let resurrectOrder, offBalanceOpen, findSt, maimedHeal; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }], ["maimedHeal", (v) => { maimedHeal = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView, grindMaxWaves; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let prepScreen, contractTracker; __link.imp("src/engine/contracts.js", [["prepView", (v) => { prepScreen = v; }], ["contractView", (v) => { contractTracker = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); let windups, autoEngage; __link.imp("src/engine/answers.js", [["windupView", (v) => { windups = v; }], ["autoplayEngage", (v) => { autoEngage = v; }]]); let deathblowOf, deathblowType, signalPlan, fightSignalOf; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }], ["signalPlan", (v) => { signalPlan = v; }], ["fightSignal", (v) => { fightSignalOf = v; }]]); let dmgView; __link.imp("src/engine/damageview.js", [["damageView", (v) => { dmgView = v; }]]); let heroNow, heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, tierDmgOf, econV2, xpRef; __link.imp("src/engine/legacy.js", [["heroView", (v) => { heroNow = v; }], ["heroesView", (v) => { heroList = v; }], ["shownLevelOf", (v) => { shownLevelOf = v; }], ["powerOf", (v) => { powerOf = v; }], ["heroXpToNext", (v) => { heroXpToNext = v; }], ["learnHeroLevel", (v) => { learnHeroLevel = v; }], ["zoneTierDmg", (v) => { tierDmgOf = v; }], ["econV2", (v) => { econV2 = v; }], ["xpRef", (v) => { xpRef = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "migrateProfile": () => migrateProfile, "setGuide": () => setGuide, "tutorialView": () => tutorialView, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "heroView": () => heroView, "heroesView": () => heroesView, "shownLevel": () => shownLevel, "learnLevel": () => learnLevel, "zoneTierDmg": () => zoneTierDmg, "powerOfLevel": () => powerOf, "heroXpToNext": () => heroXpToNext, "econV2": () => econV2, "xpRef": () => xpRef, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "trainerView": () => trainerView, "heatView": () => heatView, "heatPreview": () => heatPreview, "prepView": () => prepView, "contractView": () => contractView, "fleeChance": () => fleeChance, "freePotion": () => freePotion, "potionInfo": () => potionInfo, "windupView": () => windupView, "fightSignal": () => fightSignal, "autoplayEngage": () => autoplayEngage, "pendingTicks": () => pendingTicks, "damageView": () => damageView, "talentInfo": () => talentInfo, "newRun": () => newRun, "applyDemo": () => applyDemo, "setGates": () => setGates, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
 yield;
 // Rules engine: public API (docs/specs/engine-api.md has the full contract and the event list).
 //
@@ -15740,6 +15826,15 @@ function windupView(state) {
 }
 
 /**
+ * The reinforcement the fight under way calls in (rules 7.12 Signal; blind demo round 1 A, engine-api.md 6.2):
+ * { count, round, by, name } while an enemy present at the start can still call (the node panels' "calls 1 more in round
+ * 4"), else null. The map's own plan is mapView's `calls` (engine-api.md 10.3).
+ */
+function fightSignal(state) {
+  return fightSignalOf(state);
+}
+
+/**
  * Autoplay's engage answer (M2b v13, rules 7.9 rule E2): in the engage round, the ENGAGE autoplay plays on a special
  * enemy's visible wind-up, { action, option, name ('Disrupt' or the option's name), target, enemy, windup: { turn, id, name,
  * deathblow } }, else null ("Autoplay will answer the Deathblow with <name>").
@@ -15966,13 +16061,15 @@ function mapView(state) {
   const c = s.content;
   const scout = !!(s.meta && s.meta.scout);
   const arch = (tid) => c.enemies[tid].archetype;
+  const calls = (tids) => { const x = signalPlan(c, tids); return x ? { count: x.count, round: x.round } : null; }; // blind demo round 1 (A)
   const rows = s.zone.rows.map((row) => row.map((n) => {
     const v = { type: n.type, r: n.r, l: n.l, cl: n.cl, done: n.done };
-    if (n.type === 'quest') { v.title = c.quests[n.quest].title; v.archetypes = n.mobs.map(arch); }
-    if (n.type === 'grind') { v.archetypes = n.waves[0].map(arch); v.waves = grindMaxWaves(s); } // D144: its waves (wave 1: archetypes)
+    if (n.type === 'quest') { v.title = c.quests[n.quest].title; v.archetypes = n.mobs.map(arch); v.calls = calls(n.mobs); }
+    if (n.type === 'grind') { v.archetypes = n.waves[0].map(arch); v.waves = grindMaxWaves(s); v.calls = calls(n.waves[0]); } // D144: its waves (wave 1: archetypes)
     if (n.type === 'elite') {
       v.level = n.eliteLevel;
       v.archetypes = [arch(n.elite), ...(n.add ? [arch(n.add)] : [])];
+      v.calls = calls([n.elite, ...(n.add ? [n.add] : [])]);
       v.rare = scout ? n.rare : null;
       v.name = scout || !n.rare ? c.enemies[n.elite].name : null;
       // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye); M2b v14 (row 2, D112):
@@ -15983,6 +16080,7 @@ function mapView(state) {
       v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel;
       // Combat v2 (rules 7.14): archetypes of each trash fight and of the boss, so a pull can be planned from the map.
       v.fights = n.trash.map((f) => f.map(arch));
+      v.fightCalls = n.trash.map(calls);
       v.bossArchetype = arch(n.boss);
       v.bossDeathblow = deathblowOf(c, n.boss, 'dboss'); // M2b v13 (UI list 7)
     }
@@ -20308,8 +20406,9 @@ const TUTORIAL = {
     { id: 'G4', name: 'Loot', hint: 'H11', anchor: 'loot window',
       line: 'Green arrow means upgrade. Equip it in your bags {key_bags}.' },
     // G5 (D150 item 12, draft): at the first hub (it came five tolls late and named the bar's geometry)
+    // demo blind round 1 B (2026-11-26, draft): the Furnace's one sentence, as its tooltip (ui heat.js FURNACE_LINE)
     { id: 'G5', name: 'The Furnace', hint: 'H16', anchor: 'the Furnace',
-      line: 'Every move costs tolls. Spend too many and the final boss gets stronger.' },
+      line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.' },
     { id: 'G6', name: 'Intents', hint: 'H02', anchor: "enemy's track",
       line: 'Its next three moves, in order. The big one is marked.' },
     { id: 'G7', name: 'Engage round', hint: 'H01', anchor: 'engage panel',
@@ -20393,7 +20492,7 @@ const TUTORIAL = {
     { id: 'H13', system: 'Spell bar', line: 'Drag your new spell onto the bar (spellbook, {key_spellbook}).' },
     { id: 'H14', system: 'Talents', line: 'Talent point: spend it in Talents ({key_talents}).' },
     { id: 'H15', system: 'Fog', line: 'You see the nodes next to you. Walking shows more.' },
-    { id: 'H16', system: 'The Furnace', line: 'Every move costs tolls. Spend too many and the final boss gets stronger.' },
+    { id: 'H16', system: 'The Furnace', line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.' }, // demo blind round 1 B (draft)
     { id: 'H17', system: 'Burning', line: 'Burning: more XP, gold and better drops, but the final boss gets stronger.' },
     { id: 'H18', system: 'The Dimming', line: 'The dark spreads from the purple star. Places it reaches are lost.' },
     { id: 'H19', system: 'Homeward Bell', sameAs: 'G13' },
@@ -22613,7 +22712,7 @@ const deepClone = (o) => (o === undefined ? o : structuredClone(o));
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN, moneyText; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }], ["moneyText", (v) => { moneyText = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "goldLogLine": () => goldLogLine, "sellLogLine": () => sellLogLine, "junkSoldName": () => junkSoldName, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "contractDoneLine": () => contractDoneLine, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "passiveEffect": () => passiveEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN, moneyText; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }], ["moneyText", (v) => { moneyText = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "AUTO_DIM_LINE": () => AUTO_DIM_LINE, "goldLogLine": () => goldLogLine, "sellLogLine": () => sellLogLine, "junkSoldName": () => junkSoldName, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "contractDoneLine": () => contractDoneLine, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "passiveEffect": () => passiveEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad, "EXIT_WORDS": () => EXIT_WORDS, "bellLabel": () => bellLabel, "bellLine": () => bellLine, "bellCharges": () => bellCharges, "roadLine": () => roadLine, "roadSignWord": () => roadSignWord, "leaveFightLine": () => leaveFightLine });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -22641,6 +22740,11 @@ function econLine(texts, id, vars = {}) {
  * windows, the toast and log line when the bags fill, a Take the bags cannot hold). Draft, for the owner and content.
  */
 const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
+/**
+ * Demo blind round 1 D (2026-11-26): autoplay stays on in a fight in the Dimming (no rule forbids it). One log line, once per
+ * run, at the first such fight. Draft, for the owner and content.
+ */
+const AUTO_DIM_LINE = 'Autoplay stays on in the Dimming. Press Z to take over.';
 /**
  * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
  * "You sell 7 junk items for 42 c." (L5: money as gold, silver and copper) Draft, for the owner and content.
@@ -23379,6 +23483,58 @@ function nearestRoad(mv) {
   return r ? { ...r, tolls: r.hops * (mv.walkTime || 0) + (mv.travelTime || 0) } : null;
 }
 
+// ------------------------------------------------------------------ the way out of a zone (demo blind round 1 C, draft)
+/**
+ * Demo blind round 1 C (2026-11-26; docs/feedback/2026-11-26-blind-demo-skipper.md items 5-7, 22, -newcomer.md s0248,
+ * s0303): every line here is a draft until the owner approves it. The Roads' signs name the goal ("Next zone »", as zone 2's
+ * "End of the demo »" in the demo); the Bell's button says where it takes you and what its number is; the Bell's and the
+ * Road's tooltips differ; a ring that ends in a Dimming fight says so before the click. The Bell keeps its name (lore canon,
+ * docs/lore/style.md); a rename is proposed in docs/handoffs/ui-2026-11-26b.md.
+ * `to`: 'next' (a zone follows), 'camp' (the Camp follows; name in `camp`), 'demo' (the demo ends).
+ */
+const EXIT_WORDS = {
+  nextZone: 'Next zone',
+  demoEnd: 'end of the demo',
+  bellLabel: 'Ring the Bell: {where} ({n} left)',
+  bellWhereNext: 'next zone',
+  bellTitle: 'Homeward Bell',
+  bellLine: 'Rings you on to the next zone, the hub of {zone}, from anywhere on this map. No way back.',
+  bellLineCamp: 'Rings you on to {zone}, from anywhere on this map. No way back.',
+  bellCharges: 'The number on the button: {n} {charges} left this run. A Road needs none.',
+  roadTitle: 'Take the Road',
+  roadLine: 'You stand on a Road: walk on to {zone}.',
+  roadFree: 'Uses no Bell charge.',
+  fightNear: 'A fight comes first: the Dimming reaches you while the Bell rings.',
+  fightIn: 'A fight comes first: you stand in the Dimming.',
+};
+const fillW = (s, vars) => s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? String(vars[k]) : m));
+/** The Bell's button: "Ring the Bell: next zone (1 left)" ("...: end of the demo (1 left)", "...: Camp of ... (1 left)"). */
+function bellLabel(n, to, name = '') {
+  const where = to === 'demo' ? EXIT_WORDS.demoEnd : to === 'camp' ? name : EXIT_WORDS.bellWhereNext;
+  return fillW(EXIT_WORDS.bellLabel, { where, n });
+}
+/** The Bell's tooltip line on where it takes you ('' in the demo's last zone, whose leave line says it). */
+function bellLine(to, zone) {
+  if (to === 'demo') return '';
+  return fillW(to === 'camp' ? EXIT_WORDS.bellLineCamp : EXIT_WORDS.bellLine, { zone });
+}
+/** What the Bell's "(1)" means. */
+const bellCharges = (n) => fillW(EXIT_WORDS.bellCharges, { n, charges: plural(n, 'charge') });
+/** The Road's tooltip line ('' in the demo's last zone). */
+const roadLine = (to, zone) => (to === 'demo' ? '' : fillW(EXIT_WORDS.roadLine, { zone }));
+/** A Road's sign: "Next zone", the Camp's name, or the demo's sign. */
+function roadSignWord(to, name, demoSign) {
+  return to === 'demo' ? demoSign : to === 'camp' ? name : EXIT_WORDS.nextZone;
+}
+/**
+ * The line of a ring (or any leave) whose heat preview ends in a Dimmed encounter (heatPreview `dimFight`, or a cost part
+ * `dimFight`): '' when no fight comes first. inDim: the player stands on a Dimmed node.
+ */
+function leaveFightLine(p, inDim = false) {
+  const fight = !!(p && (p.dimFight || (p.parts || []).some((x) => x.why === 'dimFight')));
+  return fight ? (inDim ? EXIT_WORDS.fightIn : EXIT_WORDS.fightNear) : '';
+}
+
 });
 __bundle.def("src/ui/theme.js", function* (__ns, __link) {
 __link.exp({ "token": () => token, "family": () => family, "onTheme": () => onTheme, "themeVersion": () => themeVersion, "artStyle": () => artStyle, "HEAT": () => HEAT, "CON": () => CON, "RARITY": () => RARITY, "CAST": () => CAST, "BOLT": () => BOLT, "IMPACT": () => IMPACT, "TELE": () => TELE, "TELE_CAST": () => TELE_CAST, "ICON_BG": () => ICON_BG });
@@ -23817,7 +23973,20 @@ function stale(at) {
 function hideIn(root) { const t = hover && hover.target; if (current && t && root && (root === t || root.contains(t))) hide(); }
 
 /** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
-const PRIMARY = '.btn.primary, #pp-go';
+// demo blind round 1 B: and the Furnace note's "Got it" while it shows (heat.js)
+const PRIMARY = '.btn.primary, #pp-go, #heat-intro:not(.hidden) .hi-f button';
+/**
+ * Demo blind round 1 C (skipper s0260, s0352; newcomer s0305: a tip hid the Take the Road button of the ask): an open
+ * confirm dialog (role alertdialog: the leave ask, the inn's ask, the flee ask) is never covered by a tip; when no spot
+ * keeps clear of it, the tip is not shown.
+ */
+const DIALOG = '[role="alertdialog"]:not(.hidden)';
+/** The rects of the open confirm dialogs, except one the hovered element lies in. */
+function dialogRects() {
+  const t = hover && hover.target;
+  return [...document.querySelectorAll(DIALOG)].filter((d) => !(t && d.contains(t)))
+    .map((d) => d.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
+}
 /** The parts of a hovered element its own tip keeps clear of: its buttons, a row's right column (price), a rank counter. */
 const OWN = 'button, .btn, .right, .rk, .rank, .eqnow';
 /** Rects the tip must not cover: visible primary buttons and the tip's own `avoid` elements, never the hovered one. */
@@ -23844,11 +24013,13 @@ function place(x, y) {
     const g = [...document.querySelectorAll(hover.avoid)].map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0);
     if (g.length) spots.push([Math.max(...g.map((q) => q.right)) + 12, tr.top], [Math.min(...g.map((q) => q.left)) - w - 12, tr.top]);
   }
-  const clearOf = keepClear();
+  const clearOf = keepClear(); const dialogs = dialogRects();
   const area = (a, b) => Math.max(0, Math.min(a[2], b.right) - Math.max(a[0], b.left)) * Math.max(0, Math.min(a[3], b.bottom) - Math.max(a[1], b.top));
+  const overDialog = (p) => { const [tx, ty] = fit(p); const box = [tx, ty, tx + w, ty + ht]; return dialogs.some((q) => area(box, q) > 0); };
   const cost = (p) => {
     const [tx, ty] = fit(p); const box = [tx, ty, tx + w, ty + ht];
     let k = 0; for (const q of clearOf) k += area(box, q);
+    for (const q of dialogs) { const a = area(box, q); if (a > 0) k += 1e8 + a; } // a dialog weighs more than all else
     // never under the pointer itself
     if (x >= box[0] - 4 && x <= box[2] + 4 && y >= box[1] - 4 && y <= box[3] + 4) k += 1e7;
     return k;
@@ -23861,6 +24032,8 @@ function place(x, y) {
   spot = best;
   const [tx, ty] = fit(spots[best]);
   el.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px)`;
+  // never over a confirm dialog: with every spot over one, the tip stays hidden (it comes back when a spot is free)
+  el.classList.toggle('off-dialog', dialogs.length > 0 && overDialog(spots[best]));
 }
 
 /**
@@ -24129,7 +24302,7 @@ const capLevelText = (ctx) => fill('capLevel', { cap: ctx.data.demo.heroMax });
 
 });
 __bundle.def("src/ui/heat.js", function* (__ns, __link) {
-let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); let store; __link.imp("src/ui/store.js", [["store", (v) => { store = v; }]]); let DEMO_TEXT, demoOn; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }], ["demoOn", (v) => { demoOn = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "CLOCK_TAG": () => CLOCK_TAG, "CLOCK_GLYPH": () => CLOCK_GLYPH, "clockTag": () => clockTag, "countsLine": () => countsLine, "COUNTS_WHY": () => COUNTS_WHY, "arrivalLine": () => arrivalLine, "dimsLine": () => dimsLine, "atArrival": () => atArrival, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "furnaceLine": () => furnaceLine, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
+let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); let store; __link.imp("src/ui/store.js", [["store", (v) => { store = v; }]]); let DEMO_TEXT, demoOn; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }], ["demoOn", (v) => { demoOn = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "NOTE_KEY": () => NOTE_KEY, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "DIM_IN_WORDS": () => DIM_IN_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "CLOCK_TAG": () => CLOCK_TAG, "CLOCK_GLYPH": () => CLOCK_GLYPH, "clockTag": () => clockTag, "countsLine": () => countsLine, "insidePlace": () => insidePlace, "COUNTS_WHY": () => COUNTS_WHY, "arrivalLine": () => arrivalLine, "dimsLine": () => dimsLine, "atArrival": () => atArrival, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "furnaceLine": () => furnaceLine, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "tagLine": () => tagLine, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
 yield;
 // heat.js - the Heat meter and the texts that name heat (docs/specs/expedition.md H.4, H.5; engine-api.md 11; owner
 // feedback 2026-11-10 14:05: an always-visible meter, like FTL's chasing red line). Presentation only: the state, the
@@ -24180,7 +24353,9 @@ yield;
 
 const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
 const HEAT_COLOR = HEAT; // the --heat-* tokens of tokens.css (theme.js), read when used
-const INTRO_KEY = 'tbwcr.heatIntro.v1'; // the first-time note was shown (localStorage)
+// the first-time note at the first map was shown (localStorage; demo blind round 1 B). The hub note's old key,
+// tbwcr.heatIntro.v1, is read by onboarding.js as H16 seen.
+const NOTE_KEY = 'tbwcr.furnaceNote.v1';
 const STATES = ['clear', 'warm', 'hot', 'scorched'];
 
 /** Key of a time-costing engine action in view.heat.next (the bridge keys heatView.next with it). */
@@ -24217,10 +24392,16 @@ function standText(x) {
 function meterText(x) {
   if (x.by !== 'dim' || x.dimIn == null) return standText(x);
   // newcomer check 2026-11-15 (s0133: "Burning" with 3 tolls to spare, the reason only on hover): the line says why
-  return x.dimIn > 0 ? DIM_NEAR_WORDS : 'You stand in the Dimming';
+  // demo blind round 1 B (2026-11-26, newcomer s0272, skipper s0251): the line itself says the Dimming set the state
+  return x.dimIn > 0 ? DIM_NEAR_WORDS : DIM_IN_WORDS;
 }
-/** Newcomer check 2026-11-15 (draft): the meter's line while the Dimming near the player sets the state. */
-const DIM_NEAR_WORDS = 'The Dimming is near';
+/**
+ * Demo blind round 1 B (draft; was "The Dimming is near", newcomer check 2026-11-15): the meter's line while the Dimming
+ * near the player sets the state, so a hotter state than the tolls give is explained in the label itself.
+ */
+const DIM_NEAR_WORDS = 'Raised by the Dimming nearby';
+/** The meter's line while the player stands in the Dimming (it sets the state). */
+const DIM_IN_WORDS = 'You stand in the Dimming';
 /**
  * D152 (changes-m3-v2.md 4, draft): the tooltip's first line while the Dimming sets the state: the player's node's clock
  * (newcomer check 2026-11-15: the meter's line no longer holds it) and the tolls against the line.
@@ -24253,16 +24434,25 @@ const CLOCK_GLYPH = { run: '▼', dim: '◆' };
 /** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
 function clockTag(hv) {
   if (!hv || hv.dimIn === null || hv.dimIn === undefined || !hv.stateDim) return null;
-  const by = hv.by === 'dim' ? 'dim' : 'run';
-  return { by, glyph: CLOCK_GLYPH[by], text: CLOCK_TAG[by] };
+  // demo blind round 1 B (draft): while the Dimming sets the state the line names it (DIM_NEAR_WORDS, DIM_IN_WORDS), so no
+  // tag; "Set by this place" next to "This place counts as Calm" read as a contradiction to both testers
+  if (hv.by === 'dim') return null;
+  return { by: 'run', glyph: CLOCK_GLYPH.run, text: CLOCK_TAG.run };
 }
 /**
  * D163 (engine-2026-11-20b recommendation 2; draft): inside a node, the state it counts as (heatView.node: the state it was
  * entered in, which fixes its rewards and the summary's count; rules 1.7.3); '' outside a node.
  */
-function countsLine(hv) {
-  return hv && hv.node && hv.node.state ? `This place counts as ${HEAT_NAME[hv.node.state]}` : '';
+function countsLine(hv, v = null) {
+  if (!hv || !hv.node || !hv.node.state) return '';
+  // demo blind round 1 B (draft): only inside a place (a node on the map), never at a hub service or the camp
+  if (v && !insidePlace(v)) return '';
+  const was = HEAT_NAME[hv.node.state];
+  // a hotter (or cooler) state on the meter than the place counts as: the line says why the two differ
+  return hv.node.state !== hv.state ? `Entered while ${was}: this place still counts as ${was}` : `This place counts as ${was}`;
 }
+/** Inside a place of the map (a node), not a hub's or the camp's service (view.node.origin 'hub' or 'camp'). */
+const insidePlace = (v) => !!(v && v.phase === 'NODE' && v.node && v.node.origin !== 'hub' && v.node.origin !== 'camp');
 /** D163 (draft): the meter tooltip's reason for countsLine, inside a node. */
 const COUNTS_WHY = 'A place counts in the state you entered it in, whatever the Furnace shows later.';
 /**
@@ -24351,7 +24541,7 @@ function segmentAt(x, H) {
  * (heatView `by`). Every part of the meter is drawn from this; the setter always lies in the segment the line names
  * (qa/ui/heat-state.test.mjs). H: data.rules.heat.
  */
-function meterReading(hv, H) {
+function meterReading(hv, H, v = null) {
   const bar = hv.bar;
   const run = { x: bar.marker, beyond: bar.beyond, sets: hv.by !== 'dim' };
   const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
@@ -24360,7 +24550,7 @@ function meterReading(hv, H) {
     state: hv.state, name: HEAT_NAME[hv.state], line: meterText(hv), boss: bossShown(hv.ascIfPar), lit: hv.state,
     run, dim, setter: hv.by === 'dim' && dim ? dim : run,
     // D163 (draft): the clock tag (null where only the run clock runs) and, inside a node, the state it counts as
-    clock: dim ? clockTag(hv) : null, counts: countsLine(hv), countsState: hv.node ? hv.node.state : null,
+    clock: dim ? clockTag(hv) : null, counts: countsLine(hv, v), countsState: hv.node ? hv.node.state : null,
   };
 }
 
@@ -24389,14 +24579,20 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     h('div.ht-row', els.state, h('span.ht-sep', '·'), els.num, els.boss, els.clock), els.bar, els.counts);
   host.appendChild(els.el);
   tip(els.el, () => heatTip(ctx));
-  // the first-time note (H.4 wording: "Heat", "the Star's line"), once per browser profile, on the first hub until
-  // "Got it" or setting out
+  // demo blind round 1 B (2026-11-26, draft): the first-time note, revived as the Furnace's one sentence (furnaceLine) under
+  // the meter at the first map, once per browser profile, when no coach line carries it (onboarding.js furnaceNoteWanted:
+  // hints off, and H16 or G5 never shown); "Got it" or the first step (a toll spent, or off the map) closes it for good. It takes no clicks
+  // but its button's (style.css), so it never blocks a node under it.
   els.introBtn = h('button.btn.small', { type: 'button' }, 'Got it');
   els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': `About ${HW.name}` }, h('div.hi-t', HW.Name), h('div.hi-b'), h('div.hi-f', els.introBtn));
   noteRoot.appendChild(els.intro);
-  // M3 (m3-onboarding.md 3.3, U4): the first-time note is retired into hint H16 (onboarding.js); its seen state moved over
-  let introSeen = true;
-  const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { store.set(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
+  let introSeen = (() => { try { return !!store.get(NOTE_KEY); } catch { return false; } })();
+  let introUp = false; let introAt = null; // the run's tolls when it showed
+  const closeIntro = () => {
+    introSeen = true; introUp = false; els.intro.classList.add('hidden'); els.el.classList.remove('noted');
+    try { store.set(NOTE_KEY, '1'); } catch { /* storage blocked */ }
+    if (ctx.coach && ctx.coach.furnaceNoted) ctx.coach.furnaceNoted();
+  };
   els.introBtn.addEventListener('click', closeIntro);
 
   let built = false;
@@ -24444,12 +24640,12 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     const intro = !ctx.coach || !ctx.coach.furnaceIntroduced || ctx.coach.furnaceIntroduced(v);
     const show = !!(hv && H && v.player && v.phase !== 'CREATE' && v.phase !== 'SUMMARY' && intro);
     els.el.classList.toggle('hidden', !show);
-    if (!show) { els.intro.classList.add('hidden'); ghost = null; return; }
+    if (!show) { if (introUp) closeIntro(); els.intro.classList.add('hidden'); ghost = null; return; }
     build();
     if (ghost && ghostAt !== `${v.phase}|${hv.time}|${hv.z}`) { ghost = null; ghostAt = null; }
     const bar = hv.bar;
     // one reading (meterReading): the line, the lit segment and both markers come from the same heatView
-    const m = meterReading(hv, H);
+    const m = meterReading(hv, H, v);
     els.el.dataset.state = m.state; els.el.dataset.by = hv.by;
     for (const s of STATES) els.segs[s].classList.toggle('on', s === m.lit);
     els.state.querySelector('.ht-sname').textContent = m.name;
@@ -24484,16 +24680,14 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     }
     drawGhost(hv);
     els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}${m.clock ? `, ${m.clock.text}` : ''}${m.counts ? `. ${m.counts}` : ''}`);
-    // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
+    // the first-time note (demo blind round 1 B): at the first map view, until "Got it" or the first step
     if (!introSeen) {
-      const svcOpen = !!(v.node && v.node.origin === 'hub');
-      if (v.phase === 'ZONE_HUB' && svcOpen) els.intro.classList.add('hidden');
-      else if (v.phase === 'ZONE_HUB') {
-        if (els.intro.classList.contains('hidden')) {
-          add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
-          els.intro.classList.remove('hidden');
-        }
-      } else if (!els.intro.classList.contains('hidden')) closeIntro();
+      const onMap = v.phase === 'MAP' && !v.node && !v.loot;
+      if (introUp && (!onMap || hv.time !== introAt)) closeIntro(); // the first step (a toll spent, or off the map) closes it
+      else if (!introUp && onMap && (!ctx.coach || !ctx.coach.furnaceNoteWanted || ctx.coach.furnaceNoteWanted(v))) {
+        add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
+        els.intro.classList.remove('hidden'); els.el.classList.add('noted'); introUp = true; introAt = hv.time;
+      }
     }
   }
 
@@ -24539,7 +24733,8 @@ function createHeatMeter(host, ctx, noteRoot = host) {
 
 // ------------------------------------------------------------------ tooltips
 /** D150 item 5: the meter's one sentence (its tooltip, and the retired first-time note). */
-const FURNACE_LINE = 'Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.';
+// demo blind round 1 B (2026-11-26, draft): what overspending costs in the full game, the demo's line and the final boss
+const FURNACE_LINE = 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.';
 /** L1 (MD D.5, draft): the meter's sentence; in the demo, which meets no boss, DEMO_TEXT.furnaceLine. */
 const furnaceLine = (ctx) => (demoOn(ctx) ? DEMO_TEXT.furnaceLine : FURNACE_LINE);
 /** The four states as the tooltip's table rows (D150 item 5): [state, when, bonus or ''] from the engine's thresholds. */
@@ -24558,7 +24753,7 @@ function heatTip(ctx) {
   box.appendChild(h('div.tt-line.desc', furnaceLine(ctx)));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
-  if (hv.node && hv.node.state) box.appendChild(h('div.tt-line.ht-countswhy', `${countsLine(hv)}. ${COUNTS_WHY}`)); // D163 (draft)
+  const cw = countsLine(hv, ctx.view); if (cw) box.appendChild(h('div.tt-line.ht-countswhy', `${cw}. ${COUNTS_WHY}`)); // D163 (draft)
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
   return box;
 }
@@ -24584,14 +24779,23 @@ function costText(p) {
   }
   return `Costs ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ', then a fight in the Dimming' : ''}.`;
 }
-function previewBlock(p, ctx) {
+function previewBlock(p, ctx, opts = null) {
   const H = ctx.data.rules.heat;
   if (!p || !H) return null;
   const box = h('div.tt-heat', { dataset: { hs: p.state } });
   box.appendChild(h('div.th-l', costText(p)));
   const pt = p.pays ? payText(p.pays, H) : null;
   if (pt) box.appendChild(h('div.th-p.paid', { dataset: { hs: p.pays } }, `${HEAT_NAME[p.pays]} bonus: ${pt}.`));
+  // demo blind round 1 B (newcomer s0411, draft): a toll tag in a state's colour (screens.js tollLabel, heatView `change`)
+  // says what the colour means, on the tooltip of the element that carries the tag (opts.tag)
+  const tl = opts && opts.tag ? tagLine(p) : '';
+  if (tl) box.appendChild(h('div.th-tag', { dataset: { hs: p.state } }, h('i.ht-dot', { dataset: { hs: p.state } }), tl));
   return box;
+}
+/** Demo blind round 1 B (draft): the line on a coloured toll tag's colour, '' when the tag is plain (no change of state). */
+function tagLine(p) {
+  if (!p || !p.change || !HEAT_NAME[p.state]) return '';
+  return `Tag colour: after this ${HW.name} turns ${HEAT_NAME[p.state]}.`;
 }
 
 /** A small badge for a node entered Hot or Scorched (its rewards) or an item heat raised; null in Clear and Warm. */
@@ -24731,6 +24935,7 @@ yield;
 //   hub:     { used: { trainer, vendor, inn } }
 //   trainer: R.trainerView ({ learn, train, next, useful }; D144: the hub's welcome line and Trainer card), or null
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
+//            calls (in a fight: R.fightSignal { count, round, name } or null), fights and fightCalls (a dungeon: its mapView entry)
 //   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent, track, role, offBalance,
 //              ccImmune }], target, cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph },
 //              over, title, fightNo, fights, engage }
@@ -25641,6 +25846,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     else if (n.stage === 'reward') { const r0 = n.rewards[0]; v.step = r0.kind === 'boons' ? 'shrine' : r0.story ? 'story' : 'reward'; if (r0.kind === 'boons') v.boons = r0.boons.map((id) => ({ id, name: C.BOON[id].name, text: TXT.boonText(id, CONTENT) })); }
     if (n.type === 'quest') { const q = CONTENT.quests[n.quest] || {}; Object.assign(v, { questId: n.quest, title: q.title, giver: q.giver, text: q.text, turnIn: q.turnIn }); }
     if (f) v.mobs = f.enemies.filter((e) => !e.summoned).map((e) => ({ name: e.name, level: e.level }));
+    // blind demo round 1 (A): the reinforcement the fight still calls in (R.fightSignal: { count, round, name }), for the panels
+    if (f && R.fightSignal) { const sg = R.fightSignal(s); v.calls = sg ? { count: sg.count, round: sg.round, name: sg.name } : null; }
+    // a dungeon's intro lists its fights from the map view (counts, archetypes and each fight's `calls`, engine-api.md 10.3)
+    if (n.type === 'grind' && !f && n.id != null) { const mn = R.mapView(s); const x = mn && mn.nodes ? mn.nodes[n.id] : null; v.calls = x && x.calls ? { ...x.calls } : null; }
+    if (n.type === 'dungeon' && n.id != null) { const mn = R.mapView(s); const x = mn && mn.nodes ? mn.nodes[n.id] : null; if (x && x.fights) { v.fights = x.fights.map((a) => a.length); v.fightCalls = x.fightCalls || []; } }
     if (n.type === 'grind' && !f) { const mn = convZone(s).rows[n.r - 1]; v.mobs = ((mn && mn[n.l] && mn[n.l].enemyNames) || []).map((nm) => ({ name: nm })); }
     if (n.type === 'elite' && f) { const e0 = f.enemies[0]; v.eliteName = e0.name; v.rare = e0.kind === 'rare'; v.elite = { text: (CONTENT.enemies[e0.tid] || {}).text || '' }; const add = f.enemies[1]; v.add = add ? { name: add.name } : null; }
     if (n.type === 'dungeon' && zc) { v.dungeon = zc.dungeon.name; v.dungeonText = zc.dungeon.text; v.bossName = (CONTENT.enemies[zc.dungeon.boss] || {}).name || 'the boss'; }
@@ -31578,7 +31788,7 @@ function siteLines(n, v, ctx) {
 
 });
 __bundle.def("src/ui/hud.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, clamp, rgba, shownLv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }], ["lv", (v) => { shownLv = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, heroLook, petLook, foeLook, foeBeastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["heroLook", (v) => { heroLook = v; }], ["petLook", (v) => { petLook = v; }], ["foeLook", (v) => { foeLook = v; }], ["foeBeastLook", (v) => { foeBeastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }], ["answersToShow", (v) => { answersToShow = v; }], ["isLethal", (v) => { isLethal = v; }], ["SAP_BREAK_WARN", (v) => { SAP_BREAK_WARN = v; }], ["stoppedNow", (v) => { stoppedNow = v; }], ["deathblowPrompt", (v) => { deathblowPrompt = v; }]]); let createHeatMeter, bossText; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["bossText", (v) => { bossText = v; }]]); let trackerContracts; __link.imp("src/ui/prep.js", [["trackerContracts", (v) => { trackerContracts = v; }]]); let CON, token, artStyle; __link.imp("src/ui/theme.js", [["CON", (v) => { CON = v; }], ["token", (v) => { token = v; }], ["artStyle", (v) => { artStyle = v; }]]); let capLevelText; __link.imp("src/ui/demo.js", [["capLevelText", (v) => { capLevelText = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "grindLine": () => grindLine, "trackNewItems": () => trackNewItems, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
+let h, add, clear, fmtNum, moneyEl, clamp, rgba, shownLv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }], ["lv", (v) => { shownLv = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, heroLook, petLook, foeLook, foeBeastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["heroLook", (v) => { heroLook = v; }], ["petLook", (v) => { petLook = v; }], ["foeLook", (v) => { foeLook = v; }], ["foeBeastLook", (v) => { foeBeastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip, refreshTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }], ["refreshTip", (v) => { refreshTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }], ["answersToShow", (v) => { answersToShow = v; }], ["isLethal", (v) => { isLethal = v; }], ["SAP_BREAK_WARN", (v) => { SAP_BREAK_WARN = v; }], ["stoppedNow", (v) => { stoppedNow = v; }], ["deathblowPrompt", (v) => { deathblowPrompt = v; }]]); let createHeatMeter, bossText; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["bossText", (v) => { bossText = v; }]]); let trackerContracts; __link.imp("src/ui/prep.js", [["trackerContracts", (v) => { trackerContracts = v; }]]); let CON, token, artStyle; __link.imp("src/ui/theme.js", [["CON", (v) => { CON = v; }], ["token", (v) => { token = v; }], ["artStyle", (v) => { artStyle = v; }]]); let capLevelText; __link.imp("src/ui/demo.js", [["capLevelText", (v) => { capLevelText = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "grindLine": () => grindLine, "trackNewItems": () => trackNewItems, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
 yield;
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
@@ -31791,6 +32001,9 @@ function trackNewItems(set, uids, bag = null) {
   return set.size;
 }
 
+/** The animation speeds (settings.js speed: 0 is Instant) in the order the HUD's speed button takes them, and their words. */
+const SPEEDS = [1, 2, 4, 0];
+const SPEED_LABELS = ['1×', '2×', '4×', 'Instant'];
 function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
@@ -31821,6 +32034,9 @@ function createHud(root, ctx) {
   els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
+  // demo blind round 1 D (skipper: "no visible speed setting"): the fight animation speed in the combat log's header (the control row has no room beside the turn prompt), the same setting
+  // as Settings' Animation speed (settings.js speed: 1, 2, 4, or 0 = Instant); a click takes the next one
+  els.speed = h('button.speedbtn', { type: 'button', 'aria-label': 'Animation speed' }, 'Speed ', h('b', SPEED_LABELS[0]));
   // the flee ask (blind panel 2026-11-13, app.js ui.flee): over the control row while armed, until F, the button, another
   // action or Esc answers it; never a fading toast
   els.fleeAsk = h('div#fleeask.hidden', { role: 'alertdialog', 'aria-live': 'assertive', 'aria-label': 'Flee?' });
@@ -31857,7 +32073,7 @@ function createHud(root, ctx) {
   els.tracker = h('div#tracker');
   els.logLines = h('div.lines');
   els.logToggle = h('button.xbtn', { style: { width: '1.9rem', height: '1.9rem', fontSize: '1rem' } }, '–');
-  els.log = h('div#combatlog', h('div.lh', h('span', 'Combat log'), els.logToggle), els.logLines);
+  els.log = h('div#combatlog', h('div.lh', h('span', 'Combat log'), els.speed, els.logToggle), els.logLines);
   els.logToggle.addEventListener('click', () => { els.log.classList.toggle('min'); els.logToggle.textContent = els.log.classList.contains('min') ? '+' : '–'; });
 
   root.append(els.nameplates, els.player, els.pet, els.target, els.boss, els.minimap, els.tracker, els.log, els.actionbar, els.micro, els.gold, els.xp);
@@ -31927,6 +32143,11 @@ function createHud(root, ctx) {
   });
   els.auto.addEventListener('click', () => ctx.ui.toggleAuto());
   tip(els.auto, () => h('div', h('div.tt-name', 'Autoplay'), h('div.tt-line.desc', 'When on, the game picks each combat action for you (bar order is the priority). You can switch at any time, also mid-fight.'), h('div.tt-sub', 'Key: Z')));
+  els.speed.addEventListener('click', () => { settings.set('speed', SPEEDS[(SPEEDS.indexOf(settings.get('speed')) + 1) % SPEEDS.length]); showSpeed(); refreshTip(); });
+  tip(els.speed, () => h('div', h('div.tt-name', 'Animation speed'), h('div.tt-line.desc', 'How fast a fight plays: 1×, 2×, 4× or Instant. Click to change it. Settings has the same choice.'), h('div.tt-sub', 'Now: ' + SPEED_LABELS[Math.max(0, SPEEDS.indexOf(settings.get('speed')))])));
+  /** The button's word follows the setting (also when Settings or Speedrun mode changes it). */
+  function showSpeed() { const i = SPEEDS.indexOf(settings.get('speed')); els.speed.lastChild.textContent = SPEED_LABELS[i < 0 ? 0 : i]; els.speed.classList.toggle('fast', i !== 0); }
+  showSpeed();
   els.pass.addEventListener('click', () => ctx.ui.pass());
   els.flee.addEventListener('click', () => ctx.ui.flee());
   tip(els.flee, () => h('div', h('div.tt-name', 'Flee'), h('div.tt-line.desc', 'Try to escape. On success you leave the node with no further rewards.'), ctx.view.legal.fleeChance != null ? h('div.tt-line.num', `Chance: ${Math.round(ctx.view.legal.fleeChance * 100)} %`) : null, h('div.tt-sub', 'Key: F (press twice)')));
@@ -32488,7 +32709,7 @@ function createHud(root, ctx) {
     if (atEnd) L.scrollTop = L.scrollHeight;
   }
   function clearLog() { clear(els.logLines); }
-  settings.on('change', (k) => { if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
+  settings.on('change', (k) => { if (k === 'speed' || k === 'speedrun') showSpeed(); if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
   if (!settings.get('showLog')) els.log.style.display = 'none';
 
   /** Show the queued next action (key: 'attack', 'spellN', 'itemN', 'pass', 'flee'; null clears it). */
@@ -33031,7 +33252,8 @@ const leanFirst = (v) => !!v && (!!(v.prep && v.prep.first) || (v.phase !== 'CRE
 const BEAT_OF = { H01: 'G7', H02: 'G6', H03: 'G8', H04: 'G9', H06: 'G9', H09: 'G11', H11: 'G4', H15: 'G2', H16: 'G5', H18: 'G12', H19: 'G13', H20: 'G10', H21: 'G10', H23: 'G1', H30: 'G9' };
 const HINT_OF_BEAT = { G1: 'H23', G2: 'H15', G4: 'H11', G5: 'H16', G6: 'H02', G7: 'H01', G8: 'H03', G9: 'H04', G10: 'H20', G11: 'H09', G12: 'H18', G13: 'H19' };
 // priority (spec 2.5): Deathblow > wind-up > lethal > potion > engage > the rest
-const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, NUDGE: 7 };
+// demo blind round 1 B: H16 (the Furnace's sentence) before the map's other first hints (H15), so it comes at the first map
+const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, H16: 2, NUDGE: 7 };
 const prio = (id) => PRIO[id] || 1;
 // beats whose line belongs to a fight on screen (D150, engine-2026-11-14d section 7: G14-G17, from round 2 of a fight)
 const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11', 'G14', 'G15', 'G16', 'G17']);
@@ -33253,6 +33475,8 @@ const LINE_ALSO = { 'G8.withEngage': ANCHOR.G8 };
 // ctx: 'fight' (gone when the fight ends or two rounds on), 'map' (gone at the next map step), else 'screen' (gone when
 // `when` no longer holds). Each `when` reads the view, the step's events (ev) and the UI.
 const inFight = (v) => !!(v.combat && !v.combat.over && !v.loot);
+/** The guided run is on (the engine's tutorial view: on, not skipped, not over). */
+const guidedNow = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
 /** The turn prompt on screen says it (D150: an instruction is said once; a hint gives way to the prompt's). */
 const promptSays = (re) => { const t = q('#turnprompt .tp-t'); return !!t && re.test(t.textContent); };
 const onMap = (v) => v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node;
@@ -33300,9 +33524,10 @@ const HINTS = {
   H13: { ctx: 'map', when: (c) => has(c.ev, 'learn', (e) => c.v.player && !c.v.player.bar.includes(e.id)), anchor: () => q('#actionbar'), done: (c) => c.a === 'SET_BAR' },
   H14: { ctx: 'screen', when: (c) => !inFight(c.v) && !!c.v.player && c.v.player.talentPoints > 0, anchor: () => q('#micromenu .mm[aria-label="Talents"]'), done: (c) => c.a === 'SPEND_TALENT' },
   H15: { ctx: 'map', when: (c) => onMap(c.v), anchor: () => q('#screens .mnode.here') },
-  // D150 (Lead 2026-11-14): at the hub, G5's moment (the first hub screen); while the guide runs G5 stands in for it, so the
-  // two never show both (BEAT_OF), and G5 learned marks it seen
-  H16: { ctx: 'screen', when: (c) => c.v.phase === 'ZONE_HUB' && !!c.v.heat, anchor: () => q('#heat') },
+  // D150 (Lead 2026-11-14): while the guide runs G5 stands in for it (the first hub), so the two never show both (BEAT_OF),
+  // and G5 learned marks it seen. Demo blind round 1 B (2026-11-26): outside the guide at the first map, where the tolls are
+  // spent (with hints off the Furnace's own note says it there: heat.js, furnaceNoteWanted)
+  H16: { ctx: 'map', when: (c) => onMap(c.v) && !!c.v.heat, anchor: () => q('#heat') },
   H17: { ctx: 'screen', when: (c) => !!(c.v.node && (c.v.node.heat === 'hot' || c.v.node.heat === 'scorched')), anchor: () => q('#heat') },
   H18: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.dimmed), anchor: () => q('#screens .xdimp') },
   H19: { ctx: 'map', when: (c) => onMap(c.v) && bellMoment(c.v) !== null, anchor: ANCHOR.G13, alt: (c) => bellMoment(c.v), done: (c) => c.a === 'TAKE_ROAD' || c.a === 'RING_BELL' },
@@ -33310,12 +33535,15 @@ const HINTS = {
   H21: { ctx: 'screen', when: (c) => !leanFirst(c.v) && !!(c.v.loot && c.v.loot.kind === 'contract'), anchor: () => q('#screens .dialog') },
   H22: { ctx: 'screen', when: (c) => !leanFirst(c.v) && c.v.phase === 'ZONE_HUB' && !c.v.node && !!q('#screens .hub-contract, #screens [data-hub-offer]'), anchor: () => q('#screens .hub-contract, #screens [data-hub-offer]') },
   H23: { ctx: 'screen', when: (c) => !leanFirst(c.v) && c.v.phase === 'PREP', anchor: () => q('#prep .pp-foot .pp-pts') || q('#prep .pp-foot') },
-  H24: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'elite' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'elite' && n.know !== 'none' && !n.done) },
+  // demo blind round 1 D (newcomer: about 16 bubbles in zone 1): while the guide runs, its own lines cover the map, so the free
+  // map hints H24 (elite), H29 (rest) and U02 (pass through) wait until the guide is over or skipped; the node's own tooltip
+  // says the same (hand-off ui-2026-11-26c)
+  H24: { ctx: 'map', when: (c) => !guidedNow(c.v) && seenNode(c.v, (n) => n.type === 'elite' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'elite' && n.know !== 'none' && !n.done) },
   H25: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && (e.rare || e.rank === 'rare')), anchor: () => q('#target-frame') },
   H26: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'dungeon' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'dungeon' && n.know !== 'none' && !n.done) },
   H27: { ctx: 'fight', when: (c) => inFight(c.v) && !!c.v.combat.engage && c.v.combat.kind === 'dboss', anchor: () => q('#engage'), done: (c) => c.a === 'ENGAGE' },
   H28: { ctx: 'screen', when: (c) => !!q('#screens .vendor-cols'), anchor: () => q('#screens .vendor-cols') },
-  H29: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'rest' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'rest' && n.know !== 'none' && !n.done) },
+  H29: { ctx: 'map', when: (c) => !guidedNow(c.v) && seenNode(c.v, (n) => n.type === 'rest' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'rest' && n.know !== 'none' && !n.done) },
   // D150 (Lead 2026-11-14): not while the turn prompt already says "Pass [X]" (the Deathblow's one instruction)
   H30: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans') && !promptSays(/\bPass\b/), anchor: () => q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans'), done: (c) => c.a === 'PASS' },
   H31: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.round <= 1 && !c.v.autoplay && (c.store.stats || {}).won >= c.r.autoplayAfter && !(c.store.stats || {}).auto, anchor: () => q('#actionbar .ctrl .toggle'), done: (c) => c.a === 'SET_AUTOPLAY' },
@@ -33329,7 +33557,7 @@ const HINTS = {
   // and its showing counts for U01), at the nearest Road's sign; U02 the first time a toll label turns red, at that node,
   // with its "Pass through" button shown beside it (the second marker), so X takes it
   U01: { ctx: 'map', once: true, when: (c) => onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && roadsOpen(c.v) && !!roadNum(c.v), anchor: roadSign, num: roadNum },
-  U02: { ctx: 'map', once: true, when: (c) => onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && redPassNode(c.v) != null, num: passNum,
+  U02: { ctx: 'map', once: true, when: (c) => !guidedNow(c.v) && onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && redPassNode(c.v) != null, num: passNum,
     anchor: (v) => { const id = redPassNode(v); return id == null ? null : q(`#screens .mnode[data-node="${id}"]`); },
     also: (v) => { const id = redPassNode(v); return id == null ? null : document.querySelector(`#screens .expmap .xpass[data-node="${id}"]`); } },
 };
@@ -33371,7 +33599,7 @@ function createOnboarding(root, ctx) {
   const beatHintKeys = (id, line = null) => lineHints(id, line).map(keyOf);
   const markAll = (keys) => { for (const k of keys) hints.mark(k); };
   hints.need = r.hintShows || null; // ONB_HINT_SHOWS (src/constants.js) through the bridge
-  const guiding = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
+  const guiding = guidedNow;
   const momentOf = (spec, v) => (spec.ctx === 'fight' ? `f${fightNo}` : spec.ctx === 'map' ? `m${v.zone ? `${v.zone.idx}:${v.zone.exp ? v.zone.exp.pos : ''}` : ''}` : `s${v.phase}:${v.node ? v.node.type : ''}:${v.loot ? v.loot.kind : ''}`);
 
   function lineFor(id, alt) {
@@ -33408,6 +33636,8 @@ function createOnboarding(root, ctx) {
     // D150 item 1: the Furnace's line brings the meter on screen with it (its anchor), before the line is placed
     if (FURNACE_LINES.has(x.id) && ctx.hud && ctx.hud.heat && ctx.view) ctx.hud.heat.update(ctx.view);
     place();
+    // placed again once the line has laid out and its entrance animation is over (it sat a few pixels low at first)
+    requestAnimationFrame(() => place()); setTimeout(() => place(), 400);
   }
   function renderButtons() {
     const guided = cur && cur.kind === 'beat' && guiding(lastV);
@@ -33464,6 +33694,9 @@ function createOnboarding(root, ctx) {
 
   // ---------------------------------------------------------------- placement (spec 2.5)
   const PROTECT = ['#actionbar', '#engage .eg-opt, #engage button', '#heat', '#target-frame', '#pp-go', '#boss-frame', '#turnprompt'];
+  // demo blind round 1 D (newcomer s0029-s0102: bubbles over the action): in a fight a line also keeps clear of the control row
+  // (Autoplay, Pass, Flee, Speed), the flee ask, and every enemy's nameplate with its intent track
+  const FIGHT_PROTECT = ['#actionbar .ctrl', '#fleeask', '#nameplates .np'];
   const visible = (x) => { const b = x.getBoundingClientRect(); return b.width > 0 && b.height > 0 && !x.closest('.hidden') ? b : null; };
   function place() {
     if (!cur || el.classList.contains('hidden')) return;
@@ -33480,8 +33713,11 @@ function createOnboarding(root, ctx) {
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
     const W = innerWidth; const H = innerHeight; const gap = 0.8 * rem;
     let b = el.getBoundingClientRect();
-    const w = b.width; const hh = b.height;
-    const rects = PROTECT.flatMap((s) => [...document.querySelectorAll(s)].map(visible).filter(Boolean));
+    // the layout size, not the drawn one: the line's entrance animation scales it, which made a line placed at once sit a few
+    // pixels low (over the control row) until the next render (demo blind round 1 D)
+    const w = el.offsetWidth || b.width; const hh = el.offsetHeight || b.height;
+    const fightNow = !!(lastV && lastV.combat && !lastV.combat.over);
+    const rects = (fightNow ? [...PROTECT, ...FIGHT_PROTECT] : PROTECT).flatMap((s) => [...document.querySelectorAll(s)].map(visible).filter(Boolean));
     const ar = anchorEl ? visible(anchorEl) : null;
     if (ar) rects.push(ar);
     const sr = alsoEl ? visible(alsoEl) : null; // the second marker is not covered either
@@ -33490,6 +33726,12 @@ function createOnboarding(root, ctx) {
     // the one place: bottom centre, its bottom edge BOTTOM_REM over the window's bottom (over the bar's control row)
     let x = (W - w) / 2; let y = H - BOTTOM_REM * rem - hh;
     if (cur.kind === 'nudge' && ar) { x = Math.min(Math.max(ar.left + ar.width / 2 - w / 2, gap), W - w - gap); y = ar.bottom + gap; if (y + hh > H - gap) y = ar.top - hh - gap; }
+    // sideways first, at the same height (a line sits beside what it must not cover), then up
+    if (fightNow && hits(x, y)) {
+      const xs = [...new Set(rects.flatMap((k) => [k.left - gap - w, k.right + gap]).map(Math.round))].filter((c) => c >= gap && c + w <= W - gap).sort((p, q) => Math.abs(p - x) - Math.abs(q - x));
+      const side = xs.find((c) => !hits(c, y));
+      if (side !== undefined) x = side;
+    }
     for (let i = 0; i < 10; i++) { const k = hits(x, y); if (!k) break; y = k.top - hh - gap; }
     if (y < gap) { y = H - BOTTOM_REM * rem - hh; for (let i = 0; i < 10; i++) { const k = hits(x, y); if (!k) break; y = k.bottom + gap; } }
     y = Math.min(Math.max(gap, y), H - hh - gap);
@@ -33647,7 +33889,7 @@ function createOnboarding(root, ctx) {
   // ---------------------------------------------------------------- the nudge (spec 4.3)
   /** The summary shows the nudge: the welcome was paid (first summary) or the Satchel is still not bought (once more). */
   function summaryNudge(v) {
-    if (!T || !v || v.phase !== 'SUMMARY' || !v.summary || v.summary.dev || !v.meta) return false;
+    if (hints.off || !T || !v || v.phase !== 'SUMMARY' || !v.summary || v.summary.dev || !v.meta) return false;
     const owned = (v.meta.unlocks[T.nudge.unlock] || 0) > 0;
     if (owned) return false;
     const n = store().nudge.summary;
@@ -33661,7 +33903,7 @@ function createOnboarding(root, ctx) {
     if (nudgeRun === id) return;
     nudgeRun = id; store().nudge.summary += 1; hints.save();
   }
-  function armHall() { if (!store().nudge.hall) nudgeHall = true; }
+  function armHall() { if (!hints.off && !store().nudge.hall) nudgeHall = true; } // hints off: no bubble in the hall (demo blind round 1 D, s0071)
   function closeNudge() {
     if (cur && cur.kind === 'nudge') hide(false);
     if (nudgeHall) { store().nudge.hall = true; hints.save(); }
@@ -33676,6 +33918,10 @@ function createOnboarding(root, ctx) {
     const held = !!ctx.ui.overlay;
     el.classList.toggle('held', held);
     if (held) return;
+    if (hints.off && (nudgeHall || (cur && cur.kind === 'nudge'))) { // hints off: no bubble in the hall (demo blind round 1 D, s0071); not marked seen
+      if (cur && cur.kind === 'nudge') hide(false);
+      nudgeHall = false; document.querySelectorAll('#meta .mcard.nudge').forEach((x) => x.classList.remove('nudge'));
+    }
     if (nudgeHall && ctx.ui.metaOpen && v.phase === 'CREATE' && T) {
       const card = document.querySelector(`#meta .mcard[data-id="${T.nudge.unlock}"]`);
       const owned = v.meta && (v.meta.unlocks[T.nudge.unlock] || 0) > 0;
@@ -33726,8 +33972,22 @@ function createOnboarding(root, ctx) {
     return !!(st.seen.H16 || (st.shows.H16 || 0) > 0);
   }
 
+  /**
+   * Demo blind round 1 B (pure on the hint store): the Furnace's first-map note (heat.js) is wanted when no coach line
+   * carries its sentence: hints off (no G5 or H16 would come) and neither line ever shown (H16 seen or shown, kept across
+   * runs; G5's line marks H16 seen).
+   */
+  function furnaceNoteWanted() {
+    if (!T) return true;
+    const st = store();
+    if (st.seen.H16 || (st.shows.H16 || 0) > 0) return false;
+    return !!hints.off;
+  }
+  /** The note has shown: H16 counts as seen, so hints turned on later do not say it again. */
+  function furnaceNoted() { hints.mark('H16'); }
+
   return {
-    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced, refusedLine,
+    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced, refusedLine, furnaceNoteWanted, furnaceNoted,
     /** Settings "Reset hints" / "Hints" / "Play the guide again". */
     reset() { hints.reset(); dismissed.clear(); cool.clear(); queue = []; hide(false); },
     /** Dev menu "Reset onboarding": the hint store cleared as on a new profile (hints on, nothing seen, no nudge). */
@@ -33753,7 +34013,7 @@ function gateLine(data, tv) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["contractDoneLine", (v) => { contractDoneLine = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }], ["dimsLine", (v) => { dimsLine = v; }], ["arrivalLine", (v) => { arrivalLine = v; }], ["atArrival", (v) => { atArrival = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token, artStyle; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }], ["artStyle", (v) => { artStyle = v; }]]); let DEMO_TEXT, demoFill, buildDemoBlock, atDemoExit, demoLeaveLine, capLevelText, demoOn; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }], ["fill", (v) => { demoFill = v; }], ["buildDemoBlock", (v) => { buildDemoBlock = v; }], ["atDemoExit", (v) => { atDemoExit = v; }], ["leaveLine", (v) => { demoLeaveLine = v; }], ["capLevelText", (v) => { capLevelText = v; }], ["demoOn", (v) => { demoOn = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["contractDoneLine", (v) => { contractDoneLine = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let EXIT_WORDS, bellLabel, bellLine, bellCharges, roadLine, roadSignWord, leaveFightLine; __link.imp("src/ui/ui-text.js", [["EXIT_WORDS", (v) => { EXIT_WORDS = v; }], ["bellLabel", (v) => { bellLabel = v; }], ["bellLine", (v) => { bellLine = v; }], ["bellCharges", (v) => { bellCharges = v; }], ["roadLine", (v) => { roadLine = v; }], ["roadSignWord", (v) => { roadSignWord = v; }], ["leaveFightLine", (v) => { leaveFightLine = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }], ["dimsLine", (v) => { dimsLine = v; }], ["arrivalLine", (v) => { arrivalLine = v; }], ["atArrival", (v) => { atArrival = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token, artStyle; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }], ["artStyle", (v) => { artStyle = v; }]]); let DEMO_TEXT, demoFill, buildDemoBlock, atDemoExit, demoLeaveLine, capLevelText, demoOn; __link.imp("src/ui/demo.js", [["DEMO_TEXT", (v) => { DEMO_TEXT = v; }], ["fill", (v) => { demoFill = v; }], ["buildDemoBlock", (v) => { buildDemoBlock = v; }], ["atDemoExit", (v) => { atDemoExit = v; }], ["leaveLine", (v) => { demoLeaveLine = v; }], ["capLevelText", (v) => { capLevelText = v; }], ["demoOn", (v) => { demoOn = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "foeCount": () => foeCount, "callsText": () => callsText, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -33779,6 +34039,7 @@ yield;
 // "Ascendancy" or "par"; a Dimmed node's fight is "with this zone's creatures, made stronger by the dark" (no "Shardspawn":
 // the engine fights the zone's own enemies there, variant shardspawn; engine-2026-11-14d UI need 15).
  // lv, lvLearn: Legacy's hero scale (identity off)
+
 
 
 
@@ -33823,6 +34084,15 @@ function archChips(list) {
   return h('span.archs', [...counts.entries()].map(([a, k]) => h('span.arch', { dataset: { arch: a } }, h('img', { src: roleIcon(a), alt: '' }), `${k > 1 ? `${k} × ` : ''}${(ROLE_INFO[a] || {}).name || humanize(a)}`)));
 }
 const enemies = (k) => `${k} ${k === 1 ? 'enemy' : 'enemies'}`;
+/**
+ * Blind demo round 1 (A, draft lines): a fight's real enemy count, those it calls in later included (mapView `calls`,
+ * engine-api.md 10.3), and the call in words: "Calls 1 more in round 4 unless stopped." (who: the caller's name).
+ */
+const foeCount = (n) => (n.archetypes ? n.archetypes.length : 0) + (n.calls ? n.calls.count : 0);
+const callsText = (c, who = null) => (c ? `${who ? `${who} calls` : 'Calls'} ${c.count} more in round ${c.round} unless stopped.` : '');
+const foesWord = (k) => `${k} ${k === 1 ? 'foe' : 'foes'}`;
+/** A dungeon fight's head: "Fight 1: 3 enemies, calls 1 more in round 4". */
+const fightHead = (i, k, c) => `Fight ${i + 1}: ${enemies(k)}${c ? `, calls ${c.count} more in round ${c.round}` : ''}`;
 /** What a node holds, in words; counts and offsets from the rules table (ctx.data.rules, the engine's constants). */
 function nodeDesc(type, r) {
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
@@ -33850,8 +34120,11 @@ const nodeLevel = (n) => (n.type === 'elite' && n.level ? n.level : n.cl);
 function expNodeDesc(n, p, rules) {
   if (n.type === 'elite' && n.level && p) {
     const gap = lv(n.level) - lv(p.level); // Legacy: the gap on the hero scale, as both levels show
-    return `One powerful enemy at level ${lv(n.level)}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}. High experience and a guaranteed good item.`;
+    // blind demo round 1 (A): with an escort the line says so (the tooltip's "Foes: 2 enemies" and "One powerful enemy" disagreed)
+    const escort = n.archetypes && n.archetypes.length > 1;
+    return `${escort ? 'A powerful enemy' : 'One powerful enemy'} at level ${lv(n.level)}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}${escort ? ', and its escort' : ''}. High experience and a guaranteed good item.`;
   }
+  if (n.type === 'treasure' && n.guarded !== undefined) return treasureDesc(n);
   if (n.type === 'grind' && n.waves) {
     const foes = n.archetypes && n.archetypes.length ? ` of ${enemies(n.archetypes.length)}` : '';
     return `${n.waves === 1 ? `One wave${foes}` : `1 to ${n.waves} waves; the first${foes}`}. Steady experience, gold and more drops.`;
@@ -33859,6 +34132,8 @@ function expNodeDesc(n, p, rules) {
   // blind round 2 (competitive s0143): the expedition map's counts (its dungeon's own fights when they are known)
   return nodeDesc(n.type, { ...rules, dungeonTrashFights: n.fights && n.fights.length ? n.fights.length : rules.expDungeonTrashFights ?? rules.dungeonTrashFights, grindMaxWaves: rules.expGrindMaxWaves ?? rules.grindMaxWaves });
 }
+/** A seen chest (mapView `guarded` known): only the trap stays unknown (blind demo round 1: "Unguarded" then "may be guarded"). */
+const treasureDesc = (n) => (n.guarded ? 'A chest with gold and an item, watched by a guard. It may also be trapped.' : 'A chest with gold and an item. It may be trapped.');
 /** The rules table with this run's map counts (blind round 2: the expedition map's dungeons have 2 fights before the boss). */
 const rulesOf = (v, r) => (v && v.mapMode === 'expedition' ? { ...r, dungeonTrashFights: r.expDungeonTrashFights ?? r.dungeonTrashFights, grindMaxWaves: r.expGrindMaxWaves ?? r.grindMaxWaves } : r);
 
@@ -34100,7 +34375,7 @@ function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null, idle =
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
-    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx)), { avoid: '.svc-card' }); // blind round 2 (skipper s0147): not over the other services
+    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx, { tag: true })), { avoid: '.svc-card' }); // blind round 2 (skipper s0147): not over the other services
     ghostOn(el, heat.ctx, heat.action);
   }
   return el;
@@ -34119,8 +34394,9 @@ function innCard(v, ctx, name, meta, used, heat) {
   }
   const hp = heatOf(v, heat.action); const cost = tolls(hp ? hp.time : hr.inn);
   const pc = (a, b) => `${Math.floor((100 * a) / Math.max(1, b))} %`;
-  const yes = btn(`Rest · ${cost}`, rest, '.danger'); yes.dataset.inn = 'rest';
-  const no = btn('Cancel', () => { innAsk.armed = null; ctx.ui.refreshScreens(); }, '.primary'); no.dataset.inn = 'cancel';
+  // demo blind round 1 C: the action the player chose (Rest) is the highlighted one, not Cancel
+  const yes = btn(`Rest · ${cost}`, rest, '.primary'); yes.dataset.inn = 'rest';
+  const no = btn('Cancel', () => { innAsk.armed = null; ctx.ui.refreshScreens(); }); no.dataset.inn = 'cancel';
   return h('div.svc-card.ask', { role: 'alertdialog', 'aria-label': `Rest at the ${name}?` }, h('img', { src: icon('rest', 'fire'), alt: '' }),
     h('div', h('div.nm', `Rest anyway?`), h('div.meta', `Health ${pc(p.hp, p.maxHp)}${p.res.kind === 'mana' ? `, mana ${pc(p.res.cur, p.res.max)}` : ''}: nearly full`)),
     h('div.ask-b', yes, no));
@@ -34320,6 +34596,12 @@ function roadTo(v, ctx) {
   if (zs[z] && zs[z].name) return zs[z].name;
   return (ctx.data.camp && ctx.data.camp.name) || 'the Camp';
 }
+/** Demo blind round 1 C: what follows this zone: 'demo' (the demo ends), 'next' (a zone), 'camp' (the Camp). */
+function exitKind(v, ctx) {
+  if (atDemoExit(v, ctx)) return 'demo';
+  const zs = ctx.data.zones || [];
+  return zs[v.zone.idx] && zs[v.zone.idx].name ? 'next' : 'camp';
+}
 /** The fog state of a node: 'seen' (in sight now), 'known' (seen before, or its type known), 'unknown'. */
 function fogState(n, mv) { return n.hub ? 'seen' : n.know === 'full' ? (n.hops <= mv.vision.radius ? 'seen' : 'remembered') : n.know === 'type' ? 'typed' : 'unknown'; }
 
@@ -34334,8 +34616,11 @@ function buildExpMap(v, ctx, readOnly) {
   const z = v.zone; const mv = z.exp; const p = v.player;
   const win = h('div.mapwin.panel.expmap' + (spy.armed && !readOnly ? '.spying' : ''));
   const acts = [];
+  // demo blind round 1 C (draft): the Bell's button says where it takes you and what its number is
+  const ek = exitKind(v, ctx);
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
-  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
+  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([bellLabel(mv.bell.charges, ek, roadTo(v, ctx)), { type: 'RING_BELL' }]);
+  const meNode = mv.nodes[mv.pos];
   const expiring = readOnly ? [] : expiringHere(v);
   // blind panel 2026-11-13 (item 8): the Bell (one charge a run, it leaves the zone) always asks first; a Road asks when
   // contracts of this zone would expire
@@ -34346,9 +34631,19 @@ function buildExpMap(v, ctx, readOnly) {
   const btns = acts.map(([label, a]) => {
     const b = btn(label, () => { if (asks(a.type) && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
     b.dataset.leave = a.type;
-    tip(b, () => h('div', h('div.tt-name', label), demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx)) : a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
-      expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx),
-      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null), { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
+    // demo blind round 1 C (draft): the Bell's and the Road's tips differ: where each takes you, the Bell's charges (its
+    // button's number), that a Road needs none, and a Dimming fight that comes first, before the click
+    const bell = a.type === 'RING_BELL';
+    tip(b, () => {
+      const p = heatOf(ctx.view, a); const where = bell ? bellLine(ek, roadTo(v, ctx)) : roadLine(ek, roadTo(v, ctx));
+      const fl = bell ? leaveFightLine(p, !!(meNode && meNode.dimmed)) : '';
+      return h('div', h('div.tt-name', bell ? EXIT_WORDS.bellTitle : EXIT_WORDS.roadTitle),
+        demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx)) : null, where ? h('div.tt-line.lw-where', where) : null,
+        h('div.tt-sub.lw-charges', bell ? bellCharges(mv.bell.charges) : EXIT_WORDS.roadFree),
+        fl ? h('div.tt-warn.lw-fight', fl) : null,
+        expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(p, ctx),
+        asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null);
+    }, { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -34363,13 +34658,16 @@ function buildExpMap(v, ctx, readOnly) {
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
-    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
-    const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
+    // demo blind round 1 C (skipper item 22, s0261, s0352): the action the player chose is the highlighted one, not Stay
+    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.primary');
+    go.dataset.go = a.type;
+    const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); });
     // section 7 (D150): the tolls and the fight that comes first are the engine's preview of the ring (RING_BELL), as on its tooltip
     const bp = !road ? heatOf(v, a) : null;
+    const fight = !road ? leaveFightLine(bp, !!(meNode && meNode.dimmed)) : ''; // demo blind round 1 C (skipper item 7)
     const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `${demoExit ? '' : `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. `}${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`}${demoExit ? '' : ` No way back to ${z.name}.`}`) : null;
     win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
-      h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), bell,
+      h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), fight ? h('div.lw-l.lw-fight', fight) : null, bell,
       demoExit ? h('div.lw-l.lw-demo', demoLeaveLine(ctx)) : null,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
       h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
@@ -34452,6 +34750,9 @@ function buildExpMap(v, ctx, readOnly) {
   }
   // ---- the Roads: signposts on the rim with the zone they lead to
   const to = roadTo(v, ctx);
+  // demo blind round 1 C (draft): the sign names the goal, "Next zone »" (zone 2 of the demo: "End of the demo »"; the last
+  // zone: the Camp's name); the zone's name is on the sign's tooltip. A closed Road shows it too, with its Closed tag
+  const signWord = roadSignWord(ek, to, DEMO_TEXT.roadSign);
   (mv.roads || []).forEach((rid, i) => {
     const n = mv.nodes[rid]; if (!n) return;
     const side = Math.abs(Math.cos((n.angle * Math.PI) / 180)) > 0.6; // at the left or right edge: the board stands above its post
@@ -34462,7 +34763,7 @@ function buildExpMap(v, ctx, readOnly) {
     // cover the post line and the Road's node
     const down = side && Math.sin((n.angle * Math.PI) / 180) > 0.05;
     const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (down ? '.down' : '') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid, angle: n.angle } },
-      h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
+      h('span.xpost'), h('span.xsign', h('b', side ? signWord : `${right ? '' : '« '}${signWord}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
     // blind round 2 (casual re-run s0235-s0237: a click on the sign did nothing): standing on the Road, the sign takes it
     // (the Take the Road button, with its ask); elsewhere a short line says what to do
     if (!readOnly) {
@@ -34506,9 +34807,10 @@ function buildExpMap(v, ctx, readOnly) {
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(shownLvl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
-    // enemy count on a seen fight node (BUG-QA-02)
-    const foes = full && !n.hub && !n.done ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? n.archetypes.length : null) : null;
-    if (foes) el.appendChild(h('div.xfoes', { dataset: { foes } }, `×${foes}`));
+    // enemy count on a seen fight node (BUG-QA-02); blind demo round 1 (A): in words, those the fight calls in later
+    // included (mapView `calls`), on a neutral chip (red is danger's alone, D120; the level's colour says the danger)
+    const foes = full && !n.hub && !n.done && !n.lost ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? foeCount(n) : null) : null;
+    if (foes) el.appendChild(h('div.xfoes', { dataset: { foes, ...(n.calls ? { calls: n.calls.count } : {}) } }, foesWord(foes)));
     const marks = siteBadge(n, v); // contract site marks (prep): only the ones the player sees; a hidden node stays unnamed
     if (marks) el.appendChild(marks);
     // the Dimming's clock: "dims in N" on every node within two hops of its front; the player's own count stands out at 2 or less
@@ -34563,8 +34865,11 @@ function buildExpMap(v, ctx, readOnly) {
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
     h('div.xk', h('i.xk-seen'), 'In sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Seen from afar'), h('div.xk', h('i.xk-unk'), 'Unknown'),
-    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
-  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
+    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'),
+    // blind demo round 1 (A, draft): the node badges, so the level and the enemy count read with hints off
+    h('div.xk.xk-badges', h('i.xk-lvl', { style: { color: conColor(p.level, p.level) } }, String(lv(p.level))), 'Fight level'), h('div.xk.xk-badges', h('i.xk-foes', '3 foes'), 'Every enemy'));
+  tip(key, () => h('div', h('div.tt-name', 'What you see'),
+    h('div.tt-line.xk-lvltip', 'A fight\'s level is coloured against yours: green easier, yellow about your level, orange harder, red deadly.'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
     mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types up to ${mv.vision.typeRadius} steps away.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
@@ -34813,14 +35118,17 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
     if (n.type === 'dungeon' && n.name) box.appendChild(h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.name));
     const dbl = deathblowLine(n.type === 'elite' ? n.deathblow : n.type === 'dungeon' ? n.bossDeathblow : null, n.type === 'dungeon'); // M2b v13 (UI needs 7)
     if (dbl) box.appendChild(dbl);
-    if (n.type === 'dungeon' && n.fights && n.fights.length) {
-      n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
+    // blind demo round 1 (A): a node lost to the Dimming shows only the Dimmed line below (what it held is gone, so its
+    // enemies, chest and type text would contradict it); every fight lists the enemy it calls in later (mapView `calls`)
+    if (n.lost) { /* the Dimmed line says it */ } else if (n.type === 'dungeon' && n.fights && n.fights.length) {
+      n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', fightHead(i, f.length, n.fightCalls && n.fightCalls[i])), archChips(f))));
       if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', 'Boss'), archChips([n.bossArchetype])));
-    } else if (n.archetypes && n.archetypes.length) box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' && n.waves > 1 ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
-    else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
-    if (n.type) box.appendChild(h('div.tt-line.desc', expNodeDesc(n, p, ctx.data.rules)));
-    if (n.lost) box.appendChild(h('div.tt-warn', 'Lost to the Dimming: it can no longer be done.'));
-    else if (n.done) box.appendChild(h('div.tt-hint', 'Done'));
+    } else if (n.archetypes && n.archetypes.length) {
+      box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' && n.waves > 1 ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+      if (n.calls) box.appendChild(h('div.tt-line.tt-calls', callsText(n.calls)));
+    } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
+    if (n.type && !n.lost) box.appendChild(h('div.tt-line.desc', expNodeDesc(n, p, ctx.data.rules)));
+    if (n.done && !n.lost) box.appendChild(h('div.tt-hint', 'Done'));
   }
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); const rn = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'; box.appendChild(atDemoExit(v, ctx) ? h('div.tt-line.demo-leave', `${rn}. ${demoLeaveLine(ctx)}`) : h('div.tt-line', `${rn}: leads to ${roadTo(v, ctx)}`)); }
   if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
@@ -34839,7 +35147,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (m && !(m.barred || n.barred)) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
     const hp = heatOf(ctx.view, act);
-    const pb = previewBlock(hp, ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
+    const pb = previewBlock(hp, ctx, { tag: true }); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one; the tag's colour
     if (pb) box.appendChild(pb);
     const dl = m.via === 'enter' ? dimsLine(hp) : ''; // D163 (draft): the places the Dimming takes while inside
     if (dl) box.appendChild(h('div.tt-line.xdims', dl));
@@ -34902,19 +35210,21 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   if (dbl) box.appendChild(dbl);
   // the enemies (combat v2, mapView): count and role badges per fight; a dungeon lists each trash fight and its boss
   if (n.type === 'dungeon' && n.fights && n.fights.length) {
-    n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
+    n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', fightHead(i, f.length, n.fightCalls && n.fightCalls[i])), archChips(f))));
     if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', `Boss: ${n.bossName || 'the boss'}`), archChips([n.bossArchetype])));
   } else if (n.archetypes && n.archetypes.length) {
     box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+    if (n.calls) box.appendChild(h('div.tt-line.tt-calls', callsText(n.calls))); // blind demo round 1 (A)
   } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
   else if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-line.foes', `Foes: ${n.enemyNames.join(', ')}`)); // mock engine: names only
-  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, n.type === 'dungeon' && n.fights && n.fights.length ? { ...ctx.data.rules, dungeonTrashFights: n.fights.length } : rulesOf(ctx.view, ctx.data.rules))));
+  const escort = n.type === 'elite' && n.archetypes && n.archetypes.length > 1; // blind demo round 1 (A): no "One powerful enemy" beside "Foes: 2"
+  box.appendChild(h('div.tt-line.desc', n.type === 'treasure' && n.guarded !== undefined ? treasureDesc(n) : escort ? nodeDesc('elite', ctx.data.rules).replace('One powerful enemy', 'A powerful enemy and its escort') : nodeDesc(n.type, n.type === 'dungeon' && n.fights && n.fights.length ? { ...ctx.data.rules, dungeonTrashFights: n.fights.length } : rulesOf(ctx.view, ctx.data.rules))));
   const danger = nodeDanger(n, ctx.data.rules);
   if (danger) box.appendChild(h('div.tt-warn.danger', danger));
   // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
   // node ends in, H.4), else the node type's tolls
   const hrs = ctx.data.nodeTime ? ctx.data.nodeTime[n.type] : null;
-  const pb = hp ? previewBlock(hp, ctx) : null; // null without the heat rules (the mock): never appended
+  const pb = hp ? previewBlock(hp, ctx, { tag: true }) : null; // null without the heat rules (the mock): never appended
   if (pb) box.appendChild(pb);
   else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Costs ${tolls(hrs)} a wave.` : `Costs ${tolls(hrs)}.`));
   const H = ctx.data.rules.heat;
@@ -34936,10 +35246,13 @@ function btn(label, onClick, cls = '') { const b = h('button.btn' + cls, label);
 
 function foeList(v, list, ctx) {
   const p = v.player;
+  // each enemy at its own level (an elite's is above its escort's), same name and level counted once: "2 × Barn Wolf"
   const counts = new Map();
-  for (const t of list || []) counts.set(t.name, (counts.get(t.name) || 0) + 1);
-  return h('div.foes', [...counts.entries()].map(([nm, k]) => h('div.foe', h('span.con', { style: { color: conColor(v.node.cl, p.level) } }, String(lv(v.node.cl))), `${k > 1 ? k + ' × ' : ''}${nm}`)));
+  for (const t of list || []) { const L = t.level ?? v.node.cl; const key = `${L}|${t.name}`; const x = counts.get(key) || { nm: t.name, L, k: 0 }; x.k++; counts.set(key, x); }
+  return h('div.foes', [...counts.values()].map(({ nm, L, k }) => h('div.foe', h('span.con', { style: { color: conColor(L, p.level) } }, String(lv(L))), `${k > 1 ? k + ' × ' : ''}${nm}`)));
 }
+/** Blind demo round 1 (A): the panel's line for the enemy a fight calls in later (the view's `calls`), or null. */
+const callsLine = (c) => (c ? h('div.foes-calls', callsText(c, c.name)) : null);
 
 function buildNode(v, ctx) {
   const n = v.node; const p = v.player;
@@ -34949,7 +35262,7 @@ function buildNode(v, ctx) {
   if (n.type === 'quest' && n.step === 'intro') {
     return dialog(n.title, `Quest · level ${lv(n.cl)}`, [
       h('div.qtext.parchment', h('div.giver', `${n.giver} says:`), h('div', `“${n.text}”`)),
-      h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx),
+      h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), callsLine(n.calls),
       h('div.dim', { style: { fontSize: '1.2rem' } }, 'Reward: experience, gold and a choice of two items.'),
     ], [btn('Accept', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
@@ -34967,20 +35280,24 @@ function buildNode(v, ctx) {
       return b;
     };
     const waves = ks.map(w);
-    return dialog('Grind', `Level ${lv(n.cl)}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
+    return dialog('Grind', `Level ${lv(n.cl)}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), callsLine(n.calls), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
     // section 7 (D150): the elite's own level (its fight's, as the map shows it), not the node's
     return dialog(n.eliteName, `${n.rare ? 'Rare elite' : 'Elite'} · level ${lv(n.mobs && n.mobs[0] && n.mobs[0].level ? n.mobs[0].level : n.cl)}`, [
       e.text ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, e.text) : null,
-      h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add ? h('dt', 'Escort') : null, n.add ? h('dd', n.add.name) : null),
+      h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add && !(n.mobs && n.mobs.length) ? h('dt', 'Escort') : null, n.add && !(n.mobs && n.mobs.length) ? h('dd', n.add.name) : null),
+      // blind demo round 1 (A): every enemy of the fight at its level, and the one it calls in later
+      n.mobs && n.mobs.length ? h('div.subtitle', 'Enemies') : null, n.mobs && n.mobs.length ? foeList(v, n.mobs, ctx) : null, callsLine(n.calls),
     ], [btn('Engage', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: h('span.row', { style: { gap: '.5rem' } }, hb, h('span.rank-tag' + (n.rare ? '.rare' : ''), n.rare ? 'Rare' : 'Elite')) });
   }
   if (n.type === 'dungeon' && n.step === 'intro') {
     return dialog(n.dungeon, `Dungeon · level ${lv(n.cl)}`, [
       n.dungeonText ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.dungeonText) : null,
       h('dl.kv', h('dt', 'Fights'), h('dd', `${n.trash ?? ctx.data.rules.dungeonTrashFights} ${plural(n.trash ?? ctx.data.rules.dungeonTrashFights, 'group')}, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
+      // blind demo round 1 (A): each fight's enemies, the one it calls in later included (mapView `fights`, `fightCalls`)
+      n.fights && n.fights.length ? h('div.foes.dfights', n.fights.map((k, i) => h('div.foe', fightHead(i, k, n.fightCalls && n.fightCalls[i]))), h('div.foe', `Then ${n.bossName}`)) : null,
     ], [btn('Enter the dungeon', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'intro') {
@@ -35291,6 +35608,15 @@ function buildSummary(v, ctx) {
   if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
   if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
     after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
+  // demo blind round 1 D (skipper: four screens before the first fight): "Same hero" ends the run and starts the next one at once
+  // with the same hero (class, pet and the hero's level are kept by END_RUN), so the next screen is the start camp. Hero
+  // select stays on the other button, for changing class. Draft wording.
+  const same = v.meta ? btn('Same hero', async () => {
+    same.disabled = true;
+    const r = await ctx.act({ type: 'END_RUN' });
+    if (r && r.ok) await ctx.act({ type: 'START_RUN' }); else same.disabled = false;
+  }, '.big') : null;
+  if (same) { same.dataset.same = '1'; tip(same, () => h('div', h('div.tt-name', 'Same hero'), h('div.tt-line.desc', 'Start the next run with this hero, at the start camp. Your Echoes are kept.'), h('div.tt-hint', `${demoEnd ? DEMO_TEXT.nextRun : 'Begin a new run'} lets you choose another hero.`))); }
   if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select, where the Hall of Echoes is too. Your Echoes are kept.')));
   // M3 nudge (m3-onboarding.md 4.3 step 1): the first summary (and once more while Packed Satchel is not bought): Spend Echoes
   // glows, with one line under it; the Hall then highlights the Satchel (onboarding.js). Nothing is disabled.
@@ -35302,7 +35628,7 @@ function buildSummary(v, ctx) {
     spend.addEventListener('click', () => coach.armHall(), true);
     nudge = h('div.nudgeline', ctx.data.tutorial.table.nudge.summaryLine);
   }
-  win.appendChild(demoEnd ? h('div.sfoot', again, nudge ? h('div.spendcol', spend, nudge) : spend) : h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, again));
+  win.appendChild(demoEnd ? h('div.sfoot', again, same, nudge ? h('div.spendcol', spend, nudge) : spend) : h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, same, again));
   return win;
 }
 
@@ -37179,7 +37505,7 @@ function createAudio(settings) {
 
 });
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip, refreshTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }], ["refreshTip", (v) => { refreshTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createOnboarding; __link.imp("src/ui/onboarding.js", [["createOnboarding", (v) => { createOnboarding = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear, lv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["lv", (v) => { lv = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); __link.exp({ "App": () => App, "MAP_ESC": () => MAP_ESC, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip, refreshTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }], ["refreshTip", (v) => { refreshTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createOnboarding; __link.imp("src/ui/onboarding.js", [["createOnboarding", (v) => { createOnboarding = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear, lv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["lv", (v) => { lv = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls, BAGS_FULL, AUTO_DIM_LINE; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }], ["AUTO_DIM_LINE", (v) => { AUTO_DIM_LINE = v; }]]); __link.exp({ "App": () => App, "MAP_ESC": () => MAP_ESC, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -37585,16 +37911,21 @@ class App {
 
   /**
    * Blind round 2 (casual re-run s0234-s0249: autoplay walked from a rescue into the next forced fight and died there):
-   * autoplay switches off after a death that the run survives (a rescue or a revive) and when a fight in the Dimming
-   * starts, with one line saying why. The UI sends SET_AUTOPLAY itself (an own action, mirrored by the Node twins).
+   * autoplay switches off after a rescue (the hero was beaten and the fight is over) with one line saying why. The UI sends
+   * SET_AUTOPLAY itself (an own action, mirrored by the Node twins).
+   * Demo blind round 1 D (skipper s0061, s0263; docs/feedback/2026-11-26-blind-demo-skipper.md): autoplay stays on after
+   * an Ember of Return (the fight goes on) and in a fight in the Dimming, until the player turns it off. No rule forbids
+   * either, so nothing asks first; the first Dimming fight of a run says in one log line that autoplay plays it and how to
+   * take over (draft wording).
    */
   noteAutoStop(prev, next, events, action) {
+    if (next.phase === 'PREP' || next.phase === 'CREATE') this.dimAutoSaid = false; // a new run: say it again once
     if (!next.autoplay) return;
     const t = (x) => events.some((e) => e.t === x);
-    const why = t('rescue') || t('resurrect') ? 'Autoplay off after your death.'
-      : next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over) ? 'Autoplay off: a fight in the Dimming.'
-        : null;
-    if (!why || (action && action.type === 'SET_AUTOPLAY')) return;
+    const dimStart = next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over);
+    if (dimStart && !this.dimAutoSaid) { this.dimAutoSaid = true; this.hud.log(AUTO_DIM_LINE, 'lg-sys'); }
+    if (!t('rescue') || (action && action.type === 'SET_AUTOPLAY')) return;
+    const why = 'Autoplay off after your death.';
     clearTimeout(this.autoTimer);
     const a = { type: 'SET_AUTOPLAY', on: false };
     this.ownActions.push(a);
@@ -37642,7 +37973,7 @@ class App {
     document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
     document.body.classList.toggle('boss-fight', !!(v.combat && !v.combat.over && !v.loot && v.combat.isBoss));
     // a banner shown as a fight comes on screen (an elite's name) steps aside once its panels are drawn
-    if (this.bannerEl.classList.contains('on')) this.placeBanner(); // in a fight, or beside the zone map (blind round 2)
+    if (this.bannerEl.classList.contains('on')) { this.placeBanner(); this.placeToasts(); } // in a fight, or beside the zone map (blind round 2); the toasts keep clear of it
   }
 
   syncScene(v, opts = {}) {
@@ -37726,9 +38057,9 @@ class App {
     b.querySelector('.b2').textContent = sub || '';
     this.placeBanner(); this.placeToasts();
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
+    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.flushToasts(); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
-  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.placeToasts(); }
+  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.flushToasts(); this.placeToasts(); }
   /**
    * Economy v2 (legacy.md 4.7 E6.4; draft): the hero's level-up banner in the upper third: "Level up", the title ("Level 7",
    * "Level 7 (+2)") and its lines, for exactly ms (2.5 s; 1.2 s in Autoplay and Speedrun, the director's choice). Any key or
@@ -37746,7 +38077,7 @@ class App {
     const done = () => {
       removeEventListener('keydown', done, true); removeEventListener('pointerdown', done, true);
       if (!b.classList.contains('hero') || !b.classList.contains('on')) return; // another banner took its place
-      clearTimeout(this.bannerT); b.className = 'level' + (b.classList.contains('side') ? ' side' : ''); this.placeToasts();
+      clearTimeout(this.bannerT); b.className = 'level' + (b.classList.contains('side') ? ' side' : ''); this.flushToasts(); this.placeToasts();
     };
     this.bannerT = setTimeout(done, ms);
     // the next input closes it (armed after this frame, so the click or key that caused the step does not)
@@ -37809,6 +38140,13 @@ class App {
       }
       const q = this.toastQueue.find((x) => x.key === key);
       if (q) { q.n += 1; return; }
+    }
+    // demo blind round 1 D (newcomer s0405: the level-up banner faded behind the "Contract complete" toast): while the level-up
+    // banner shows, a new toast waits in the queue (a refusal and a heat change do not); the queue goes on when the banner goes
+    if (!first && kind !== 'err' && this.levelBannerOn()) {
+      this.toastQueue.push({ key, text, kind, n: 1 });
+      if (this.toastQueue.length > TOAST_QUEUE) this.toastQueue.shift();
+      return;
     }
     if (this.toasts.children.length >= TOAST_MAX) {
       // the heat change takes the place of the oldest other toast. QA playtest 2026-11-13 (finding 5): so does a refusal
@@ -37886,10 +38224,13 @@ class App {
   /** A toast leaves after TOAST_MS; the next queued one takes its place while there is room. */
   armToast(t) {
     clearTimeout(t._toastT);
-    t._toastT = setTimeout(() => {
-      t.remove();
-      while (this.toastQueue.length && this.toasts.children.length < TOAST_MAX) this.showToast(this.toastQueue.shift());
-    }, TOAST_MS);
+    t._toastT = setTimeout(() => { t.remove(); this.flushToasts(); }, TOAST_MS);
+  }
+  /** The level-up banner is on screen (banner(..., 'level') or levelBanner). */
+  levelBannerOn() { const b = this.bannerEl; return !!b && b.classList.contains('on') && b.classList.contains('level'); }
+  /** Queued toasts take the free places (not while the level-up banner shows). */
+  flushToasts() {
+    while (this.toastQueue.length && this.toasts.children.length < TOAST_MAX && !this.levelBannerOn()) this.showToast(this.toastQueue.shift());
   }
   showDeath(on, text) {
     if (on) this.deathEl.querySelector('.d2').textContent = text || 'No resurrection remains. Your journey ends here.';
@@ -38033,6 +38374,8 @@ class App {
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
       /** A toast, as the game shows one (tests of where toasts go). */
       toast: (t, k) => app.toast(t, k),
+      /** The hero's level-up banner, as the director shows it (demo blind round 1 D: the toasts wait behind it). */
+      levelBanner: (title, lines, ms) => app.levelBanner(title, lines || [], ms),
       /** Whether the Hall of Echoes is open (it shows over class select). */
       metaOpen: () => app.ui.metaOpen,
       /** The engine actions applied to this run, in order (engine mode; a Node twin replays them). */
