@@ -114,3 +114,12 @@ Status: open unless marked.
 - Actual (when it fails): the log has the line, the toast is missing. The toast stack shows two toasts at a time and queues the rest (src/ui/app.js TOAST_MAX 2, TOAST_MS 2.7 s). If a toast of the run so far is still up when the click comes (a fast machine, a faster auto run), the line waits in the queue and shows about 2.7 s later, after the check had read the page. Reproduced by showing two toasts through `__ui.toast` just before the click: the same failing detail as reported (toasts end with "Quest complete!", "L1"; log has the line).
 - Cause: the check read the toasts straight after `idle`, which does not wait for queued toasts. The game is right: the line is in the log and the queued toast shows.
 - Status: fixed in the check (qa/browser/ui-regress.mjs AA3 waits up to 9 s for the toast; the log line is still checked at once). With the two injected toasts it fails before the wait and passes after.
+
+## BUG-QA-15 · minor (test only) · ui-regress D144-2 (part S) and M3-R (part R) failed on main after the D.5 text pass
+- Build: a74425b, 70ef358 and 4977f7b. Not a regression: the game changed on purpose and two text pins in the checks were missed.
+- Steps: `node qa/browser/ui-regress.mjs --sizes 1366x768 --parts S` (and `--parts R`).
+- Expected: the checks pin the current wording.
+- Actual: D144-2 "a later off-balance window without a shield" expected "it takes +50% damage"; the game says "+50 % damage". M3-R "every beat line ... in the engine's order" flagged G12.road at steps 65-66: the check accepted the tail "Nearest: N hops, N tolls." and the game says "Nearest: 2 steps, 4 tolls." The beat order itself was correct.
+- Cause: 05c216c (D.5 part 2, review row GR31: space before %) changed H05's line; 6b805dc (D.5 part 2, review row GR80: "steps" for "hops") changed the Road tail. Both commits updated other pins in ui-regress and missed these two regexes.
+- Status: fixed in the checks (qa/browser/ui-regress.mjs: `\+\d+ %` and `steps?`). R 48/48 and S 53/53, three runs each at 1366x768.
+- Also: qa/browser/demo-campaign.mjs without --file already rebuilt, but a failed build could leave an old file; it now deletes /tmp/tbwcr-<worktree>/demo.html first and exits 2 if no fresh file exists after the build.

@@ -4176,7 +4176,7 @@ async function partR(browser, W, H) {
         if (sig !== shownSig) { shownSig = sig; shownKeys = c.shown && c.shown.kind === 'beat' ? await viewKeys(page) : {}; }
         // a line already shown may rest (D141, the engine); an open line not yet shown must be on screen now (or one with it)
         // newcomer check 2026-11-15: the guided "Take a Road" line (G12.road) ends with the nearest Road's numbers
-        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && (c.shown.text === lineText(c.shown.id, st.cls, shownKeys) || (c.shown.id === 'G12.road' && /^Nearest: \d+ hops?, \d+ tolls?\.$/.test(c.shown.text.slice(lineText(c.shown.id, st.cls, shownKeys).length + 1)) && c.shown.text.startsWith(lineText(c.shown.id, st.cls, shownKeys)))))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
+        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && (c.shown.text === lineText(c.shown.id, st.cls, shownKeys) || (c.shown.id === 'G12.road' && /^Nearest: \d+ steps?, \d+ tolls?\.$/.test(c.shown.text.slice(lineText(c.shown.id, st.cls, shownKeys).length + 1)) && c.shown.text.startsWith(lineText(c.shown.id, st.cls, shownKeys)))))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
         if (st.fight && c.shown && c.shown.id === 'G8.withEngage') jointLate.push(`step ${steps}: the joint line on the route`);
@@ -5188,7 +5188,7 @@ async function partS(browser, W, H) {
       const c2 = await coach(page);
       if (c2.shown) { await page.locator('#coach .co-ok').click(); await idle(page); }
       const st2 = (await coach(page)).store;
-      check('D144-2', 'a later off-balance window without a shield: H05\'s own line ("Spend your big hit now"); seen once put away', !!c2.shown && c2.shown.id === 'H05' && /^Off-balance: it takes \+\d+% damage\. Spend your big hit now\.$/.test(c2.shown.text) && !!st2.seen.H05, JSON.stringify({ shown: c2.shown, seen: st2.seen.H05 }));
+      check('D144-2', 'a later off-balance window without a shield: H05\'s own line ("Spend your big hit now"); seen once put away', !!c2.shown && c2.shown.id === 'H05' && /^Off-balance: it takes \+\d+ % damage\. Spend your big hit now\.$/.test(c2.shown.text) && !!st2.seen.H05, JSON.stringify({ shown: c2.shown, seen: st2.seen.H05 }));
     } catch (e) { await shot(page, 'S7-error'); check('S-7', 'part S7 (H05\'s shield line) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('S-7', 'part S7: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();

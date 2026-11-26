@@ -5,7 +5,8 @@
  *   NODE_PATH=/opt/npm-tools/node_modules node qa/browser/demo-campaign.mjs [--file /tmp/x/demo.html] [--runs 4]
  *        [--size 1366x768] [--shots /tmp/tbwcr-<worktree>/demo-shots] [--quiet]
  *
- * Without --file it builds this worktree's demo (tools/build.mjs --demo) to /tmp/tbwcr-<worktree folder>/demo.html first.
+ * Without --file it always builds this worktree's demo (tools/build.mjs --demo) fresh to /tmp/tbwcr-<worktree folder>/demo.html first
+ * (the old file is deleted before the build; a missing or older-than-a-minute file after the build is an error).
  * The page is opened with URL switches (?legacy=0&dev=1&debug=1&seed=5&classic=1&mock=1&demo=0&art=lantern): the demo build
  * must read none of them. Then: two campaigns of --runs runs each (classes in turn), the first from a fresh page, the second
  * after Settings > Start over. Every run is played by the engine's autoplay (the UI's AUTO step, instant speed) from hero
@@ -42,8 +43,10 @@ const SHOTS = arg('--shots', path.join(BUILD_DIR, 'demo-shots'));
 let FILE = arg('--file', null);
 if (!FILE) {
   FILE = path.join(BUILD_DIR, 'demo.html');
+  fs.rmSync(FILE, { force: true }); // never test an earlier file: a failed build leaves nothing behind
   const r = spawnSync(process.execPath, [path.join(REPO, 'tools/build.mjs'), '--demo', '--out', FILE, '--quiet'], { cwd: REPO, encoding: 'utf8' });
   if (r.status !== 0) { console.error(`demo build failed:\n${r.stdout}${r.stderr}`); process.exit(2); }
+  if (!fs.existsSync(FILE) || Date.now() - fs.statSync(FILE).mtimeMs > 60000) { console.error(`demo build did not write a fresh ${FILE}`); process.exit(2); }
 }
 FILE = path.resolve(FILE);
 fs.mkdirSync(SHOTS, { recursive: true });
