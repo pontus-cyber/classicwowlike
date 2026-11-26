@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node qa/browser/ui-regress.mjs [--file <build>]   (no --file: builds /tmp/tbwcr-<worktree>/game.html from src/ first, build-path.mjs)
- *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD]
+ *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD,AE]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -235,7 +235,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = resolveBuild(arg('--file', null));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD,AE').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -4070,6 +4070,49 @@ async function partQ(browser, W, H) {
 }
 
 // ------------------------------------------------------------------ run
+/** R2-6 (draft): the start camp's heading, the plain tooltip, "Name (level N)" in an enemy list, the demo-end chart clear of the buttons. */
+async function partAE(browser, W, H) {
+  const later = { ...R.newProfile(), runs: 2, welcome: true, guide: 'done' };
+  // ---- AE1: the start camp of a later run
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1', later);
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const camp = await page.evaluate(() => {
+        const sub = document.querySelector('#screens .pp-board .pp-sub');
+        const cards = [...document.querySelectorAll('#screens .pp-board .pp-card, #screens .pp-board .pp-offer')];
+        return { phase: window.__ui.view().phase, sub: sub ? sub.textContent : null, cards: cards.length, slots: window.__ui.view().prep ? window.__ui.view().prep.slots : null };
+      });
+      await shot(page, 'AE1-camp');
+      check('AE-1', 'the start camp of a later run: the Contracts heading says "up to four at a time" and the camp opens without an error',
+        camp.phase === 'PREP' && /up to four at a time/.test(camp.sub || ''), JSON.stringify(camp));
+      const text = await page.evaluate(() => document.querySelector('#screens').innerText);
+      check('AE-1', 'the camp text does not call a map place a "node"', !/\bnodes?\b/i.test(text), (text.match(/[^.\n]*\bnodes?\b[^.\n]*/i) || [''])[0]);
+    } catch (e) { await shot(page, 'AE1-error'); check('AE-1', 'part AE1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AE-1', 'part AE1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AE2: an enemy list in a node's panel (classic map)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&classic=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let foes = [];
+      for (let i = 0; i < 40 && !foes.length; i++) {
+        foes = await page.evaluate(() => [...document.querySelectorAll('#screens .foes .foe')].map((e) => e.textContent.replace(/\u00a0/g, ' ').trim()));
+        if (foes.length) break;
+        const reach = page.locator('#screens button.mnode.reach');
+        if ((await page.evaluate(() => window.__ui.view().phase)) === 'MAP' && (await reach.count())) { await reach.first().click(); await idle(page); }
+        else { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      }
+      check('AE-2', `an enemy list reads "Name (level N)" and no entry starts with a bare number (${foes.length} seen)`,
+        foes.length >= 1 && foes.every((t) => /\(level \d+\)$/.test(t) && !/^\d+\s/.test(t)), JSON.stringify(foes));
+    } catch (e) { await shot(page, 'AE2-error'); check('AE-2', 'part AE2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AE-2', 'part AE2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 // ------------------------------------------------------------------ part R: the guided first run (M3 3.5)
 /**
@@ -7408,6 +7451,9 @@ async function partAA0(browser, W, H) {
  *       "Begin a new run" still goes to hero select; with hints off the summary has no glowing Spend Echoes or nudge line and
  *       the Legacy hall shows no coach line and no marked card.
  *   AD4 the level-up banner: a toast that comes while it shows waits and follows it; a refusal shows at once.
+ *   AE  R2-6 (blind demo round 2, smaller items; draft text): on a later run the start camp's Contracts heading says "up to four at a time"
+ *       (no console error: the heading once read an out-of-scope name), the contract tooltips say "place" and not "node"; an enemy list
+ *       on the map reads "Name (level N)" with no bare leading count.
  */
 async function partAD(browser, W, H) {
   // ---- AD1
@@ -7550,6 +7596,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('AA')) await partAA(browser, W, H);
   if (PARTS.includes('BC')) await partBC(browser, W, H);
   if (PARTS.includes('AD')) await partAD(browser, W, H);
+  if (PARTS.includes('AE')) await partAE(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

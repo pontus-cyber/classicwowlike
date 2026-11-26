@@ -8,9 +8,9 @@ This is every player-facing line, name and number a demo player can see, grouped
 
 | | Rows |
 |---|---|
-| Total rows | **441** (438 in part 1, plus DM13-DM15: lines D.3 added, D176) |
+| Total rows | **449** (438 in part 1, plus DM13-DM15: lines D.3 added, D176; plus R2-1 to R2-8: blind round 2, R2-6) |
 | Approved earlier (decision named in the Status column) | 24 |
-| Draft | **417** |
+| Draft | **425** |
 | of which "to come" in part 1 (the demo spec adds them); built in D.3 since | 18 |
 | Flagged in part 1 (any flag) | **137** |
 | Part 2: **fixed** (the text in src changed, or the logic it needed is built) | **84** (76, plus the 8 that needed logic: L2-L5, built in ui-2026-11-26) |
@@ -19,6 +19,7 @@ This is every player-facing line, name and number a demo player can see, grouped
 | Part 2: **open: needs logic** (text change alone cannot fix it; hand-off docs/handoffs/content-2026-11-25.md L1-L6) | **0** (L1-L6 built, docs/handoffs/ui-2026-11-26.md; FT5, FT11, HL2, HL3, HL4, HL5, HL7, ST8 moved to fixed) |
 | Part 2: **open: owner name** (a rename is proposed on the owner page; not applied, see below) | **7** (FU2, EN15, EN31, EN32, IT1, IT4, IT5) |
 | Still flagged (open) | **7** (the owner-name rows) |
+| Blind round 2, R2-6 (2026-11-26, ui-2026-11-26e) | **34** earlier rows reworded ("place" for a map location, N27, and the rows named in the section R2), **8** new rows (R2-1 to R2-8). All draft |
 
 Part 1 flag letters, kept in brackets in each row's Flag cell: R repetition 40, M machine-sounding 11, U unclear 43, N naming 12, B wrong in the demo 2, X not for the demo 45 (a row can carry several).
 
@@ -74,6 +75,7 @@ Also open: the names the owner has not yet approved, each with one alternative o
 | [HL](#hl-legacy-hall-the-demo-hall-of-seven-entries) | Legacy hall (the demo hall of seven entries) | 14 | 14 | 2 | 10 | 5 |
 | [ST](#st-menu-and-settings) | Menu and settings | 11 | 11 | 2 | 6 | 1 |
 | [DM](#dm-lines-the-demo-adds-built-in-d3) | Lines the demo adds (built in D.3) | 15 | 15 | 12 | 5 | 0 |
+| [R2](#r2-blind-round-2-smaller-items-r2-6-draft) | Blind round 2: smaller items (R2-6) | 8 | 8 | 0 | 0 | 0 |
 
 ## Approved lines
 
@@ -125,7 +127,7 @@ The first screen. Words with "Echoes" show as "Legacy points" and "Hall of Echoe
 | HS15 | Seed (label) · random (placeholder) | draft | **explained** (X): D.3: the demo build has no Seed field (spec 2.3) | ui/screens.js |
 | HS16 | Guided first run (switch) | draft |  | ui/screens.js |
 | HS17 | Guided first run: Zone 1 teaches the game as you play: one short line at a time. Skip it at any point. Settings can play it again later. | draft |  | ui/screens.js |
-| HS18 | Legacy hall button: "{n} Legacy points" with a badge of unlocks in reach; tooltip: Legacy hall · Spend Legacy points on lasting unlocks: stats, items in the drop pools, skills and more. · {n} Legacy points · {k} unlocks within reach · Click to open | draft | **demo variant** (X): built in D.3 (wired): the demo tooltip reads "Spend Legacy points on lasting unlocks." | ui/screens.js |
+| HS18 | Legacy hall button: "{n} Legacy points" with a badge of unlocks in reach; tooltip: Legacy hall · Spend Legacy points on lasting unlocks: stats, items in the drop pools, skills and more. · {n} Legacy points · {k} unlocks within reach (the entries the balance buys together, cheapest first, R2-6) · Click to open | draft | **demo variant** (X): built in D.3 (wired): the demo tooltip reads "Spend Legacy points on lasting unlocks." | ui/screens.js |
 | HS19 | Resource: Energy and combo points / Mana / Focus, plus a pet · Basic attack: Strike / Spark / Auto Shot · Primary stat: Agility / Intellect · Starting spells / Spells · Companion | draft |  | ui/screens.js |
 | HS20 | Hunter companions: Ridgewolf (Balanced hunter. Every third attack strikes twice.) · Thornback Boar (A sturdy tank. Taunts every enemy in round 1 and every 4 rounds after.) · Duskcat (Fragile and deadly. Hits hard with a higher critical chance.) · Stormhawk (Its attacks also strike a second enemy.; full game only) | draft | **fixed** (M, X): "Meta unlock." removed; D.3 does not list the Stormhawk in the demo | ui/mock-data.js |
 | HS21 | Unlock it with Stormhawk in the Legacy hall. (Stormhawk card tooltip) | draft | **explained** (X): D.3 does not list the Stormhawk in the demo, so the line cannot show there; in the full game the hall sells it | ui/screens.js |
@@ -143,9 +145,9 @@ Run 1 is the lean camp (supplies only, 5 camp points); run 2 shows one contract 
 | SC3 | Pick your contracts and supplies for the road to Amberfold Downs. (later runs) | draft |  | ui/prep.js |
 | SC4 | Your camp has grown: {points} camp points and a contract board. Contracts give XP, gold and a choice of gear. | draft |  | content/texts.js |
 | SC5 | Keys line: 1-3 contracts · A-D supplies · Enter set out | draft |  | ui/prep.js |
-| SC6 | Contracts (heading) · Up to three at a time. Each gives its reward when its task is done. | draft | **fixed** (X): true for one offer or three, in both builds; "site" gone | ui/prep.js |
-| SC7 | Card: Cull / Wanted / Delve · Zone {n} · {family or elite or dungeon} · Win {n} marked sites in {region} / Hunt it down in {region} / Clear the dungeon, its boss included · Reward {xp} XP · gold {coins} · choose 1 of 3 · Take / Drop / Taken | draft | **explained** (U): the card line under the kind says the task ("Win 3 marked sites in ...", "Hunt it down in ...", "Clear the dungeon ..."); the bounty kind is now "Wanted" (CT5) | ui/prep.js |
-| SC8 | Contract tooltip: Win {n} fights on Quest or Grind nodes that carry its mark, most of them in {region}. Other fights do not count. | draft | **fixed** (R): one "mark", no "sites" | ui/prep.js |
+| SC6 | Contracts (heading) · You can hold up to four at a time. Each gives its reward when its task is done. | draft | **fixed** (X, R2-6): the number is the board's slot count in words, the same four as the tracker's "Contract slots 1/4"; "site" gone | ui/prep.js |
+| SC7 | Card: Cull / Wanted / Delve · Zone {n} · {family or elite or dungeon} · Win {n} marked places in {region} / Hunt it down in {region} / Clear the dungeon, its boss included · Reward {xp} XP · gold {coins} · choose 1 of 3 · Take / Drop / Taken | draft | **explained** (U): the card line under the kind says the task ("Win 3 marked places in ...", "Hunt it down in ...", "Clear the dungeon ..."); the bounty kind is now "Wanted" (CT5) | ui/prep.js |
+| SC8 | Contract tooltip: Win {n} fights at marked Quest or Grind places, most of them in {region}. Other fights do not count. | draft | **fixed** (R, R2-6): "places", the one word for a map location (N27) | ui/prep.js |
 | SC9 | Contract tooltip: Hunt down {elite} in {region}. | draft |  | ui/prep.js |
 | SC10 | Contract tooltip: Clear {dungeon}, its boss included. | draft |  | ui/prep.js |
 | SC11 | Contract tooltip: Reward: {n} XP, {gold}, and 1 of 3 items. · Cost: {n} camp points. | draft |  | ui/prep.js |
@@ -153,8 +155,8 @@ Run 1 is the lean camp (supplies only, 5 camp points); run 2 shows one contract 
 | SC13 | Supply cards: Field Draughts 1 · Ember of Return 4 · Region Charts 1 · Tracker's Notes 2; tags Supply / Map; Buy / Sell / Owned | draft | **fixed** (U): tag "Map" for the two map supplies | ui/prep.js |
 | SC14 | Field Draughts · effect: 2 Healing Draughts in your bags. · flavour: Corked bottles of bitter red, brewed by a hedge healer who will not say what is in them. | draft |  | content/texts.js |
 | SC15 | Ember of Return · effect: One Ember of Return: you rise again once when you would die. · flavour: A coal that never cools, kept in a clay pot for the day the road ends badly. | draft |  | content/texts.js |
-| SC16 | Region Charts · effect: Every node's region and every dungeon shown on each zone map. · flavour: Hand-inked sheets, folded soft from use, with the roads and the bad ground marked. | draft |  | content/texts.js |
-| SC17 | Tracker's Notes · effect: Contract sites marked within 2 hops of you, even on nodes you have not seen yet. · flavour: A scout's cramped notes on tracks, droppings and where the quarry sleeps. | draft |  | content/texts.js |
+| SC16 | Region Charts · effect: Every place's region and every dungeon shown on each zone map. · flavour: Hand-inked sheets, folded soft from use, with the roads and the bad ground marked. | draft |  | content/texts.js |
+| SC17 | Tracker's Notes · effect: Contract marks show up to 2 steps away, even on places you have not seen yet. · flavour: A scout's cramped notes on tracks, droppings and where the quarry sleeps. | draft |  | content/texts.js |
 | SC18 | Option tooltip: {n} camp points, in effect when you set out (vision: for the whole run) · sold back for a full refund until you set out · Click or press {A-D} to buy it / to sell it back (+{n}) | draft |  | ui/prep.js |
 | SC19 | Option tooltip, owned: Owned already (Legacy hall or the run's options): nothing to buy. | draft |  | ui/prep.js |
 | SC20 | Camp points (counter) · tooltip: {n} this run; {m} spent. Points you keep can buy a contract at a hub on the way. They do not carry over to the next run. · {k} of 3 contract slots used | draft | **fixed** (R): the tooltip no longer says what H23 says | ui/prep.js |
@@ -173,7 +175,7 @@ Coach lines show one at a time under the HUD. {key_...} is filled with the key (
 |---|---|---|---|---|
 | GR1 | G1 Contracts: Take a contract: win its fights for extra XP and a reward. | draft |  | content/tutorial.js |
 | GR2 | G1 Contracts (noContract): Set out with no contract? Press Set out again. | draft |  | content/tutorial.js |
-| GR3 | G2 Moving: Click a lit node next to you to walk there. | draft |  | content/tutorial.js |
+| GR3 | G2 Moving: Click a lit place next to you to walk there. | draft |  | content/tutorial.js |
 | GR4 | G4 Loot: Green arrow means upgrade. Equip it in your bags {key_bags}. | approved D150 item 18 |  | content/tutorial.js |
 | GR5 | G5 The Furnace: Every move costs tolls. Spend too many and the final boss gets stronger. | approved D150 item 12 |  | content/tutorial.js |
 | GR6 | G6 Intents: Its next three moves, in order. The big one is marked. | draft |  | content/tutorial.js |
@@ -182,7 +184,7 @@ Coach lines show one at a time under the HUD. {key_...} is filled with the key (
 | GR9 | G8 Wind-up (landed): It landed: that enemy hits harder until it dies. | draft |  | content/tutorial.js |
 | GR10 | G8 Wind-up (withEngage): Round 1 is yours: open with {key_engage2} on the wind-up and it is weakened all fight. | draft |  | content/tutorial.js |
 | GR11 | G9 Deathblow (landed): Maimed: your healing is halved this fight. Drink early. | draft | **fixed** (R): H06 now has the same words; G9 stands in for H06 (one line on screen); the chip tooltip is the status on hover | content/tutorial.js |
-| GR12 | G10 Contract sites: Contract site: win this fight to count it. | draft |  | content/tutorial.js |
+| GR12 | G10 Contract marks: Marked place: win this fight to count it. | draft |  | content/tutorial.js |
 | GR13 | G10 Contract sites (done): Contract done: choose one reward. | draft |  | content/tutorial.js |
 | GR14 | G11 Potions: Low health: drink a Healing Draught ({key_item1}). | draft |  | content/tutorial.js |
 | GR15 | G12 The Dimming: The dark spreads from the purple star. Places it reaches are lost. | approved D150 item 13 |  | content/tutorial.js |
@@ -212,12 +214,12 @@ Coach lines show one at a time under the HUD. {key_...} is filled with the key (
 | GR39 | H12 Trainer: retired, no line | draft |  | content/tutorial.js |
 | GR40 | H13 Spell bar: Drag your new spell onto the bar (spellbook, {key_spellbook}). | draft |  | content/tutorial.js |
 | GR41 | H14 Talents: Talent point: spend it in Talents ({key_talents}). | draft |  | content/tutorial.js |
-| GR42 | H15 Fog: You see the nodes next to you. Walking shows more. | draft |  | content/tutorial.js |
+| GR42 | H15 Fog: You see the places next to you. Walking shows more. | draft |  | content/tutorial.js |
 | GR43 | H16 The Furnace: Every move costs tolls. Spend too many and the final boss gets stronger. | approved D150 item 12 | **demo variant** (X): demo line (tutorial.js demo.hints.H16): "Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll." Also G5. Wired (L1): content/index.js binds `TUTORIAL.demo` under C.GATES.demo | content/tutorial.js |
 | GR44 | H17 Burning: Burning: more XP, gold and better drops, but the final boss gets stronger. | draft | **demo variant** (X): demo line (tutorial.js demo.hints.H17): "Burning: more XP, gold and better drops. The Dimming still spreads with every toll." Wired (L1): content/index.js binds `TUTORIAL.demo` under C.GATES.demo | content/tutorial.js |
 | GR45 | H18 The Dimming: The dark spreads from the purple star. Places it reaches are lost. | approved D150 item 13 |  | content/tutorial.js |
 | GR46 | H19 Homeward Bell: same line as beat G13 | draft |  | content/tutorial.js |
-| GR47 | H20 Contract site: Contract site: win this fight to count it. | draft |  | content/tutorial.js |
+| GR47 | H20 Contract mark: Marked place: win this fight to count it. | draft |  | content/tutorial.js |
 | GR48 | H21 Contract done: Contract done: choose one reward. | draft |  | content/tutorial.js |
 | GR49 | H22 Hub contract: This hub offers a contract. Pay in camp points, or swap one you hold. | draft |  | content/tutorial.js |
 | GR50 | H23 Start camp: Camp points buy contracts and supplies. Keep a few to take a contract at a hub later. | draft |  | content/tutorial.js |
@@ -226,10 +228,10 @@ Coach lines show one at a time under the HUD. {key_...} is filled with the key (
 | GR53 | H26 Dungeon: Dungeon: several fights and a boss in one visit. | draft |  | content/tutorial.js |
 | GR54 | H27 Disrupt: Bosses resist control: {key_engage2} disrupts their first wind-up instead. | draft |  | content/tutorial.js |
 | GR55 | H28 Vendor: Sell what you do not need. Potions are always in stock. | draft |  | content/tutorial.js |
-| GR56 | H29 Rest: Rest: back to full health and mana, for tolls. | draft |  | content/tutorial.js |
+| GR56 | H29 Rest: Rest: back to full health, for tolls. | draft | **fixed** (R2-6): says "health" only; mana is named for a Mage in the Rest tooltip (MP9) and in the Mage's own resource line (GR23) | content/tutorial.js |
 | GR57 | H30 Pass: Sapped: press Pass ({key_pass}) and it stays sapped, so its wind-up never comes. | draft | **fixed** (U): one word, Pass; Sapped is on the enemy when the hint shows | content/tutorial.js |
 | GR58 | H31 Autoplay: {key_autoplay} lets autoplay fight for you. It stops Deathblows too. | draft |  | content/tutorial.js |
-| GR59 | H32 Flee: You can flee ({key_flee}). The node stays open for later. | draft |  | content/tutorial.js |
+| GR59 | H32 Flee: You can flee ({key_flee}). The place stays open for later. | draft |  | content/tutorial.js |
 | GR60 | H33 Pet: Your pet fights beside you and draws some of the blows. | draft |  | content/tutorial.js |
 | GR61 | H34 Stealth: retired, no line | draft |  | content/tutorial.js |
 | GR62 | H35 The Camp: The Camp: last stop before Oruvath. Spend your gold here. | draft | **explained** (X): cannot fire in the demo (no Camp; spec 4.1); no change | content/tutorial.js |
@@ -293,21 +295,21 @@ The map is the main screen. Each node type has a tooltip, and a dialog on enteri
 | MP1 | Node names: Quest, Grind, Elite (Rare elite), Dungeon, Rest, Vendor, Trainer, Treasure, Shrine · Hub: Zone hub: trainer, vendor and inn | draft |  | ui/screens.js |
 | MP2 | Fog: Unknown: not seen yet. Its ring (how far it is from the hub) gives its level range. · Seen from afar: its type only. · Remembered: seen before, out of sight now. · Ring {n} · levels {a}-{b} · Ring {n} · guided fight | draft | **fixed** (U): the ring is explained; "guided fight" names the guided run's set fights | ui/screens.js |
 | MP3 | Legend: In sight · Remembered · Seen from afar · Unknown · Dimmed · Dims in 3 tolls · Shardfall | draft | **fixed** (M): player words for the fog states | ui/screens.js |
-| MP4 | Vision: Nodes up to {n} step(s) away are in full view; a node once seen stays on the map. · Your charts show every region. / A region shows where you have seen its land. · Pathfinder: node types up to {n} steps away. | draft | **fixed** (U): "steps" for map distance (as the Tracker's Notes rule) | ui/screens.js |
+| MP4 | Vision: Places up to {n} step(s) away are in full view; a place once seen stays on the map. · Your charts show every region. / A region shows where you have seen its land. · Pathfinder: place types up to {n} steps away. | draft | **fixed** (U, R2-6): "steps" for map distance (as the Tracker's Notes rule); "place" for a map location (N27) | ui/screens.js |
 | MP5 | Quest tooltip: {quest title} · From {giver} · Foes: {n} enemies + role badges · A quest giver needs help. One fight, then experience, gold and a choice of two rewards. Three quests in a zone complete its story. | draft |  | ui/screens.js |
 | MP6 | Grind tooltip: Wave 1: {n} enemies · Fight 1 to 3 waves of two enemies. Steady experience, gold and more drops. | draft |  | ui/screens.js |
 | MP7 | Elite tooltip: {name} · Elite level {n} · Has a Deathblow: one huge hit you must stop. · One powerful enemy, two levels higher. High experience and a guaranteed good item. | approved D150 item 23 (Deathblow line) |  | ui/screens.js |
-| MP8 | Dungeon tooltip: {dungeon} · Boss: {boss} · Fight 1: 2 enemies … · Its boss has a Deathblow: one huge hit you must stop. · Three fights and a dungeon boss. The best loot in the zone, and the most dangerous node. | draft |  | ui/screens.js |
-| MP9 | Treasure / Rest / Vendor / Shrine tooltips: Unguarded · Full health and mana, and rested experience: kills give double XP until it runs out. · Buy potions, rations and gear; sell junk and old equipment. · Learn new spells and train known ones to your level. · Choose one of two blessings. | draft |  | ui/screens.js |
+| MP8 | Dungeon tooltip: {dungeon} · Boss: {boss} · Fight 1: 2 enemies … · Its boss has a Deathblow: one huge hit you must stop. · Three fights and a dungeon boss. The best loot in the zone, and the most dangerous place. | draft |  | ui/screens.js |
+| MP9 | Treasure / Rest / Vendor / Shrine tooltips: Unguarded · Full health (and mana, for a Mage), and rested experience: kills give double XP until it runs out. · Buy potions, rations and gear; sell junk and old equipment. · Learn new spells and train known ones to your level. · Choose one of two blessings. | draft | **fixed** (R2-6): a Hunter or Rogue starts every fight with a full resource, so the Rest tooltip names mana only for a Mage | ui/screens.js |
 | MP10 | Zone danger line: Zone danger: enemies here deal up to +{N} % damage (above level {n}). | draft | **explained** (R): the banner shows once on arrival; this is the same rule on hover over the zone line, where the player looks it up later | ui/screens.js |
 | MP11 | Move lines: Click to enter · Click to walk here · Click to travel here · Costs {n} tolls. · Not here yet. · You are here · Not next to you · Visited · Done | draft | **fixed** (M): one wording | ui/screens.js |
 | MP12 | Costs {n} tolls. (move cost; "Costs {n} tolls a wave." for a Grind; "Costs {n} tolls, then a fight in the Dimming.") | approved D150 item 6 |  | ui/heat.js |
-| MP13 | Not here yet. (a barred node) | approved D150 item 23 |  | ui/screens.js |
+| MP13 | Not here yet. (a barred place) | approved D150 item 23 |  | ui/screens.js |
 | MP14 | Entered {Calm/Smouldering/Burning/Infernal}: it gave a bonus · {state} bonus: +35 % XP and gold, 1 in 2 drops a rarity up. | draft |  | ui/heat.js |
 | MP15 | Road node: {Road name}: leads to {next zone hub} · A Road out of the zone, to {hub}. · Standing on it: Take the Road · {n} tolls · Dimmed: first a fight with this zone's creatures, made stronger by the dark; then the Road can still be taken. | draft | **explained** (X): D.3: in zone 2 of the demo the Road tooltip reads "{Road name}. Leaving Greywater Fens ends this demo run. You keep your levels and Legacy points." (no zone 3 name) | ui/screens.js |
-| MP16 | Road click: Walk to the Road first · Too far: click a lit node | draft |  | ui/screens.js |
+| MP16 | Road click: Walk to the Road first · Too far: click a lit place | draft |  | ui/screens.js |
 | MP17 | Dimmed node: Lost to the Dimming: it can no longer be done. · Dimmed: entering or staying here starts a fight with this zone's creatures, made stronger by the dark; what it held is lost. | draft | **fixed** (R): the Dimming panel no longer repeats it (MP19); the node and the Road tooltips are hovered one at a time | ui/screens.js |
-| MP18 | Dimming panel: {n} of {m} places Dimmed · Starts to spread in {n} tolls · Spreads in {n} tolls: {k} places · Spreads again in {n} tolls · You stand in the Dimming! · Your node dims in {n} tolls | draft |  | ui/screens.js |
+| MP18 | Dimming panel: {n} of {m} places Dimmed · Starts to spread in {n} tolls · Spreads in {n} tolls: {k} places · Spreads again in {n} tolls · You stand in the Dimming! · Your place dims in {n} tolls | draft |  | ui/screens.js |
 | MP19 | Dimming panel tooltip: The Dimming · Darkness that spreads from the Shardfall, place by place. Whoever stands in it must fight. · It spreads up to 2 places for each toll, nearest the purple star first, once you have spent 6 tolls in the zone. · What a Dimmed place held is lost. Leave by a Road or the Bell before the dark reaches you. | draft | **fixed** (R, M): the Dimmed-node rule said once (the node tooltip); the pace line is a sentence | content/texts.js, ui/screens.js |
 | MP20 | Held corridor (guided zone): The Bellwrights ring back the dark on this road until Gorrak's fight is over. | draft | **fixed** (U): see GR73 | content/tutorial.js |
 | MP21 | Travel: Ring the Bell ({n}) · It takes you to the hub of {zone} · Leave for {zone}. · {n} contracts here will expire: {list}. No reward. · Click, then confirm | draft | **explained** (X): D.3: in zone 2 of the demo the Bell and Road tooltips carry the demo leave line, not the zone 3 hub | ui/screens.js |
@@ -318,7 +320,7 @@ The map is the main screen. Each node type has a tooltip, and a dialog on enteri
 | MP26 | Elite dialog: {elite name} · Elite · level {n} (Rare elite for a rare) · {flavour line} · Threat: High: elites hit hard and have special abilities · Reward: Large experience, gold and a guaranteed good item · Escort: {name} · Engage | draft |  | ui/screens.js |
 | MP27 | Dungeon dialog: {dungeon} · Dungeon · level {n} · {dungeon text} · Fights: {n} groups, then {boss} · Between fights: You may eat, change gear, or leave with what you have · Warning: No fleeing from the dungeon boss · Enter the dungeon · Eat Trail Rations ({n}) · Leave the dungeon · Press on · Face the boss · Fight {n} of {m} cleared · Next: {boss}. There is no fleeing from the boss. | draft |  | ui/screens.js |
 | MP28 | Treasure / Rest / Shrine dialogs: A guardian watches the chest: {name}. · The chest is yours. · Open the chest · Rest · Campfire · You rest by the fire until the ache leaves your bones. · {n} XP: kills give double experience · Shrine · Choose one blessing · An old shrine hums softly. · A needle trap! · You lost some health opening it. | draft |  | ui/screens.js |
-| MP29 | Shrine blessings: Boon of Return (An extra Ember of Return, kept until you use it.) · Boon of Insight (+20 % experience for the next 3 nodes.) · Boon of Fury (+15 % damage for the next 3 nodes.) · Boon of Plenty (A pouch of gold, now.) · Boon of Mending (Full health and mana now, plus rested experience.) · Boon of Clarity (Your next respec is free, and every spell is trained to your level now.) | draft | **fixed** (N, R): the boon grants an Ember of Return; the HUD, log and banner name the revive "Ember of Return" for both sources. The badge and tooltip show one count when both sources are held ("Ember of Return ×2", L6). The blessing's own name "Boon of Return" is an engine constant (owner page) | ui/mock-data.js |
+| MP29 | Shrine blessings: Boon of Return (An extra Ember of Return, kept until you use it.) · Boon of Insight (+20 % experience for the next 3 places.) · Boon of Fury (+15 % damage for the next 3 places.) · Boon of Plenty (A pouch of gold, now.) · Boon of Mending (Full health now, plus rested experience. A Mage also gets its mana back.) · Boon of Clarity (Your next respec is free, and every spell is trained to your level now.) | draft | **fixed** (N, R): the boon grants an Ember of Return; the HUD, log and banner name the revive "Ember of Return" for both sources. The badge and tooltip show one count when both sources are held ("Ember of Return ×2", L6). The blessing's own name "Boon of Return" is an engine constant (owner page) | ui/mock-data.js |
 | MP30 | Minimap and tracker: Zone story: {n} / 3 quests · Levels {a}-{b} · Contract slots {n}/3 · {points} camp points · None in this zone · Expires when you leave this zone · Both expire when you leave this zone · Later: {n} contract(s) (zone {z}) · L | draft | **fixed** (U): "Zone story" in the tracker, the reward window and the summary | ui/prep.js |
 
 ## FU The Furnace (heat bar) and the Dimming meter
@@ -332,14 +334,14 @@ The bar is hidden in the guided first run until its coach line has shown. State 
 | FU3 | Calm · Smouldering · Burning · Infernal | draft | **fixed** (R): the fire status is now "Ablaze" (FT1), so "Burning" names only the Furnace state; "Infernal" is the fourth state and shows on the bar and its tooltip | ui/ui-text.js |
 | FU4 | Tooltip: Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger. | approved D150 item 5 | **demo variant** (X): demo line DEMO_TEXT.furnaceLine: "Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll." The approved line stays for the full game. Wired (L1): heat.js `furnaceLine(ctx)` in the meter tooltip and the hub intro; "Boss +N %" hidden in the demo | ui/heat.js |
 | FU5 | Tooltip rows: Calm: Tolls to spare · Smouldering: Up to 10 overspent · Burning: 10 to 30 overspent, +35 % XP and gold, 1 in 2 drops a rarity up · Infernal: 30 or more overspent, +50 % XP and gold, 7 in 10 drops a rarity up | approved D150 item 5 |  | ui/heat.js |
-| FU6 | Tooltip when the Dimming sets the state: Your node dims in {n} tolls. Tolls: {n} overspent / to spare / none to spare. The dark near you sets the Furnace now. · ◆ The dark near you. The marker further right sets the state. | draft | **fixed** (R): "the dark" for the second mention; one "sets" per line | ui/heat.js |
+| FU6 | Tooltip when the Dimming sets the state: Your place dims in {n} tolls. Tolls: {n} overspent / to spare / none to spare. The dark near you sets the Furnace now. · ◆ The dark near you. The marker further right sets the state. | draft | **fixed** (R): "the dark" for the second mention; one "sets" per line | ui/heat.js |
 | FU7 | Meter line while the Dimming sets it: The Dimming is near · You stand in the Dimming · tag: Set by your tolls / Set by this place | draft |  | ui/heat.js |
-| FU8 | Inside a node: This place counts as {state}. A place counts in the state you entered it in, whatever the Furnace shows later. | draft |  | ui/heat.js |
+| FU8 | Inside a place: This place counts as {state}. A place counts in the state you entered it in, whatever the Furnace shows later. | draft |  | ui/heat.js |
 | FU9 | Carry-over: Tolls carry over: {n} overspent / saved before this zone; this zone gives {m}. · Zone 2 gives you 20 tolls, plus the 10 you saved: 30 to spare. (on arrival in zone 2, beside Set out) | draft | **fixed** (U): plain sum | ui/heat.js |
-| FU10 | The Dimming takes {n} places while you are inside. (node tooltip) | draft |  | ui/heat.js |
-| FU11 | Item badge: ▲ The Furnace · Raised by the Furnace: Found in a node entered Burning: one rarity better than it dropped. · ▲ The Furnace raised it one rarity (found Rare) | draft | **fixed** (R): "raised" once in the tooltip | ui/heat.js |
+| FU10 | The Dimming takes {n} places while you are inside. (place tooltip) | draft |  | ui/heat.js |
+| FU11 | Item badge: ▲ The Furnace · Raised by the Furnace: Found in a place entered Burning: one rarity better than it dropped. · ▲ The Furnace raised it one rarity (found Rare) | draft | **fixed** (R): "raised" once in the tooltip | ui/heat.js |
 | FU12 | Log line on a change of state: The Furnace: Burning · 3 tolls overspent. | draft |  | ui/heat.js |
-| FU13 | Run summary, Furnace card: The Furnace · Tolls in each state: Calm {n} · Smouldering {n} … · Tolls per zone: above 0 overspent, below 0 to spare · Tolls: {n} · {n} tolls to spare / overspent in the last zone · Nodes entered, by the state you entered them in: … · Fights won while Burning or Infernal: {n}. The Dimming caught you {n} times (Infernal where it stands). Hover a point for its tolls. | draft | **fixed** (R, X): one "Tolls" fewer (caption "Per zone: ..."); the Oruvath end line shows only after the Camp (summary reachedCamp), never in the demo | ui/heat.js |
+| FU13 | Run summary, Furnace card: The Furnace · Tolls in each state: Calm {n} · Smouldering {n} … · Tolls per zone: above 0 overspent, below 0 to spare · Tolls: {n} · {n} tolls to spare / overspent in the last zone · Places entered, by the state you entered them in: … · Fights won while Burning or Infernal: {n}. The Dimming caught you {n} times (Infernal where it stands). Hover a point for its tolls. | draft | **fixed** (R, X): one "Tolls" fewer (caption "Per zone: ..."); the Oruvath end line shows only after the Camp (summary reachedCamp), never in the demo | ui/heat.js |
 
 ## HB Hub, trainer, vendor, inn
 
@@ -352,7 +354,7 @@ Hubs: Millbrook Rest (zone 1), Stilt Haven (zone 2).
 | HB3 | Vendor card: Potions, rations and gear · Potions and rations (gear sold out) | draft |  | ui/screens.js |
 | HB4 | Inn card: Full rest and rested experience · Used this visit · Rest anyway? · Health {n} %, mana {n} %: nearly full · Rest · {n} tolls · Cancel | draft |  | ui/screens.js |
 | HB5 | You have {n} unspent talent point(s). Press N. | draft |  | ui/screens.js |
-| HB6 | Hub contract (from the second zone on): Contract on offer · {hub} has work on the board: {contract} · Take for {n} camp points (you have {m}) · Swap… · Keep my contracts · Give up: {contract} · zone {z}, {progress} · Take it for camp points: Pay {n} camp points of your {m}. It needs a free slot ({k} of 3 used). Only before you leave this hub. · Swap: Give up one contract you hold and take this one for free. No refund; its progress is lost. Only before you leave this hub. · Contract taken · {title}: its sites are on the map and in your tracker. | draft | **fixed** (R): "Only before you leave this hub" once (Take); Swap explains itself in its tooltip; "its marks are on the map" | ui/prep.js |
+| HB6 | Hub contract (from the second zone on): Contract on offer · {hub} has work on the board: {contract} · Take for {n} camp points (you have {m}) · Swap… · Keep my contracts · Give up: {contract} · zone {z}, {progress} · Take it for camp points: Pay {n} camp points of your {m}. It needs a free slot ({k} of {slots} used). Only before you leave this hub. · Swap: Give up one contract you hold and take this one for free. No refund; its progress is lost. Only before you leave this hub. · Contract taken · {title}: its marks are on the map and in your tracker. | draft | **fixed** (R): "Only before you leave this hub" once (Take); Swap explains itself in its tooltip; "its marks are on the map" | ui/prep.js |
 | HB7 | Trainer window: Trainer · Train spells to bring them up to your level. · Train to rank {n} · Requires level {n} · Train all · Raises each spell that can train by one rank, then learns the new spells your gold covers. | approved D150 item 21 (subtitle) |  | ui/screens.js |
 | HB8 | Vendor window: Vendor · Buy and sell · Wandering merchant · Need more gold · Potions, rations and gear · Sells for: {price} | draft |  | ui/screens.js |
 | HB9 | Vendor log lines: You buy {item}. · You sell {item} for {n} copper. · You sell {n} junk items for {n} copper. · You learn {spell}. · {spell} trained to rank {n}. | draft |  | ui/director.js |
@@ -394,11 +396,11 @@ Contract sentences are built from four templates and the family names. Zone 1-2 
 
 | ID | Text | Status | Flag | Source |
 |---|---|---|---|---|
-| CT1 | cull: Beat the {family} at {n} marked sites, most of them in {region}. | draft |  | content/texts.js |
+| CT1 | cull: Beat the {family} at {n} marked places, most of them in {region}. | draft |  | content/texts.js |
 | CT2 | bounty: Hunt down {elite}, a {familyOne} roaming {region}. | draft |  | content/texts.js |
 | CT3 | delve: Clear {dungeon}, its boss included. | draft |  | content/texts.js |
 | CT4 | hub: {hub} has work on the board: {contract} | draft |  | content/texts.js |
-| CT5 | Kind names: Cull · Wanted · Delve · Win fights at its sites: Quest and Grind nodes, most of them in one region. · Hunt down one named elite that roams one region. · Clear the zone's dungeon, its boss included. | draft | **fixed** (N): Bounty is now "Wanted" (no clash with Gorrak's bounty); Cull and Delve are plain English and each kind has its one-line tooltip; the kind names are on the owner page | ui/ui-text.js |
+| CT5 | Kind names: Cull · Wanted · Delve · Win fights at its marked places: Quest and Grind places, most of them in one region. · Hunt down one named elite that roams one region. · Clear the zone's dungeon, its boss included. | draft | **fixed** (N): Bounty is now "Wanted" (no clash with Gorrak's bounty); Cull and Delve are plain English and each kind has its one-line tooltip; the kind names are on the owner page | ui/ui-text.js |
 | CT6 | Family outlaws · done line: “Fewer outlaws on the roads. The carters will sleep easier.” | draft |  | content/texts.js |
 | CT7 | Family wild beasts · done line: “The wild beasts keep their distance now. The herders thank you.” | draft |  | content/texts.js |
 | CT8 | Family blighted things · done line: “The blighted things are burnt back. The fields can breathe.” | draft | **fixed** (U): plain family name | content/texts.js |
@@ -407,7 +409,7 @@ Contract sentences are built from four templates and the family names. Zone 1-2 
 | CT11 | Family witchkin · done line: “The witchkin's hexes are broken, and the wells taste clean.” | draft |  | content/texts.js |
 | CT12 | Delve done line: {dungeon} is quiet at last. | draft |  | ui/ui-text.js |
 | CT13 | Fallback done line: A runner from {hub} brings your pay. Well done. | draft |  | ui/ui-text.js |
-| CT14 | Site lines: While you hold it, {dungeon} shows on the zone map. · Only Quest or Grind nodes with its mark count; other fights do not. · Marks show up to {n} steps away (, {n} more with the Local Guide) (; with Tracker's Notes up to {n} steps, even on nodes you have not seen). · It can be found at {n} Elite nodes away from the hub; beat it at either. | draft | **fixed** (R): "steps"; the Local Guide and Tracker's Notes parts show only when the player has them (the demo camp has no Local Guide) | ui/ui-text.js |
+| CT14 | Where-to-go lines: Delve: Go to {dungeon}. It shows on the zone map while you hold this contract. · Cull: Go to {region}. Only the marked Quest and Grind places count; other fights do not. · Wanted: Go to {region}. {elite} stands at {n} marked Elite places there. Beat it at either one. · every kind: Its marks show on the map up to {n} steps away (, {n} more with the Local Guide) (; with Tracker's Notes up to {n} steps, even on places you have not seen). | draft | **fixed** (R, R2-6): plain sentences that say where to go first, then what counts, then how far away the marks show; "places" and "steps"; the Local Guide and Tracker's Notes parts show only when the player has them | ui/ui-text.js |
 | CT15 | Reward line: choose 1 of {n}: {p} % rare, {p} % epic | draft | **explained** (M): the card holds it on one uncut line (ui-regress M-prep); the figures are the item chances the player asked for in the blind rounds; no change | ui/ui-text.js |
 | CT16 | Contract log lines: Contract taken: {name} · Contract site won: {name} · {n} / {m} · Contract complete: {name} · Contract expired: {name} · Contract given up: {name} | draft |  | ui/engine-bridge.js |
 | CT17 | Board screen (run 2): Your camp has grown: {points} camp points and a contract board. Contracts give XP, gold and a choice of gear. | draft | **fixed** (R): "give", not "pay" | content/texts.js |
@@ -470,7 +472,7 @@ Shown in every fight. Key letters are the ones in the build today. Status words 
 | FT6 | Engage and action bar: Empty slot {n} · Drag a spell here from the spellbook (P). · Empty item slot 8/9/0 · Drag a potion or flask here from your bags (B). · Off-balance window: lands on {names} for more damage and more crits. · Off-balance window on {names}: target it first (click its nameplate or Tab). · Not enough energy for Gutting Jab: it costs 40, you have 30 · Not enough {mana/focus/energy} for {spell} | draft | **explained** (R): the two lines are alternatives (target on it / not); one shows | ui/hud.js |
 | FT7 | Potion slot: {n} health · {n} mana · Costs no turn, half strength (Packed Satchel) · Maimed: restores {n} health now (healing you receive −{n} % for the rest of this fight). · Item slot {key}: {potion}. Low health: drink it | draft | **fixed** (U): "Costs no turn", as H10; the Maimed line shows only when maimed | ui/hud.js |
 | FT8 | Autoplay: When on, the game picks each combat action for you (bar order is the priority). You can switch at any time, also mid-fight. · Key: Z · Autoplay will stop the Deathblow/wind-up with {enemy}, then wait a round · Pass: Do nothing this round. Resources still regenerate. · Key: X | draft | **fixed** (R): the priority rule is now only here (removed from the Spellbook, SP39) | ui/hud.js |
-| FT9 | Flee: Try to escape. On success you leave the node with no further rewards. · Chance: {n} % · Key: F (press twice) · Flee this fight? ({n} % chance) · again or Confirm to run · or any action to stay · You fail to escape! | draft |  | ui/hud.js, ui/director.js |
+| FT9 | Flee: Try to escape. On success you leave the place with no further rewards. · Chance: {n} % · Key: F (press twice) · Flee this fight? ({n} % chance) · again or Confirm to run · or any action to stay · You fail to escape! | draft |  | ui/hud.js, ui/director.js |
 | FT10 | Combat log: You use {spell}. · Your {spell} hits/crits {enemy} for {n}. · Your {spell} misses {enemy}. · {Enemy} dodges your {spell}. · {Enemy}'s {ability} hits/crits you for {n}. · {Enemy} winds up {ability}! · {Enemy} uses {ability}. · {n} absorbed · {ability} costs you {n} health. · You suffer {n} from {ability}. · {name} dies. / {name} has fallen. · {source} flares: you return to the fight! · {Enemy} signals for help: one more enemy joins · {Enemy} bolsters {name}: a {n} shield. · The channel begins / resolves. · You interrupt {enemy}: {ability} is cancelled. · Pre-cast: {spell}, no mana. | draft | **fixed** (R): the revive is named "Ember of Return" for both sources; "dies" is an enemy, "has fallen" your pet (two events) | ui/director.js |
 | FT11 | Rewards in the log: You gain {n} experience (+{n} rested) · +{n} XP · You receive {n} copper · You receive loot: {item} (waiting in the loot window) · You receive loot: {item} (raised by the Furnace) · Your old {item} is left behind (no room in your bags). | draft | **fixed** (U): the gold and sell lines use moneyText (gold, silver, copper) as the summary does (L5), "You receive 12 s 34 c" and "You sell Trail Rations for 85 c"; "(+N from heat)" now reads "(+N from the Furnace)" | ui/director.js, ui/engine-bridge.js |
 | FT12 | Fight header: Fight {n} of {m}: {boss} · Wave {n} of {m} · {n} of {m} waves done · Return to {node} | draft |  | ui/hud.js |
@@ -547,7 +549,7 @@ Item names are plain data (src/content/item-names.js, affix-words.js, uniques.js
 | IT16 | Trail Rations · Out of combat: restores 40 % of health, mana and pet health. | draft |  | ui/mock-data.js |
 | IT17 | Purifying Tonic · Removes every debuff on you. | draft | **fixed** (U): true in both builds; Maimed is not a debuff (engine dispersal), so "every debuff" is exact | ui/mock-data.js |
 | IT18 | Spark Flask · Throw it: magic damage to every enemy. | draft |  | ui/mock-data.js |
-| IT19 | Elixir of Ferocity · +10 % damage for the next 3 nodes. | draft | **explained** (M): "node" is the map's word for a point on it; "places" is the approved word in the Dimming lines (D150 item 13). The owner page asks for one word | ui/mock-data.js |
+| IT19 | Elixir of Ferocity · +10 % damage for the next 3 places. | draft | **fixed** (M, R2-6): "places", one word for a map location (N27), as in the Dimming lines (D150 item 13) | ui/mock-data.js |
 | IT20 | Ember of Return · Carried: when you die, you return at once with 40 % health. One at a time. | approved D150 item 13 (name) |  | ui/mock-data.js |
 | IT21 | Item tooltip: {Slot} · Item level {n} · {n} Armor · +{n} {Stamina/Agility/Intellect/Spirit/Power/Critical strike/Weapon damage} · ▲ Upgrade (+{n} overall) · ▼ Weaker than {item} ({n}) · As good overall as what you wear · ▲ Empty slot: an upgrade · Not an upgrade: {stat} is the {class}'s main stat · Right-click to equip · click for options · Right-click to use · drag to the item bar · Sells for: {price} · Stack: {n} / {m} | approved D150 item 12 (item level word) | **fixed** (U): "overall" in place of "item score"; Spirit and Weapon damage are full stat names (D150) | ui/tooltip.js, ui/windows.js |
 | IT22 | Loot window: Take all · Continue · Waiting in the loot window: equip, take or drop it · Click or Equip now: put it on · Leave {n} item(s) behind? Click Leave again. · left behind · Click to choose this reward · Equip now: choose it and put it on · {giver} says: · “{done line}” · Quest complete: {title} · Contract complete: {title} · Story complete: {title} | draft | **fixed** (R): "Zone story complete"; Leave twice is the button and its confirmation | ui/screens.js |
@@ -573,7 +575,7 @@ Economy v2 texts (content texts.economy, draft; D150 item 22 approved "Next spel
 | LV11 | Level 25, the highest. From now on every {xp} XP pays {legacy} Legacy points. | draft | **explained** (X): cannot occur under the demo cap (spec 4.1); no change | content/texts.js |
 | LV12 | You have reached level {n}! · New at the trainer: {spells} · +1 talent point / +{n} talent points · Welcome to {zone}. Visit the trainer, then set out. · You arrive in {zone}. | draft | **explained** (R): the log keeps a record of what the banner shows for a moment; two places by design | ui/director.js |
 | LV13 | HUD bar: Level {n} · {xp} / {next} XP ({p} %) · Rested: {n} (kills give double XP) · Level {n} · maximum level | draft | **explained** (X): D.3: a capped demo hero shows "Level 7: the demo's highest"; "maximum level" is the full game's | ui/hud.js |
-| LV14 | Hero rest lines: You rest: health and mana restored. · You rest by the fire until the ache leaves your bones. · {n} XP: kills give double experience | draft | **fixed** (R): the log line without "rested" | ui/director.js, ui/screens.js |
+| LV14 | Hero rest lines: You rest: health restored. (a Mage: health and mana restored.) · You rest by the fire until the ache leaves your bones. · {n} XP: kills give double experience | draft | **fixed** (R, R2-6): the log line without "rested"; "mana" only for a Mage | ui/director.js, ui/screens.js |
 
 ## SU Run summary (every run end)
 
@@ -585,7 +587,7 @@ The screen after a run: "The run has ended" (death or Abandon, or the demo exit)
 | SU2 | The journey: Reached · Hero · Level {a} → {b} · +{n} XP · {n} / {m} XP to level {n} · Time · Fights {n} ({n} rounds) · Oruvath · Base strength: no tolls overspent · Play time · about {n} min by hand, {m} with autoplay · Seed | draft | **explained** (X): D.3: a demo run's summary has no Seed, Play time or Oruvath row | ui/screens.js |
 | SU3 | Death rows: Killed by · {enemy} ({ability}) · Where · {node}, round {n} · Ended · Abandoned from the menu | draft |  | ui/screens.js |
 | SU4 | Deeds: … Potions used · Returned to the fight · Damage … | draft | **fixed** (N): names the event as the log does | ui/screens.js |
-| SU5 | Legacy lines (card heading "Echoes earned"): The Bellwrights' welcome · Hero levels gained · Zones completed · Dungeons cleared · Elites slain · Rares slain · Quests completed · Fights won Burning or Infernal · Contracts completed · Total · {n} Echoes · Your Echoes after this run | draft | **fixed** (U): the welcome line reads "First-run welcome" | ui/screens.js, ui/ui-text.js |
+| SU5 | Legacy lines (card heading "Echoes earned"): The Bellwrights' welcome · {n} hero level(s) gained · Zones completed · Dungeons cleared · Elites slain · Rares slain · Quests completed · Fights won Burning or Infernal · Contracts completed · Total · {n} Echoes · Your Echoes after this run | draft | **fixed** (U, R2-6): the welcome line reads "First-run welcome"; the levels line is the number in words ("1 hero level gained"), because the figure beside it is Legacy points | ui/screens.js, ui/ui-text.js |
 | SU6 | Kept: level {level} (was {was}) · spells and ranks · talents · Legacy unlocks | draft |  | content/texts.js |
 | SU7 | Left behind: gear, gold, potions and camp points. Your next run starts with new gear for your level. | draft | **fixed** (N): no new name | content/texts.js |
 | SU8 | You have {legacy} Legacy points. Next in the hall: {next}, {cost}. | draft |  | content/texts.js |
@@ -605,7 +607,7 @@ The hall opens from hero select and from the summary. In the demo it lists exact
 | HL3 | Edge of the Line I · 70 Legacy points · +2 % Power, then +1 % · Every hero has 2 % more Power with rank I and 1 % more with rank II (3 % in all): more damage from every attack and spell. | draft | **fixed** (X): one rank: "+2 % Power" and "Every hero has 2 % more Power: more damage from every attack and spell." (L3) | ui/ui-text.js |
 | HL4 | Quick Study I · 80 Legacy points · +5 % experience per rank · Every hero earns 5 % more experience for each rank: levels come sooner. | draft | **fixed** (X): one rank: "+5 % experience" and "Every hero earns 5 % more experience: levels come sooner." (L3) | ui/ui-text.js |
 | HL5 | Deeper Pockets · 50 Legacy points · +8 bag slots per rank · Your bags hold 8 more items for each rank. | draft | **fixed** (X): one rank: "+8 bag slots" and "Your bags hold 8 more items." (L3) | ui/ui-text.js |
-| HL6 | Cartographer · 60 Legacy points · Free Region Charts every run · Every run starts with Region Charts: each zone map shows every node's region and where the dungeon is. | draft |  | ui/ui-text.js |
+| HL6 | Cartographer · 60 Legacy points · Free Region Charts every run · Every run starts with Region Charts: each zone map shows every place's region and where the dungeon is. | draft |  | ui/ui-text.js |
 | HL7 | Quartermaster I · 70 Legacy points · +2 camp points per rank · On the expedition map you have two more camp points to spend at the start camp for each rank. | draft | **fixed** (X): one rank: "+2 camp points" and "On the expedition map you have two more camp points to spend at the start camp." (L3) | ui/ui-text.js |
 | HL8 | Hall header and lines: Legacy hall · Legacy points from every run buy lasting unlocks. Each applies from the start of your next run. · Earned {n} · spent {n} · {N} unlock(s) within reach · {n} of {m} rank(s) owned · Your next run: {text} · Nothing yet. Every unlock you buy shows here, and applies from the first step of the run. · Needs {req} · You need {n} more Legacy points. · Next rank: {text} · ✓/✗ Requires: {req} · Owned. · From hero level {n} | draft | **explained** (U): the count is plural-aware ("1 of 1 rank owned"); the wing and its "From hero level" lines are hidden in the demo (D.3) | ui/meta.js |
 | HL9 | Hall balance tooltip: Every run earns Legacy points for what it did: levels, zones, dungeons, elites, quests and more. They buy lasting unlocks here. | draft | **fixed** (X): true in both builds, no boss named | ui/meta.js |
@@ -654,6 +656,21 @@ From docs/specs/demo.md 1.3, 1.4, 2.4, 3.1, 3.2. Every line is a draft for the o
 | DM13 | Zone 2 Road sign on the map: End of the demo (D176: in place of the zone 3 hub) | draft (built in D.3) |  | ui/demo.js DEMO_TEXT.roadSign |
 | DM14 | Settings: Start over · Deletes your heroes and Legacy unlocks and starts the demo from the beginning. · Start over: click again · Start over? Your heroes and Legacy unlocks are deleted. | draft (built in D.3) |  | ui/demo.js DEMO_TEXT |
 | DM15 | Hero select heading in the demo: Your hero keeps its level from run to run, up to level 7 in the demo. (HS3's demo line) | draft (built in D.3) |  | ui/demo.js DEMO_TEXT.heroIntro |
+
+## R2 Blind round 2: smaller items (R2-6, draft)
+
+Lines added or changed for the second blind demo round, item R2-6 (docs/handoffs/ui-2026-11-26e.md). Every line is a draft for the owner. They show in the full game and the demo alike, unless the Flag says otherwise. The rows above that changed in the same pass carry "R2-6" in their Flag cell (the one word "place" for a map location is N27 of this review).
+
+| ID | Text | Status | Flag | Source |
+|---|---|---|---|---|
+| R2-1 | Zone level line (Legacy runs only; hub header, zone map header, minimap tooltip): The zone matches your level, so its levels change from run to run. | draft |  | ui/ui-text.js ZONE_MATCH_LINE |
+| R2-2 | Trainer place on the zone map with nothing to teach (tooltip line, the place is dimmed before the click): Nothing to train yet. Next spell at level {n}. / Nothing new to learn. | draft | **fixed** (R2-6): the hub row greys out the same way | ui/screens.js idleTrainerLine |
+| R2-3 | Enemy list of a place: {name} (level {n}) · 2 × {name} (level {n}) | draft | **fixed** (R2-6): was "2 Name", which read as a count | ui/screens.js foeList |
+| R2-4 | Item comparison: ▲ Upgrade (+{n} score) · ▼ Weaker than {item} ({n} score) · Score adds up the item's stats, weighted for your class. Higher is better. · reward card: ▲ Upgrade (+{n} score) | draft | **fixed** (R2-6): the number has a unit and a tooltip line that says what it is | ui/tooltip.js, ui/screens.js |
+| R2-5 | Run summary, Legacy points card: 1 hero level gained · 2 hero levels gained (the figure beside it is Legacy points) | draft | **fixed** (R2-6): was "Hero levels gained +20", read as twenty levels | ui/ui-text.js heroLevelsLine |
+| R2-6 | Zone map, Regions panel: Your Region Charts show every region and the dungeon. · A region fills in where you have walked. | draft | **fixed** (R2-6): says what the Region Charts do on the map | ui/screens.js |
+| R2-7 | Contracts heading at the start camp: You can hold up to {four} at a time. Each gives its reward when its task is done. (see SC6) | draft | **fixed** (R2-6): the number is the tracker's slot count | ui/prep.js |
+| R2-8 | Legacy hall badge and button tooltip: {n} unlocks within reach | draft | **fixed** (R2-6): the count is what the balance buys together, cheapest first, not each entry on its own | ui/ui-text.js reachCount |
 
 ## Method and limits
 
