@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node qa/browser/ui-regress.mjs [--file <build>]   (no --file: builds /tmp/tbwcr-<worktree>/game.html from src/ first, build-path.mjs)
- *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA]
+ *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -189,6 +189,9 @@
  *   Z  the Legacy bugs of 2026-11-19 (docs/feedback/2026-11-19-blind-legacy-returning.md): the start camp's zone, "marked"
  *      sites, the tracker over a nameplate, Abandon run's summary, the summary's fit and Furnace line, the loot Leave button,
  *      a reward's Equip now on a dimmed node and with full bags: see partZ.
+ *   BC demo blind round 1, B and C (docs/handoffs/ui-2026-11-26b.md): the Furnace's first-map note, "Next zone" signs, the
+ *      Key's names, the Bell's button, tip and confirm dialog (the chosen action highlighted, no tooltip over it), and a
+ *      Dimming fight before the Bell named before the click: see partBC.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -215,7 +218,7 @@ import { pathToFileURL } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
-import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
+import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText, EXIT_WORDS, bellLabel, bellLine, bellCharges, leaveFightLine } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR, RETRIGGER_S as Q_RETRIGGER_S } from '../../src/ui/audio.js';
 import { resolveBuild } from './build-path.mjs'; // each worktree builds to its own path (qa.md)
 import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
@@ -223,7 +226,7 @@ import { trainerWaiting, trainerWaitingShort, BAGS_FULL } from '../../src/ui/ui-
 import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
 import { MAP_ESC } from '../../src/ui/app.js';
 import { nearestRoad, hopsText, UI_HINTS, NEAREST_ROAD_TAIL } from '../../src/ui/ui-text.js'; // newcomer check 2026-11-15 (part X)
-import { DIM_NEAR_WORDS, DIM_MARK_LINE } from '../../src/ui/heat.js';
+import { DIM_NEAR_WORDS, DIM_MARK_LINE, FURNACE_LINE, NOTE_KEY } from '../../src/ui/heat.js';
 import { dimAt as dimAtZ } from '../../src/engine/expedition.js'; // part Z: a node dimmed for the reward check
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
@@ -232,7 +235,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = resolveBuild(arg('--file', null));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -1565,7 +1568,7 @@ const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: the engin
 // D150 (items 1, 25): the meter's one line, "Calm · 18 tolls to spare" ("8 tolls overspent"), and "Boss +N %" only above 0
 // D152 (changes-m3-v2.md 4): when the Dimming sets the state (heatView `by` 'dim') the line is the Dimming's own words
 // newcomer check 2026-11-15: "The Dimming is near" (heat.js DIM_NEAR_WORDS) says why; the node's clock is in the tooltip
-const stand = (x) => { if (x.by === 'dim' && x.dimIn != null) return x.dimIn > 0 ? 'The Dimming is near' : 'You stand in the Dimming';
+const stand = (x) => { if (x.by === 'dim' && x.dimIn != null) return x.dimIn > 0 ? DIM_NEAR_WORDS : 'You stand in the Dimming'; // demo blind round 1 B: "Raised by the Dimming nearby"
   const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} overspent` : x.heat < 0 && hand > 0 ? `${tolls(hand)} to spare` : 'No tolls to spare'; };
 const bossTxt = (a) => (Math.round((a || 0) * 100) > 0 ? `Boss +${Math.round((a || 0) * 100)} %` : '');
 const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
@@ -1594,6 +1597,8 @@ const meterDom = (page) => page.evaluate(() => {
     // D163 (draft): the clock tag on the label, the line under the bar inside a node, and which marker is the main pointer
     clock: q('.ht-clock') && !q('.ht-clock').classList.contains('hidden') ? `${t('.ht-clock i')} ${t('.ht-clock span')}` : null,
     counts: q('.ht-counts') && !q('.ht-counts').classList.contains('hidden') ? t('.ht-counts span') : null,
+    // demo blind round 1 B: "counts as" only inside a place (a node of the map; not a hub's or the camp's service)
+    inside: (() => { const v = window.__ui.view(); return v.phase === 'NODE' && !!v.node && v.node.origin !== 'hub' && v.node.origin !== 'camp'; })(),
     runW: q('.ht-mark.run').getBoundingClientRect().width, dimW: q('.ht-mark.dim').getBoundingClientRect().width,
     runHead: getComputedStyle(q('.ht-mark.run'), '::before').display !== 'none' && getComputedStyle(q('.ht-mark.run'), '::before').content !== 'none',
     dimHead: getComputedStyle(q('.ht-mark.dim'), '::before').display !== 'none' && getComputedStyle(q('.ht-mark.dim'), '::before').content !== 'none' };
@@ -1624,13 +1629,20 @@ function meterDiff(d, hv, camp) {
     if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
     eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, null);
     // D163 (draft): the tag names the clock that sets the state; the diamond is the main pointer when the Dimming sets it
-    eq('clock tag', d.clock, hv.by === 'dim' ? '◆ Set by this place' : '▼ Set by your tolls');
+    // demo blind round 1 B (draft): while the Dimming sets the state the line says so (DIM_NEAR_WORDS), no tag beside it
+    eq('clock tag', d.clock, hv.by === 'dim' ? null : '▼ Set by your tolls');
     const main = d.dimW > d.runW && d.dimHead && !d.runHead ? 'dim' : d.runHead && !d.dimHead ? 'run' : `unclear (${JSON.stringify([d.runW, d.dimW, d.runHead, d.dimHead])})`;
     eq('main pointer', main, hv.by);
   }
   if (hv.dimIn === null || hv.dimIn === undefined) eq('clock tag', d.clock, null); // one clock only: no tag
-  eq('counts as', d.counts, hv.node && hv.node.state ? `This place counts as ${HNAME[hv.node.state]}` : null);
+  eq('counts as', d.counts, wantCounts(hv, d.inside));
   return out;
+}
+/** Demo blind round 1 B (draft): the meter's line inside a place, with its reason when the meter shows another state. */
+function wantCounts(hv, inside) {
+  if (!hv.node || !hv.node.state || !inside) return null;
+  const was = HNAME[hv.node.state];
+  return hv.node.state !== hv.state ? `Entered while ${was}: this place still counts as ${was}` : `This place counts as ${was}`;
 }
 /** A Node twin like makeTwin, with newRun options (mapMode). */
 function makeTwinOpts(seed, opts) {
@@ -1941,7 +1953,7 @@ async function partI(browser, W, H) {
     let rec = await page.evaluate(() => window.__heat);
     const changes = rec.states.slice(1).map((x, i) => ({ from: rec.states[i], to: x }));
     check('M2b-heat', `no toast on a change of state (${changes.length} so far: ${rec.states.join(' > ')}; D150 item 25)`, changes.length >= 3 && rec.toasts.length === 0 && rec.maxHeat === 0, `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
-    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare|The Dimming is near|You stand in the Dimming)\\.$`).test(l); // D152: the Dimming's words when it sets the state
+    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare|${DIM_NEAR_WORDS}|You stand in the Dimming)\\.$`).test(l); // D152: the Dimming's words when it sets the state
     check('M2b-heat', 'the combat log has a line for each change of state: "The Furnace: Burning · 3 tolls overspent." (one full stop, no "..")', rec.logs.length === changes.length && rec.logs.every((l, i) => okLog(l, changes[i])),
       rec.logs.slice(0, 6).join(' | '));
     check('M2b-heat', `the toast stack within its limit during the run (seen: ${rec.maxAll} at once)`, rec.maxAll <= 2, '');
@@ -2089,12 +2101,12 @@ async function partIExpD163(page, twin) {
     if (!nodeDone && v.phase === 'NODE' && v.node) {
       const s = await twin.sync(page); const hv = R.heatView(s);
       const d = await meterDom(page); const diff = meterDiff(d, hv, false);
-      if (hv.node.state !== hv.state || i > 400) { await shot(page, 'I-exp-in-node'); nodeDone = { ok: !diff.length && d.counts === `This place counts as ${HNAME[hv.node.state]}`, d, diff, hv: [hv.state, hv.by, hv.node.state] }; }
+      if (hv.node.state !== hv.state || i > 400) { await shot(page, 'I-exp-in-node'); nodeDone = { ok: !diff.length && d.counts === wantCounts(hv, true), d, diff, hv: [hv.state, hv.by, hv.node.state] }; }
     }
     await autoStep();
   }
   check('M2b-heat-exp', 'D163: a node tooltip says how many places the Dimming takes while you are inside (R.heatPreview(MOVE).dims)', !!tipDone && tipDone.ok, JSON.stringify(tipDone));
-  check('M2b-heat-exp', `D163: inside a node the meter says "This place counts as ..." (heatView.node), with the clock tag and the main pointer of the clock that sets the state${nodeDone ? ` (${nodeDone.hv.join(', ')})` : ''}`,
+  check('M2b-heat-exp', `D163: inside a node the meter says "This place counts as ..." (heatView.node; demo blind round 1 B: "Entered while X: this place still counts as X" when the meter shows another state), with the clock tag and the main pointer of the clock that sets the state${nodeDone ? ` (${nodeDone.hv.join(', ')})` : ''}`,
     !!nodeDone && nodeDone.ok, nodeDone ? (nodeDone.diff.join(' | ') || JSON.stringify({ counts: nodeDone.d.counts, clock: nodeDone.d.clock })) : 'no node met');
   // ---- zone arrival by the Road: the carry-over line on the hub and in the log
   let arrived = null;
@@ -3297,7 +3309,7 @@ const fogDom = (page) => page.evaluate(() => {
     tints: [...document.querySelectorAll('#screens .expmap .xregions path')].map((x) => Number(x.dataset.region)),
     names: [...document.querySelectorAll('#screens .expmap .xrname')].map((x) => ({ region: Number(x.dataset.region), text: x.textContent })),
     legend: document.querySelectorAll('#screens .expmap .xreg').length,
-    // D150 (the map's word budget): a closed Road's sign shows only "Closed"; its destination stays in the sign and its tooltip
+    // D150 (the map's word budget): a closed Road's sign shows "Closed"; demo blind round 1 C: and its goal, "Next zone"
     roads: [...document.querySelectorAll('#screens .expmap .xroad')].map((x) => ({ id: Number(x.dataset.road), text: x.innerText.replace(/\s+/g, ' '), name: (x.querySelector('.xsign b') || {}).textContent || '', closed: x.classList.contains('rclosed'), rect: r(x) })),
     sides: [...document.querySelectorAll('#screens .expmap .xside .xpanel')].map(r),
     shard: document.querySelectorAll('#screens .expmap .xshard').length, wash: document.querySelectorAll('#screens .expmap .xdimwash path').length,
@@ -3350,7 +3362,9 @@ function fogDiff(d, mv, nextZone) {
   const nameWant = [...new Set(mv.nodes.filter((n) => n.ring >= 2 && n.region != null).map((n) => n.region))].sort();
   if (JSON.stringify(d.names.map((x) => x.region).sort()) !== JSON.stringify(nameWant) || d.names.some((x) => x.text !== mv.regions[x.region].name)) out.push(`region names ${JSON.stringify(d.names)} (view: ${nameWant})`);
   if (d.legend !== mv.regions.length) out.push(`legend ${d.legend} regions`);
-  if (d.roads.length !== mv.roads.length || d.roads.some((r) => !mv.roads.includes(r.id) || !r.name.includes(nextZone) || (r.closed ? r.text !== 'Closed' : !r.text.includes(nextZone)))) out.push(`roads ${JSON.stringify(d.roads.map((r) => [r.text, r.closed]))} (view ${mv.roads}, to ${nextZone}; a closed one shows "Closed")`);
+  // demo blind round 1 C (draft): a sign names the goal, "Next zone" (the last zone's: the Camp's name); a closed one adds "Closed"
+  const sw = nextZone === ((CONTENT.camp && CONTENT.camp.name) || 'the Camp') ? nextZone : EXIT_WORDS.nextZone;
+  if (d.roads.length !== mv.roads.length || d.roads.some((r) => !mv.roads.includes(r.id) || !r.name.includes(sw) || !r.text.includes(sw) || (r.closed && !/Closed$/i.test(r.text)))) out.push(`roads ${JSON.stringify(d.roads.map((r) => [r.text, r.closed]))} (view ${mv.roads}, to ${nextZone}, sign "${sw}"; a closed one adds "Closed")`);
   if (d.shard !== 1) out.push(`${d.shard} Shardfall stars`);
   if (d.wash !== mv.nodes.filter((n) => n.dimmed).length) out.push(`Dimming wash on ${d.wash} nodes (view ${mv.nodes.filter((n) => n.dimmed).length})`);
   const me = mv.nodes[mv.pos]; if (d.mine !== (me.dimmed ? 0 : me.dimsIn)) out.push(`"your node dims in" ${d.mine} (view ${me.dimsIn})`);
@@ -4707,7 +4721,7 @@ async function partS(browser, W, H) {
       check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
       check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
       check('S-3', `Gorrak's barred node next to the player has a tooltip: titled "Gorrak the Fieldbreaker" (mapView name; engine-2026-11-15 UI need 3), "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Gorrak the Fieldbreaker/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
-      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · The Dimming is near" or "Infernal · You stand in the Dimming" (D152; newcomer check 2026-11-15)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Burning|Infernal)\s*·\s*(The Dimming is near|You stand in the Dimming)/i.test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
+      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · Raised by the Dimming nearby" (demo blind round 1 B) or "Infernal · You stand in the Dimming" (D152; newcomer check 2026-11-15)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && new RegExp(`^(Calm|Smouldering|Burning|Infernal)\\s*·\\s*(${DIM_NEAR_WORDS}|You stand in the Dimming)`, 'i').test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
       // Legacy bugs 2026-11-19 (engine-2026-11-19b): one CHOOSE_REWARD with `equip` (worn in the same step; it was CHOOSE_REWARD
       // then EQUIP, which a Dimmed encounter starting at once refused)
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD with equip, and the item is worn', !!eqNow && eqNow.acts.length === 1 && eqNow.acts[0] === 'CHOOSE_REWARD:equip' && eqNow.worn, JSON.stringify(eqNow));
@@ -5438,7 +5452,7 @@ async function partT(browser, W, H) {
       await page.locator('#heat').hover({ force: true }); await page.waitForTimeout(150);
       const tt = await tipOn(page); await page.mouse.move(2, 2);
       const names = Object.values(HEAT_WORDS.state);
-      check('D150-5', 'the Furnace\'s tooltip: "Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger." and the four states', !!tt && tt.includes('Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.') && names.every((x) => tt.includes(x)) && !T_BANNED.test(tt) && !/no reward|in hand|so far/.test(tt), tt);
+      check('D150-5', `the Furnace's tooltip: "${FURNACE_LINE}" (demo blind round 1 B, draft) and the four states`, !!tt && tt.includes(FURNACE_LINE) && names.every((x) => tt.includes(x)) && !T_BANNED.test(tt) && !/no reward|in hand|so far/.test(tt), tt);
       await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
       // a reachable node that can be passed through: hover, then the button; then by keyboard on the next node
       const pick = () => page.evaluate(() => { const x = window.__ui.view(); const mv = x.zone.exp; const m = mv.moves.find((y) => y.passTime != null && !y.barred && !mv.nodes[y.nodeId].hub && !mv.nodes[y.nodeId].barred); return m ? { node: m.nodeId, t: (x.heat.next[`PASS_THROUGH:${m.nodeId}`] || {}).time, time: x.time } : null; });
@@ -5501,7 +5515,8 @@ async function partT(browser, W, H) {
     check('T-2', 'part T2: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
-  // ---- T3: the guide off, hints on (Lead 2026-11-14): H16 at the first hub, G5's moment, on the Furnace; no G5
+  // ---- T3: the guide off, hints on (Lead 2026-11-14; demo blind round 1 B, 2026-11-26: at the first map, not the hub): H16 on
+  // the Furnace when the map first shows; none at the hub; no G5; and no first-map note (the coach line carries the sentence)
   {
     const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1&fresh=1', null, { hints: true });
     try {
@@ -5510,11 +5525,17 @@ async function partT(browser, W, H) {
       await page.locator('#pp-go').click(); await idle(page);
       await page.waitForFunction(() => window.__ui.view().phase === 'ZONE_HUB', null, { timeout: 8000 }).catch(() => null);
       await page.mouse.move(2, 2); await page.waitForTimeout(150);
-      const h16 = await page.evaluate(() => { const v = window.__ui.view(); const c = window.__ui.coach(); const on = document.querySelector('.coach-on'); return { phase: v.phase, tutorial: !!(v.tutorial && v.tutorial.on), shown: c.shown, ring: on ? on.id : null, g5: c.log.some((x) => x.id === 'G5') }; });
+      const hub = await page.evaluate(() => { const c = window.__ui.coach(); return { phase: window.__ui.view().phase, shown: c.shown }; });
+      for (let i = 0; i < 3 && (await coach(page)).shown; i++) { await page.locator('#coach .co-ok').click(); await idle(page); } // another hub hint
+      await page.locator('#screens').getByRole('button', { name: 'Set out' }).click(); await idle(page);
+      await page.waitForFunction(() => window.__ui.view().phase === 'MAP', null, { timeout: 8000 }).catch(() => null);
+      await page.mouse.move(2, 2); await page.waitForTimeout(250);
+      const h16 = await page.evaluate(() => { const v = window.__ui.view(); const c = window.__ui.coach(); const on = document.querySelector('.coach-on'); return { phase: v.phase, tutorial: !!(v.tutorial && v.tutorial.on), shown: c.shown, ring: on ? on.id : null, g5: c.log.some((x) => x.id === 'G5'), note: !document.querySelector('#heat-intro').classList.contains('hidden') }; });
       const want16 = T.hints.find((x) => x.id === 'H16').line;
-      await shot(page, 'T3-h16-hub');
-      check('D150-H16', `the guide off, hints on: at the first hub H16's line ("${want16}"), ringing the Furnace; no G5`, h16.phase === 'ZONE_HUB' && !h16.tutorial && !!h16.shown && h16.shown.id === 'H16' && h16.shown.text === want16 && h16.ring === 'heat' && !h16.g5, JSON.stringify(h16));
-    } catch (e) { await shot(page, 'T3-error'); check('T-3', 'part T3 (H16 at the hub) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+      await shot(page, 'T3-h16-map');
+      check('D150-H16', `the guide off, hints on: no H16 at the hub (${hub.shown ? hub.shown.id : 'none'}); at the first map H16's line ("${want16}"), ringing the Furnace; no G5, no first-map note`,
+        hub.phase === 'ZONE_HUB' && !(hub.shown && hub.shown.id === 'H16') && h16.phase === 'MAP' && !h16.tutorial && !!h16.shown && h16.shown.id === 'H16' && h16.shown.text === want16 && h16.ring === 'heat' && !h16.g5 && !h16.note, JSON.stringify({ hub, h16 }));
+    } catch (e) { await shot(page, 'T3-error'); check('T-3', 'part T3 (H16 at the first map) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('T-3', 'part T3: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
@@ -5575,8 +5596,11 @@ async function partU(browser, W, H) {
       await page.mouse.move(2, 2); await page.waitForTimeout(500);
       // the Key: the node icons at rest
       const keyP = await page.evaluate(() => { const k = document.querySelector('.expmap .xkey'); return { icons: [...k.querySelectorAll('.xki img')].filter((i) => i.getClientRects().length && i.getBoundingClientRect().width > 0).length,
-        clipped: [...k.querySelectorAll('.xki img')].filter((i) => i.getBoundingClientRect().right > k.getBoundingClientRect().right + 0.5).length, words: k.innerText.trim() }; });
-      check('U-key', 'the map\'s Key shows the 9 node icons at rest inside its panel (no names: D150\'s word budget)', keyP.icons === 9 && keyP.clipped === 0 && keyP.words === 'Key', JSON.stringify(keyP));
+        clipped: [...k.querySelectorAll('.xki img')].filter((i) => i.getBoundingClientRect().right > k.getBoundingClientRect().right + 0.5).length, words: k.innerText.trim(),
+        cut: [...k.querySelectorAll('.xki b')].filter((b) => b.scrollWidth > b.clientWidth + 1 || b.getBoundingClientRect().right > k.getBoundingClientRect().right + 0.5).length }; });
+      // demo blind round 1 B (newcomer s0246: "nine unlabelled icons"): each icon with its name, at rest, none cut
+      const KEY_NAMES = ['Quest', 'Grind', 'Elite', 'Dungeon', 'Treasure', 'Shrine', 'Rest', 'Vendor', 'Trainer'];
+      check('U-key', 'the map\'s Key shows the 9 node icons at rest inside its panel, each with its name (demo blind round 1 B)', keyP.icons === 9 && keyP.clipped === 0 && KEY_NAMES.every((n) => keyP.words.split(/\s+/).includes(n)) && keyP.cut === 0, JSON.stringify(keyP));
       await shot(page, 'U1-map');
       // Esc on the map: no Settings, one line
       let n0 = await nLog(page);
@@ -6189,7 +6213,7 @@ async function partW(browser, W, H) {
  * on) on the engine's autoplay choices to zone 2: on every map screen each Road (mapView roads) has its post line
  * (svg .xroadln) from its sign towards its own rim node, which carries the Road ring (.xrd, an outline); every Dimming clock is
  * pinned to its node (no translate, touching its ring) and shows the number alone (the player's own at 2 or less "Dims in
- * N!"); while the Dimming sets the Furnace (heatView `by` 'dim') the meter reads "<State> · The Dimming is near" and its tip
+ * N!"); while the Dimming sets the Furnace (heatView `by` 'dim') the meter reads "<State> · Raised by the Dimming nearby" and its tip
  * has the diamond's line; when the Roads open, the "Take a Road" line (G12.road) ends with "Nearest: N hops, M tolls."
  * (nearestRoad on mapView) and U01 counts as seen; the Key's tip does not cover the Key; at the first loot window with
  * items the Bags (B) open beside it, Continue on top, and the "+N items" note on the Bags button goes when they open. X2 a
@@ -6284,7 +6308,7 @@ async function partX(browser, W, H) {
       }
       check('X-roads', `every Road on ${maps} map screens: a post line from its sign to its own rim node (open, closed or Dimmed colour), the node ringed (.xrd)`, maps > 3 && badRoads.length === 0, JSON.stringify(badRoads.slice(0, 3)));
       check('X-clocks', `${clocksSeen} Dimming clocks: each pinned to its node (no declutter shift, touching its ring), the number alone; the player's own at 2 or less "Dims in N!"`, clocksSeen > 10 && badClocks.length === 0, JSON.stringify(badClocks.slice(0, 4)));
-      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and the tag "◆ Set by this place" (D163, draft), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS} ◆ Set by this place`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
+      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and no clock tag (demo blind round 1 B, draft; was "◆ Set by this place"), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS}`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
       check('X-nearest', 'the Roads open (Gorrak\'s fight over): the "Take a Road" line (G12.road) ends with the nearest Road\'s hops and tolls (nearestRoad on mapView), rings that Road\'s sign, and counts for U01', roadsOpenAt != null && !!roadLine && !!roadLine.want && roadLine.text.endsWith(roadLine.want) && !!roadLine.ring && roadLine.ring.endsWith(` ${roadLine.nr.id}`) && roadLine.u01 === true, JSON.stringify({ roadsOpenAt, roadLine }));
       check('X-key', 'the map Key\'s tip lies beside the Key, not over it; the Key names the clock badge ("Dims in 3 tolls")', !!keyTip && !keyTip.overlap && keyTip.row, JSON.stringify(keyTip));
       check('X-bags', 'the first loot window with items: the Bags (B) open beside it, not over it; Continue and every button of the window on top; a "+N items" note on the Bags button before, gone once they open',
@@ -7049,6 +7073,129 @@ async function partZ(browser, W, H) {
 
 // ------------------------------------------------------------------ part AA: blind Legacy v2, hall and bags (2026-11-20)
 /**
+ * Part BC: demo blind round 1, B and C (BACKLOG 2026-11-26; docs/feedback/2026-11-26-blind-demo-skipper.md, -newcomer.md;
+ * docs/handoffs/ui-2026-11-26b.md; every line a draft). BC1, a fresh profile with hints off: at the first map the Furnace's
+ * one sentence (heat.js FURNACE_LINE) in the note at the coach line's place, the meter ringed; the note takes no clicks but
+ * its button's; it goes with the first step off the map and never comes back (tbwcr.furnaceNote.v1, H16 marked seen); the
+ * Road signs read "Next zone"; the Key's icons carry their names. BC2, zone 2 (Dev build): the Bell's button says where it
+ * takes you and its number ("(1 left)"), its tip the destination and what the number means; the confirm dialog highlights
+ * the Bell, not Stay; no tooltip covers the dialog (the Bell's own, a map node's). BC3: walking towards the Dimming until
+ * the Bell's preview holds a Dimming fight: the tip and the dialog say so before the click.
+ */
+async function partBC(browser, W, H) {
+  const tipRect = (page) => page.evaluate(() => { const t = document.querySelector('.tooltip'); if (!t || !t.classList.contains('on') || t.classList.contains('off-dialog')) return null; const a = t.getBoundingClientRect(); return [a.left, a.top, a.right, a.bottom]; });
+  const dlgRect = (page) => page.evaluate(() => { const d = document.querySelector('#screens .leavewarn'); if (!d) return null; const a = d.getBoundingClientRect(); return [a.left, a.top, a.right, a.bottom]; });
+  const meets = (a, b) => !!a && !!b && a[0] < b[2] - 1 && a[2] > b[0] + 1 && a[1] < b[3] - 1 && a[3] > b[1] + 1;
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+  // ---- BC1: the first map
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1&fresh=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && (await page.evaluate(() => window.__ui.view().phase)) !== 'MAP'; i++) {
+        const hub = await page.evaluate(() => ({ phase: window.__ui.view().phase, note: !document.querySelector('#heat-intro').classList.contains('hidden') }));
+        if (hub.note) check('BC-1', 'the Furnace note shows before the first map', false, JSON.stringify(hub));
+        await auto(page);
+      }
+      await page.mouse.move(2, 2); await page.waitForTimeout(300);
+      const n = await page.evaluate(() => {
+        const e = document.querySelector('#heat-intro'); const r = e.getBoundingClientRect(); const mid = document.elementFromPoint(r.left + 8, r.top + r.height / 2);
+        const map = document.querySelector('#screens .expmap'); const m = map ? map.getBoundingClientRect() : null;
+        return { phase: window.__ui.view().phase, shown: !e.classList.contains('hidden'), text: (e.querySelector('.hi-b') || {}).textContent || '', noted: document.querySelector('#heat').classList.contains('noted'),
+          clickThrough: !(mid && mid.closest('#heat-intro')), rect: [r.left, r.top, r.right, r.bottom].map(Math.round), mapBottom: m ? Math.round(m.bottom) : null,
+          signs: [...document.querySelectorAll('#screens .expmap .xroad .xsign b')].map((b) => b.textContent),
+          key: [...document.querySelectorAll('#screens .expmap .xkey .xki b')].filter((b) => b.getClientRects().length && b.getBoundingClientRect().width > 0).map((b) => b.textContent) };
+      });
+      await shot(page, 'BC1-first-map');
+      check('BC-1', `the first map, hints off: the Furnace's sentence ("${FURNACE_LINE}") in its note, the meter ringed, the note takes no clicks but its button's`,
+        n.phase === 'MAP' && n.shown && n.text === FURNACE_LINE && n.noted && n.clickThrough, JSON.stringify(n));
+      check('BC-1', 'zone 1\'s Roads read "Next zone" from the first view (closed or not); the Key names its 9 icons', n.signs.length >= 1 && n.signs.every((x) => x.includes(EXIT_WORDS.nextZone)) && n.key.length === 9, JSON.stringify({ signs: n.signs, key: n.key }));
+      for (let i = 0; i < 20 && (await page.evaluate(() => window.__ui.view().phase)) === 'MAP'; i++) await auto(page);
+      const off = await page.evaluate(([nk]) => ({ phase: window.__ui.view().phase, shown: !document.querySelector('#heat-intro').classList.contains('hidden'), noted: document.querySelector('#heat').classList.contains('noted'),
+        stored: Object.keys(localStorage).filter((k) => k.endsWith(nk.slice('tbwcr.'.length))).map((k) => localStorage.getItem(k)), h16: window.__ui.coach().store.seen.H16 || false }), [NOTE_KEY]);
+      let back = null;
+      for (let i = 0; i < 80 && !back; i++) { await auto(page); const v = await page.evaluate(() => ({ phase: window.__ui.view().phase, node: !!window.__ui.view().node, shown: !document.querySelector('#heat-intro').classList.contains('hidden') })); if (v.phase === 'MAP' && !v.node) back = v; }
+      check('BC-1', 'the note goes with the first step off the map, is stored as shown and marks H16 seen; back on the map it does not come again',
+        off.phase !== 'MAP' && !off.shown && !off.noted && off.stored.includes('1') && off.h16 === true && !!back && !back.shown, JSON.stringify({ off, back }));
+    } catch (e) { await shot(page, 'BC1-error'); check('BC-1', 'part BC1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('BC-1', 'part BC1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- BC2: the Bell in zone 2, its tip and its confirm dialog
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page);
+      await page.mouse.move(2, 2); await page.waitForTimeout(300);
+      const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, z: x.zone.idx, bell: x.zone.exp.bell, next: (window.__ui.view().zone || {}).name }; });
+      const zs = CONTENT.zones || []; const to = zs[v.z] ? zs[v.z].name : null;
+      const b = page.locator('#screens .expmap [data-leave="RING_BELL"]');
+      const label = (await b.innerText()).trim();
+      await b.hover(); await page.waitForTimeout(200);
+      const tip = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText.replace(/\s+/g, ' ') : null; });
+      await shot(page, 'BC2-bell-tip');
+      check('BC-2', `the Bell's button says where it goes and its number ("${bellLabel(v.bell.charges, 'next')}"); its tip: "${bellLine('next', to)}" and "${bellCharges(v.bell.charges)}"`,
+        label === bellLabel(v.bell.charges, 'next') && !!tip && tip.startsWith(EXIT_WORDS.bellTitle) && tip.includes(bellLine('next', to)) && tip.includes(bellCharges(v.bell.charges)), JSON.stringify({ label, tip }));
+      await b.click(); await idle(page);
+      const btns = await page.evaluate(() => [...document.querySelectorAll('#screens .leavewarn .lw-b button')].map((x) => ({ t: x.textContent.trim(), primary: x.classList.contains('primary'), danger: x.classList.contains('danger') })));
+      check('BC-2', 'the confirm dialog highlights the action chosen ("Ring the Bell"), not Stay', btns.length === 2 && btns[0].t === 'Ring the Bell' && btns[0].primary && !btns[1].primary && btns[1].t === 'Stay', JSON.stringify(btns));
+      // the Bell's own tip again, and a map node's next to the dialog: neither covers it
+      const over = [];
+      await page.mouse.move(2, 2); await b.hover(); await page.waitForTimeout(200);
+      over.push({ what: 'bell', tip: await tipRect(page), dlg: await dlgRect(page) });
+      for (const sel of ['#screens .expmap .mnode.xhub', '#screens .expmap .mnode.reach']) {
+        const el = page.locator(sel).first(); if (!(await el.count())) continue;
+        await page.mouse.move(2, 2); await el.hover({ force: true }); await page.waitForTimeout(200);
+        over.push({ what: sel, tip: await tipRect(page), dlg: await dlgRect(page) });
+      }
+      await shot(page, 'BC2-bell-dialog');
+      check('BC-2', 'with the dialog open no tooltip covers it (the Bell\'s, the hub\'s, a reachable node\'s)', over.length >= 2 && over.every((x) => x.dlg && !meets(x.tip, x.dlg)), JSON.stringify(over));
+      await page.keyboard.press('Escape'); await idle(page);
+      check('BC-2', 'Esc closes the dialog', !(await page.locator('#screens .leavewarn').count()));
+    } catch (e) { await shot(page, 'BC2-error'); check('BC-2', 'part BC2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('BC-2', 'part BC2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- BC3: a ring that ends in a Dimming fight says so before the click
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && (await page.evaluate(() => window.__ui.view().phase)) !== 'ZONE_HUB'; i++) await auto(page);
+      await page.evaluate(() => window.__ui.dev('nextZone')); await idle(page);
+      await page.evaluate(() => window.__ui.dev('god', { on: true })); await idle(page);
+      let met = null;
+      for (let i = 0; i < 300 && !met; i++) {
+        const v = await page.evaluate(() => { const x = window.__ui.view(); const mv = x.zone && x.zone.exp; const p = x.heat && x.heat.next && x.heat.next.RING_BELL;
+          return { phase: x.phase, node: !!x.node, p: p || null, inDim: !!(mv && mv.nodes[mv.pos] && mv.nodes[mv.pos].dimmed), moves: mv && x.phase === 'MAP' && !x.node ? mv.moves.map((m) => ({ id: m.nodeId, d: mv.nodes[m.nodeId].dimsIn, dimmed: !!mv.nodes[m.nodeId].dimmed, pass: m.passTime != null && !m.barred })) : [] }; });
+        const line = leaveFightLine(v.p, v.inDim);
+        if (v.phase === 'MAP' && !v.node && line) { met = { line }; break; }
+        if (v.phase === 'MAP' && !v.node && v.moves.length) {
+          const ok = v.moves.filter((m) => !m.dimmed && m.d != null).sort((a, b) => a.d - b.d); const t = ok[0] || v.moves[0];
+          const r = await page.evaluate(([id, pass]) => window.__ui.act({ type: pass ? 'PASS_THROUGH' : 'MOVE', nodeId: id }), [t.id, t.pass]);
+          if (r && r.ok === false) await auto(page); else await idle(page);
+        } else await auto(page);
+      }
+      if (met) {
+        const b = page.locator('#screens .expmap [data-leave="RING_BELL"]');
+        await page.mouse.move(2, 2); await b.hover(); await page.waitForTimeout(200);
+        met.tip = await page.evaluate(() => { const t = document.querySelector('.tooltip.on .lw-fight'); return t ? t.textContent : null; });
+        await b.click(); await idle(page);
+        met.dlg = await page.evaluate(() => { const d = document.querySelector('#screens .leavewarn'); const f = d && d.querySelector('.lw-fight'); return { first: d ? d.querySelector('.lw-t + *') === f : false, text: f ? f.textContent : null }; });
+        await shot(page, 'BC3-bell-fight');
+        await page.keyboard.press('Escape'); await idle(page);
+      }
+      check('BC-3', 'the Bell\'s preview holds a Dimming fight: its tip and its dialog (first line under the title) say so before the click',
+        !!met && met.tip === met.line && met.dlg.first && met.dlg.text === met.line, JSON.stringify(met));
+    } catch (e) { await shot(page, 'BC3-error'); check('BC-3', 'part BC3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('BC-3', 'part BC3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
+/**
  * Part AA: the hall and the bags of the second blind Legacy check (docs/feedback/2026-11-20-blind-legacy-returning-v2.md;
  * BACKLOG 2026-11-20 "hall" and "bags and loot"), ?legacy=1 (economyV2 on). AA1 the hall of a Hunter profile owning Packed
  * Satchel and Deeper Pockets: each Lost Technique card says its learn level on its face ("From hero level 9"; II: what it
@@ -7276,6 +7423,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('Y')) await partY(browser, W, H);
   if (PARTS.includes('Z')) await partZ(browser, W, H);
   if (PARTS.includes('AA')) await partAA(browser, W, H);
+  if (PARTS.includes('BC')) await partBC(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

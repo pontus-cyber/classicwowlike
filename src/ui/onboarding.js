@@ -57,7 +57,8 @@ export const leanFirst = (v) => !!v && (!!(v.prep && v.prep.first) || (v.phase !
 const BEAT_OF = { H01: 'G7', H02: 'G6', H03: 'G8', H04: 'G9', H06: 'G9', H09: 'G11', H11: 'G4', H15: 'G2', H16: 'G5', H18: 'G12', H19: 'G13', H20: 'G10', H21: 'G10', H23: 'G1', H30: 'G9' };
 const HINT_OF_BEAT = { G1: 'H23', G2: 'H15', G4: 'H11', G5: 'H16', G6: 'H02', G7: 'H01', G8: 'H03', G9: 'H04', G10: 'H20', G11: 'H09', G12: 'H18', G13: 'H19' };
 // priority (spec 2.5): Deathblow > wind-up > lethal > potion > engage > the rest
-const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, NUDGE: 7 };
+// demo blind round 1 B: H16 (the Furnace's sentence) before the map's other first hints (H15), so it comes at the first map
+const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, H16: 2, NUDGE: 7 };
 const prio = (id) => PRIO[id] || 1;
 // beats whose line belongs to a fight on screen (D150, engine-2026-11-14d section 7: G14-G17, from round 2 of a fight)
 const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11', 'G14', 'G15', 'G16', 'G17']);
