@@ -288,7 +288,7 @@ export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\
 // and limits from the rules table (data.rules.prep).
 export const CONTRACT_KIND = { cull: 'Cull', bounty: 'Wanted', delve: 'Delve' };
 const CONTRACT_KIND_TEXT = {
-  cull: 'Win fights at its sites: Quest and Grind nodes, most of them in one region.',
+  cull: 'Win fights at its marked places: Quest and Grind places, most of them in one region.',
   bounty: 'Hunt down one named elite that roams one region.',
   delve: "Clear the zone's dungeon, its boss included.",
 };
@@ -346,17 +346,19 @@ export function hubOfferSentence(c, hubName, content) {
 /** A contract kind in one line. */
 export function contractKindText(kind) { return CONTRACT_KIND_TEXT[kind] || ''; }
 /**
- * Where a contract's sites are and when the map shows them (expedition.md 3.3, 5.1, 5.2). r: the rules table's prep block;
- * has: { guide, tracker } (the perk is owned or bought).
+ * Where to go for a contract and when the map shows its marks (expedition.md 3.3, 5.1, 5.2), in plain sentences (R2-6,
+ * draft): the place to go first, then what counts, then how far away the marks show. r: the rules table's prep block;
+ * has: { guide, tracker } (the perk is owned or bought). One word for a map location: "place".
  */
 export function contractSitesText(c, r, has = {}) {
-  // content-2026-11-20 (blind Legacy v2 s0255, draft): the region and the dungeon are in the sentence above, so these lines
-  // give only the rule and when the map shows the marks
-  if (c.kind === 'delve') return `While you hold it, ${c.dungeon || "the zone's dungeon"} shows on the zone map.`;
-  const see = `Marks show up to ${r.vision} ${plural(r.vision, 'step')} away${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes up to ${r.tracker} steps, even on nodes you have not seen` : ''}.`;
-  if (c.kind === 'bounty') return `It can be found at ${numWord(r.bountyPlaced)} Elite nodes away from the hub; beat it at either. ${see}`;
-  // Legacy bugs 2026-11-19 (s0133): which nodes count, exactly (contracts.js placeSites, siteWon): the marked ones only
-  return `Only Quest or Grind nodes with its mark count; other fights do not. ${see}`;
+  const dungeon = c.dungeon || "the zone's dungeon";
+  if (c.kind === 'delve') return `Go to ${dungeon}. It shows on the zone map while you hold this contract.`;
+  const region = c.regionName || 'its region';
+  const steps = (n) => `${n} ${plural(n, 'step')}`;
+  const see = `Its marks show on the map up to ${steps(r.vision)} away${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes up to ${steps(r.tracker)}, even on places you have not seen` : ''}.`;
+  if (c.kind === 'bounty') return `Go to ${region}. ${c.name || 'The elite'} stands at ${numWord(r.bountyPlaced)} marked Elite places there. Beat it at either one. ${see}`;
+  // Legacy bugs 2026-11-19 (s0133): which places count, exactly (contracts.js placeSites, siteWon): the marked ones only
+  return `Go to ${region}. Only the marked Quest and Grind places count; other fights do not. ${see}`;
 }
 /** A contract's item choice in words: "choose 1 of 3: 80 % rare, 20 % epic" (the drop table's weights, R.prepView). */
 export function contractItemsText(rw) {
@@ -382,10 +384,10 @@ export function prepOptionEffect(o, r, name = (id) => humanize(id), content = nu
     case 'prep_ember': return `${o.qty > 1 ? o.qty : 'One'} ${name(o.item)}: you rise again once when you would die.`;
     case 'prep_bell': return `+${o.bell} Homeward Bell charge: one more way out of a zone.`;
     case 'prep_mule': return `+${o.slots} bag slots for the whole run.`;
-    case 'prep_charts': return "Every node's region and every dungeon shown on each zone map.";
-    case 'prep_tracker': return `Contract sites marked up to ${r.tracker} steps away, even on nodes you have not seen yet.`;
+    case 'prep_charts': return "Every place's region and every dungeon shown on each zone map.";
+    case 'prep_tracker': return `Contract marks show up to ${r.tracker} steps away, even on places you have not seen yet.`;
     case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'step')} further on every zone map.`;
-    case 'prep_spyglass': return `${o.charges} looks on the map: any node and its neighbours in full view, no tolls.`;
+    case 'prep_spyglass': return `${o.charges} looks on the map: any place and its neighbours in full view, no tolls.`;
     default: { const g = group(content, 'prep'); const x = g && g[o.id]; return (x && x.rule) || ''; }
   }
 }
@@ -568,9 +570,9 @@ export function metaEffect(m, D, d, mode = 'rows') {
     case 'pockets': return one ? { short: `+${m.slots} bag slots`, long: `Your bags hold ${m.slots} more items.` } : { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
     case 'scout': {
-      const x = m.expedition; const pf = x ? `the type of every node within ${numWord(x.typeRadius)} hops shows on the map (not its level, enemies or contract marks)` : null;
+      const x = m.expedition; const pf = x ? `the type of every place within ${numWord(x.typeRadius)} steps shows on the map (not its level, enemies or contract marks)` : null;
       const rows = `The zone map tells you which elites are rare, which chests are trapped, and which vendors sell an ${NM.ember}.`;
-      if (exp && x) return { short: `${x.name}: node types within ${x.typeRadius} hops`, long: `On the expedition map Scout's Eye works as ${x.name}: ${pf}.`, more: [`Classic map: ${rows}`] };
+      if (exp && x) return { short: `${x.name}: place types within ${x.typeRadius} steps`, long: `On the expedition map Scout's Eye works as ${x.name}: ${pf}.`, more: [`Classic map: ${rows}`] };
       return { short: 'The map shows rare elites, traps and Embers', long: rows, more: pf ? [`Expedition map, as ${x.name}: ${pf}.`] : undefined };
     }
     case 'swift_boots': {
@@ -581,8 +583,8 @@ export function metaEffect(m, D, d, mode = 'rows') {
     }
     // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
     // content-2026-11-20 (blind Legacy v2 s0385, draft): one plain sentence each, no "yours every run, free"
-    case 'cartographer': return { short: `Free ${NM.charts} every run`, long: `Every run starts with ${NM.charts}: each zone map shows every node's region and where the dungeon is.${onlyExp}` };
-    case 'old_hand': return { short: `Free ${NM.tracker} every run`, long: `Every run starts with ${NM.tracker}: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen.${onlyExp}` };
+    case 'cartographer': return { short: `Free ${NM.charts} every run`, long: `Every run starts with ${NM.charts}: each zone map shows every place's region and where the dungeon is.${onlyExp}` };
+    case 'old_hand': return { short: `Free ${NM.tracker} every run`, long: `Every run starts with ${NM.tracker}: contract marks show within ${numWord(N.trackerRadius)} steps, even on places you have not seen.${onlyExp}` };
     // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points"
     case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points';
       if (one) return { short: `+${m.points} ${w}`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp.${onlyExp}` };
@@ -670,7 +672,7 @@ export function nextRunLines(n, D, d) {
   if (m.ledger) add('ledger', 'First lesson at each trainer visit free');
   // expedition.md 8.2 (M2b v11): n.exp when the next run starts on the expedition map with the start camp
   const x = n.exp;
-  if (m.scout) add('scout', x ? `Pathfinder: node types within ${x.typeRadius} hops` : 'Rare elites, traps and Embers on the map');
+  if (m.scout) add('scout', x ? `Pathfinder: place types within ${x.typeRadius} steps` : 'Rare elites, traps and Embers on the map');
   if (m.swiftBoots) add('swift_boots', x ? `Homeward Bell: ${x.bell} ${plural(x.bell, 'charge')}` : `Travel on ${numWord(D.entries.swift_boots.levels)} ${plural(D.entries.swift_boots.levels, 'level')} earlier`);
   if (x && x.unlocks.cartographer) add('cartographer', `${D.names.charts} owned`);
   if (x && x.unlocks.old_hand) add('old_hand', `${D.names.tracker} owned`);

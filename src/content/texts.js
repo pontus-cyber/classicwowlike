@@ -39,10 +39,10 @@ export const TEXTS = {
     prep_ember: { name: 'Ember of Return', flavour: 'A coal that never cools, kept in a clay pot for the day the road ends badly.', rule: 'Adds one Ember of Return to your bag, up to the most you may carry.' },
     prep_bell: { name: 'Second Clapper', flavour: 'A spare clapper for the Homeward Bell, tied with red thread so it is not lost.', rule: 'Adds one charge to your Homeward Bell, up to its limit.' },
     prep_mule: { name: 'Pack Mule', flavour: 'Stubborn, sure-footed and unimpressed by anything on the road.', rule: 'Adds bag slots for the whole run.' },
-    prep_charts: { name: 'Region Charts', flavour: 'Hand-inked sheets, folded soft from use, with the roads and the bad ground marked.', rule: 'Shows the region of every node and the location of every dungeon.' },
-    prep_tracker: { name: "Tracker's Notes", flavour: 'A scout\'s cramped notes on tracks, droppings and where the quarry sleeps.', rule: 'Shows contract sites that are a few steps away, even on nodes you have not seen yet.' },
+    prep_charts: { name: 'Region Charts', flavour: 'Hand-inked sheets, folded soft from use, with the roads and the bad ground marked.', rule: 'Shows the region of every place and where every dungeon is.' },
+    prep_tracker: { name: "Tracker's Notes", flavour: 'A scout\'s cramped notes on tracks, droppings and where the quarry sleeps.', rule: 'Shows contract marks a few steps away, even on places you have not seen yet.' },
     prep_guide: { name: 'Local Guide', flavour: 'A farmer\'s son who knows every stile and sheep-track for ten miles.', rule: 'Widens how far you see around you for the whole run.' },
-    prep_spyglass: { name: 'Spyglass', flavour: 'A brass tube with a cracked lens that still shows far hills sharp and clear.', rule: 'Lets you reveal one distant node and its neighbours, a few times per run.' },
+    prep_spyglass: { name: 'Spyglass', flavour: 'A brass tube with a cracked lens that still shows far hills sharp and clear.', rule: 'Lets you reveal one distant place and its neighbours, a few times per run.' },
   },
   // Contract templates. Placeholders: {n} sites needed, {family} plural family name, {familyOne} singular family name,
   // {region} region name, {zone} zone name, {levels} level band such as "levels 1-10", {elite} the named elite,
@@ -50,7 +50,7 @@ export const TEXTS = {
   // Blind Legacy v2 (2026-11-20, s0255; draft): the sentence no longer repeats the zone and the band (the tooltip's
   // subline has them) or the kind's name (the title has it).
   contracts: {
-    cull: 'Beat the {family} at {n} marked sites, most of them in {region}.',
+    cull: 'Beat the {family} at {n} marked places, most of them in {region}.',
     bounty: 'Hunt down {elite}, a {familyOne} roaming {region}.',
     delve: 'Clear {dungeon}, its boss included.',
     hub: '{hub} has work on the board: {contract}',

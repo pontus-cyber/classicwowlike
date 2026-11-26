@@ -52,7 +52,7 @@ function tollLabel(el, p) {
 }
 
 // blind round 2 (skipper s0037, explorer s0299, casual s0235): a click that cannot move says why (draft wording)
-export const TOO_FAR = 'Too far: click a lit node';
+export const TOO_FAR = 'Too far: click a lit place';
 export const ROAD_FIRST = 'Walk to the Road first';
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
@@ -83,7 +83,7 @@ function nodeDesc(type, r) {
     case 'quest': return `A quest giver needs help. One fight, then experience, gold and a choice of two rewards. ${cap(numWord(r.storyQuests))} quests in a zone complete its story.`;
     case 'grind': return `Fight 1 to ${r.grindMaxWaves} waves of ${numWord(r.grindWaveSize)} enemies. Steady experience, gold and more drops.`;
     case 'elite': return `One powerful enemy, ${numWord(r.eliteLevelOffset)} ${plural(r.eliteLevelOffset, 'level')} higher. High experience and a guaranteed good item.`;
-    case 'dungeon': return `${cap(numWord(r.dungeonTrashFights))} fights and a dungeon boss. The best loot in the zone, and the most dangerous node.`;
+    case 'dungeon': return `${cap(numWord(r.dungeonTrashFights))} fights and a dungeon boss. The best loot in the zone, and the most dangerous place.`;
     case 'rest': return 'Full health and mana, and rested experience: kills give double XP until it runs out.';
     case 'vendor': return 'Buy potions, rations and gear; sell junk and old equipment.';
     case 'trainer': return 'Learn new spells and train known ones to your level.';
@@ -193,7 +193,7 @@ export function expiringHere(v) { return v.contracts ? v.contracts.contracts.fil
 /** "2 contracts here will expire: Cull reedfolk (1 / 3 sites); Delve: The Harrow Cellars (0 / 1 site)". */
 export function expiryText(list, content) {
   const n = list.length;
-  return `${n === 1 ? '1 contract' : `${n} contracts`} here will expire: ${list.map((c) => `${contractTitle(c, content)} (${c.progress} / ${c.need} ${plural(c.need, 'site')})`).join('; ')}`;
+  return `${n === 1 ? '1 contract' : `${n} contracts`} here will expire: ${list.map((c) => `${contractTitle(c, content)} (${c.progress} / ${c.need} ${plural(c.need, 'place')})`).join('; ')}`;
 }
 
 // ------------------------------------------------------------------ class select
@@ -631,10 +631,10 @@ function buildExpMap(v, ctx, readOnly) {
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
   if (!readOnly && mv.spyglass > 0) {
-    const sb = btn(spy.armed ? 'Choose a node…' : `Spyglass (${mv.spyglass})`, () => { spy.armed = !spy.armed; ctx.ui.refreshScreens(); }, spy.armed ? '.primary.spyon' : '');
+    const sb = btn(spy.armed ? 'Choose a place…' : `Spyglass (${mv.spyglass})`, () => { spy.armed = !spy.armed; ctx.ui.refreshScreens(); }, spy.armed ? '.primary.spyon' : '');
     sb.dataset.spyglass = String(mv.spyglass);
-    tip(sb, () => h('div', h('div.tt-name', 'Spyglass'), h('div.tt-line', 'Look at any node of the zone, however far: it and its neighbours come into full view. Costs no tolls.'),
-      h('div.tt-sub', `${mv.spyglass} ${plural(mv.spyglass, 'look')} left`), h('div.tt-hint', spy.armed ? 'Click a node on the map · Esc or this button to stop' : 'Click, then click a node')));
+    tip(sb, () => h('div', h('div.tt-name', 'Spyglass'), h('div.tt-line', 'Look at any place in the zone, however far: it and its neighbours come into full view. Costs no tolls.'),
+      h('div.tt-sub', `${mv.spyglass} ${plural(mv.spyglass, 'look')} left`), h('div.tt-hint', spy.armed ? 'Click a place on the map · Esc or this button to stop' : 'Click, then click a place')));
     btns.unshift(sb);
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
@@ -786,7 +786,7 @@ function buildExpMap(v, ctx, readOnly) {
     const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
     const shownLvl = nodeLevel(n);
     const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (n.road && n.closed ? '.rclosed' : '') + (loud ? '' : '.quiet'),
-      { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${n.name && (n.type === 'elite' || !type) ? n.name : type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
+      { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${n.name && (n.type === 'elite' || !type) ? n.name : type ? NODE_NAME[type] || 'Hub' : 'Unknown'} place ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(shownLvl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
@@ -831,11 +831,11 @@ function buildExpMap(v, ctx, readOnly) {
     // D152 (changes-m3-v2.md 3.3; engine-2026-11-14f UI need 4): the steady Dimming's own numbers (mapView.dim nextIn,
     // nextCount, count, total); a held node (no dimsIn) has no "dims in" line
     if (finite(dm.nextIn)) dimBox.appendChild(h('div.xpl.xnext', dm.count ? `Spreads in ${tolls(dm.nextIn)}: ${dm.nextCount} ${plural(dm.nextCount, 'place')}` : `Starts to spread in ${tolls(dm.nextIn)}`));
-    if (me && (me.dimmed || finite(me.dimsIn))) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your node dims in ${tolls(me.dimsIn)}`));
+    if (me && (me.dimmed || finite(me.dimsIn))) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your place dims in ${tolls(me.dimsIn)}`));
     dimBox.appendChild(h('div.xpl.muted.xcount', `${dm.count ?? mv.nodes.filter((n) => n.dimmed).length} of ${dm.total ?? mv.nodes.length} places Dimmed`));
   } else {
     dimBox.appendChild(h('div.xpl', front < 0 ? `Starts to spread in ${tolls(dm.nextIn)}` : `Spreads again in ${tolls(dm.nextIn)}`));
-    if (me) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your node dims in ${tolls(me.dimsIn)}`));
+    if (me) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your place dims in ${tolls(me.dimsIn)}`));
     dimBox.appendChild(h('div.xpl.muted', `${mv.nodes.filter((n) => n.dimmed).length} of ${mv.nodes.length} nodes Dimmed`));
   }
   const pace = dm.steady && mv.texts && mv.texts.dimming_pace ? mv.texts.dimming_pace.replace('{maxPerToll}', String(dm.maxPerToll)).replace('{grace}', String(dm.grace)) : null;
@@ -852,8 +852,8 @@ function buildExpMap(v, ctx, readOnly) {
     // blind demo round 1 (A, draft): the node badges, so the level and the enemy count read with hints off
     h('div.xk.xk-badges', h('i.xk-lvl', { style: { color: conColor(p.level, p.level) } }, String(lv(p.level))), 'Fight level'), h('div.xk.xk-badges', h('i.xk-foes', '3 foes'), 'Every enemy'));
   tip(key, () => h('div', h('div.tt-name', 'What you see'),
-    h('div.tt-line.xk-lvltip', 'A fight\'s level is coloured against yours: green easier, yellow about your level, orange harder, red deadly.'), h('div.tt-line', `Nodes up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a node once seen stays on the map.`),
-    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types up to ${mv.vision.typeRadius} steps away.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
+    h('div.tt-line.xk-lvltip', 'A fight\'s level is coloured against yours: green easier, yellow about your level, orange harder, red deadly.'), h('div.tt-line', `Places up to ${mv.vision.radius} ${plural(mv.vision.radius, 'step')} away are in full view; a place once seen stays on the map.`),
+    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: place types up to ${mv.vision.typeRadius} steps away.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
   const right = h('div.xside.xright');

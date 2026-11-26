@@ -19,11 +19,14 @@ const { dimAt } = await import('../../src/engine/expedition.js');
 const gateOff = () => { C.GATES.legacy = false; C.GATES.oruvathLegacy = false; };
 const nodeOf = (b) => R.deserialize(b.backend.serialized(), CONTENT);
 
-test('a Cull contract\'s site line says exactly which nodes count (s0133: ordinary fights in the region never counted)', () => {
+test('a Cull contract\'s line says where to go and exactly which places count (s0133: ordinary fights in the region never counted)', () => {
   const r = { vision: 1, guide: 1, tracker: 2, bountyPlaced: 2 };
   const t = contractSitesText({ kind: 'cull', regionName: 'Barleyreach Verge' }, r);
-  // content-2026-11-20 (draft): the region is in the contract's sentence, so this line names only the rule
-  assert.match(t, /^Only Quest or Grind nodes with its mark count; other fights do not\./);
+  // R2-6 (draft): plain sentences: where to go, then what counts, then how far the marks show
+  assert.match(t, /^Go to Barleyreach Verge\. Only the marked Quest and Grind places count; other fights do not\. Its marks show on the map up to 1 step away\.$/);
+  assert.match(contractSitesText({ kind: 'bounty', name: 'Grosk', regionName: 'Harrow Lane' }, r), /^Go to Harrow Lane\. Grosk stands at two marked Elite places there\. Beat it at either one\./);
+  assert.match(contractSitesText({ kind: 'delve', dungeon: 'The Sunken Vault' }, r), /^Go to The Sunken Vault\. It shows on the zone map while you hold this contract\.$/);
+  assert.doesNotMatch(t, /\b(node|site)s?\b/i, 'one word for a place on the map')
 });
 
 test('Equip now on a reward: the bridge sends CHOOSE_REWARD with equip; on a dimmed node the item is worn as the encounter starts', () => {

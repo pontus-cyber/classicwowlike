@@ -115,7 +115,7 @@ export const TUTORIAL = {
       line: 'Take a contract: win its fights for extra XP and a reward.',
       alt: { noContract: 'Set out with no contract? Press Set out again.' } },
     { id: 'G2', name: 'Moving', hint: 'H15', anchor: "player's node",
-      line: 'Click a lit node next to you to walk there.' },
+      line: 'Click a lit place next to you to walk there.' },
     // G3 (D150 item 11): no line; fight 1 shows G7's ("Press 1 to attack" contradicted the engage panel). The engine
     // still tracks the first fight won.
     { id: 'G3', name: 'First fight', anchor: null, line: null },
@@ -145,7 +145,7 @@ export const TUTORIAL = {
       alt: { landed: 'Maimed: your healing is halved this fight. Drink early.' } },
     // G10 (D150, draft): its line once, from round 2 of a site fight; G10.done when the contract's reward choice is up
     { id: 'G10', name: 'Contract sites', hint: 'H20', anchor: 'site badge',
-      line: 'Contract site: win this fight to count it.',
+      line: 'Marked place: win this fight to count it.',
       alt: { done: 'Contract done: choose one reward.' } },
     { id: 'G11', name: 'Potions', hint: 'H09', anchor: 'item slot',
       line: 'Low health: drink a Healing Draught ({key_item1}).' },
@@ -208,12 +208,12 @@ export const TUTORIAL = {
     { id: 'H12', system: 'Trainer', line: null, retired: 'D150' },
     { id: 'H13', system: 'Spell bar', line: 'Drag your new spell onto the bar (spellbook, {key_spellbook}).' },
     { id: 'H14', system: 'Talents', line: 'Talent point: spend it in Talents ({key_talents}).' },
-    { id: 'H15', system: 'Fog', line: 'You see the nodes next to you. Walking shows more.' },
+    { id: 'H15', system: 'Fog', line: 'You see the places next to you. Walking shows more.' },
     { id: 'H16', system: 'The Furnace', line: 'Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll and the final boss gets stronger.' }, // demo blind round 1 B (draft)
     { id: 'H17', system: 'Burning', line: 'Burning: more XP, gold and better drops, but the final boss gets stronger.' },
     { id: 'H18', system: 'The Dimming', line: 'The dark spreads from the purple star. Places it reaches are lost.' },
     { id: 'H19', system: 'Homeward Bell', sameAs: 'G13' },
-    { id: 'H20', system: 'Contract site', line: 'Contract site: win this fight to count it.' },
+    { id: 'H20', system: 'Contract mark', line: 'Marked place: win this fight to count it.' },
     { id: 'H21', system: 'Contract done', line: 'Contract done: choose one reward.' },
     { id: 'H22', system: 'Hub contract', line: 'This hub offers a contract. Pay in camp points, or swap one you hold.' },
     { id: 'H23', system: 'Start camp', line: 'Camp points buy contracts and supplies. Keep a few to take a contract at a hub later.' },
@@ -225,7 +225,7 @@ export const TUTORIAL = {
     { id: 'H29', system: 'Rest', line: 'Rest: back to full health and mana, for tolls.' },
     { id: 'H30', system: 'Pass', line: 'Sapped: press Pass ({key_pass}) and it stays sapped, so its wind-up never comes.' },
     { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It stops Deathblows too.' },
-    { id: 'H32', system: 'Flee', line: 'You can flee ({key_flee}). The node stays open for later.' },
+    { id: 'H32', system: 'Flee', line: 'You can flee ({key_flee}). The place stays open for later.' },
     { id: 'H33', system: 'Pet', perClass: true, line: 'Your pet fights beside you and draws some of the blows.' },
     // H34 (D150 item 11): retired, no line (it showed with no opener owned; the naming rule's word is Stealth)
     { id: 'H34', system: 'Stealth', perClass: true, line: null, retired: 'D150' },

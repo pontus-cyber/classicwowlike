@@ -224,15 +224,15 @@ export const CONSUMABLES = {
   trail_rations: { id: 'trail_rations', name: 'Trail Rations', use: 'out', price: 0.5, stack: 10, text: 'Out of combat: restores 40 % of health, mana and pet health.' },
   purifying_tonic: { id: 'purifying_tonic', name: 'Purifying Tonic', use: 'combat', price: 2, stack: 5, text: 'Removes every debuff on you.' },
   spark_flask: { id: 'spark_flask', name: 'Spark Flask', use: 'combat', price: 1, stack: 5, text: 'Throw it: magic damage to every enemy.' },
-  elixir_ferocity: { id: 'elixir_ferocity', name: 'Elixir of Ferocity', use: 'out', price: 3, stack: 3, text: '+10 % damage for the next 3 nodes.' },
+  elixir_ferocity: { id: 'elixir_ferocity', name: 'Elixir of Ferocity', use: 'out', price: 3, stack: 3, text: '+10 % damage for the next 3 places.' },
   ember_of_return: { id: 'ember_of_return', name: 'Ember of Return', use: 'passive', price: 30, stack: 1, text: 'Carried: when you die, you return at once with 40 % health. One at a time.' },
   greater_healing_draught: { id: 'greater_healing_draught', name: 'Greater Healing Draught', use: 'both', price: 2.5, stack: 5, text: 'Restores 50 % of your maximum health.' },
 };
 
 export const BOONS = {
   return: { id: 'return', name: 'Boon of Return', w: 10, text: 'An extra Ember of Return, kept until you use it.' },
-  insight: { id: 'insight', name: 'Boon of Insight', w: 20, text: '+20 % experience for the next 3 nodes.' },
-  fury: { id: 'fury', name: 'Boon of Fury', w: 20, text: '+15 % damage for the next 3 nodes.' },
+  insight: { id: 'insight', name: 'Boon of Insight', w: 20, text: '+20 % experience for the next 3 places.' },
+  fury: { id: 'fury', name: 'Boon of Fury', w: 20, text: '+15 % damage for the next 3 places.' },
   plenty: { id: 'plenty', name: 'Boon of Plenty', w: 20, text: 'A pouch of gold, now.' },
   mending: { id: 'mending', name: 'Boon of Mending', w: 20, text: 'Full health and mana now, plus rested experience.' },
   clarity: { id: 'clarity', name: 'Boon of Clarity', w: 10, text: 'Your next respec is free, and every spell is trained to your level now.' },

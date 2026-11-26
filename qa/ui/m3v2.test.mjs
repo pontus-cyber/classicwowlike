@@ -25,7 +25,7 @@ test('section 4: the Furnace line and tooltip by heatView `by`', () => {
   assert.equal(meterText({ by: 'dim', heat: -1, dimIn: 0 }), 'You stand in the Dimming');
   assert.equal(heatToast({ state: 'scorched', heat: -1, by: 'dim', dimIn: 0 }), 'The Furnace: Infernal · You stand in the Dimming.');
   assert.equal(dimTipLine({ heat: -4 }), 'Tolls: 4 to spare. The dark near you sets the Furnace now.');
-  assert.equal(dimTipLine({ heat: -3, dimIn: 2 }), 'Your node dims in 2 tolls. Tolls: 3 to spare. The dark near you sets the Furnace now.');
+  assert.equal(dimTipLine({ heat: -3, dimIn: 2 }), 'Your place dims in 2 tolls. Tolls: 3 to spare. The dark near you sets the Furnace now.');
   assert.equal(dimTipLine({ heat: 2 }), 'Tolls: 2 overspent. The dark near you sets the Furnace now.');
 });
 

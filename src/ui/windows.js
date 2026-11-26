@@ -199,7 +199,7 @@ export function createWindows(root, ctx) {
       const z = v.zone; const n = v.node;
       const body = h('div.col', { style: { padding: '1.2rem 1.6rem 1.6rem' } });
       if (n && n.type === 'quest') body.appendChild(h('div', h('div.title', { style: { fontSize: '1.6rem' } }, n.title), h('div.dim', n.text)));
-      else body.appendChild(h('div.muted', 'No active quest. Quests are taken at quest nodes on the zone map.'));
+      else body.appendChild(h('div.muted', 'No active quest. Quests are taken at quest places on the zone map.'));
       const sq = ctx.data.rules.storyQuests;
       if (z) body.appendChild(h('div', h('div.title', { style: { fontSize: '1.5rem', marginTop: '.6rem' } }, `${z.name}: story`), h('div.dim', `Complete ${sq} quests in this zone for a rare reward and bonus experience. Done: ${Math.min(sq, z.questsDone)} / ${sq}${z.storyDone ? ' (finished)' : ''}.`)));
       return frame('questlog', 'Quest log', null, body);
@@ -365,7 +365,7 @@ export function createWindows(root, ctx) {
     if (!builders[name]) return;
     // in an expedition run the fog map is the map screen itself: on that screen M says so instead of a second copy
     const v = ctx.view;
-    if (name === 'map' && v && v.phase === 'MAP' && v.zone && v.zone.exp) { ctx.toast('The zone map is the screen you are on. M opens it in fights, nodes and the hub.', 'info'); return; }
+    if (name === 'map' && v && v.phase === 'MAP' && v.zone && v.zone.exp) { ctx.toast('The zone map is the screen you are on. M opens it in fights, places and the hub.', 'info'); return; }
     if (name === 'talents' || name === 'settings' || name === 'map') for (const n of ['talents', 'settings', 'map']) if (n !== name) close(n);
     if (name === 'character' || name === 'spellbook' || name === 'questlog') for (const n of ['character', 'spellbook', 'questlog']) if (n !== name) close(n);
     if (name === 'bags' && !open.has('bags')) bagMem.prev = null; // a fresh open shows the bags compact (the engine's order)

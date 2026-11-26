@@ -60,6 +60,6 @@ test('dungeon counts on the expedition map: the bridge, the map tooltip and the 
 });
 
 test('the map\'s short lines (draft)', () => {
-  assert.equal(TOO_FAR, 'Too far: click a lit node');
+  assert.equal(TOO_FAR, 'Too far: click a lit place');
   assert.equal(ROAD_FIRST, 'Walk to the Road first');
 });

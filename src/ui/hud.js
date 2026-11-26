@@ -358,7 +358,7 @@ export function createHud(root, ctx) {
   showSpeed();
   els.pass.addEventListener('click', () => ctx.ui.pass());
   els.flee.addEventListener('click', () => ctx.ui.flee());
-  tip(els.flee, () => h('div', h('div.tt-name', 'Flee'), h('div.tt-line.desc', 'Try to escape. On success you leave the node with no further rewards.'), ctx.view.legal.fleeChance != null ? h('div.tt-line.num', `Chance: ${Math.round(ctx.view.legal.fleeChance * 100)} %`) : null, h('div.tt-sub', 'Key: F (press twice)')));
+  tip(els.flee, () => h('div', h('div.tt-name', 'Flee'), h('div.tt-line.desc', 'Try to escape. On success you leave the place with no further rewards.'), ctx.view.legal.fleeChance != null ? h('div.tt-line.num', `Chance: ${Math.round(ctx.view.legal.fleeChance * 100)} %`) : null, h('div.tt-sub', 'Key: F (press twice)')));
   tip(els.pass, () => h('div', h('div.tt-name', 'Pass'), h('div.tt-line.desc', 'Do nothing this round. Resources still regenerate.'), h('div.tt-sub', 'Key: X')));
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {

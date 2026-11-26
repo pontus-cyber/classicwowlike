@@ -76,7 +76,7 @@ export function contractTip(c, ctx, opts = {}) {
     // M2b v10 (expedition.md 3.1): contract XP has no level-difference modifier, so the amount is fixed (reward.xp).
     // Legacy (legacy.md 5.3): the pay in hero XP, without the levels-worth
     const xp = typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : '';
-    box.appendChild(h('div.tt-line.num', 'Reward when its last site is won: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
+    box.appendChild(h('div.tt-line.num', 'Reward when it is done: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
   }
   if (opts.progress) box.appendChild(h('div.tt-line', opts.progress));
   if (opts.status) box.appendChild(h('div.tt-sub', opts.status));
@@ -97,7 +97,7 @@ export function boardTip(o, ctx, opts = {}) {
   const rw = o.reward || {};
   const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
-      : `Win ${o.need} fights on Quest or Grind nodes that carry its mark, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
+      : `Win ${o.need} fights at marked Quest or Grind places, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
   // Economy v2 (engine-2026-11-19c UI need 7): the board's XP is what the contract pays (reward.xp), so no "about"
   const pay = [legacyShown() && typeof rw.xp === 'number' ? `${econShown() ? '' : 'about '}${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
@@ -130,7 +130,7 @@ const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zo
  * carry the contract's mark count (contracts.js siteWon), so the line says "marked" and the tooltip says which nodes.
  */
 const doLine = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included'
-  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} marked ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
+  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} marked ${plural(o.need, 'place')} in ${o.regionName || 'its region'}`);
 
 /**
  * The start camp screen (expedition.md 9.1; D128, owner playtest 2026-11-12 20:19: "strip it ... 3 simple choices"): one
@@ -178,7 +178,7 @@ export function createPrepScreen(v, ctx) {
     cards.appendChild(b);
     return b;
   });
-  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'Up to three at a time. Each gives its reward when its task is done.'), reroll), cards);
+  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', `You can hold up to ${numWord(pv.slots)} at a time. Each gives its reward when its task is done.`), reroll), cards);
   // the options: small cards in one row
   const optEls = new Map();
   const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
@@ -344,11 +344,11 @@ export function prepKey(e, ctx) {
 const PREP_ENTER_GUARD_MS = 700;
 
 // ------------------------------------------------------------------ the tracker (HUD), the quest log, the hub, the map
-/** "1 / 2 sites", "Complete", ... for a contract of the tracker. */
+/** "1 / 2 places", "Complete", ... for a contract of the tracker. */
 export function progressText(c) {
   if (c.status === 'complete') return 'Complete';
   if (c.status === 'expired' || c.status === 'abandoned') return STATUS_WORD[c.status];
-  return `${c.progress} / ${c.need} ${plural(c.need, 'site')}`;
+  return `${c.progress} / ${c.need} ${plural(c.need, 'place')}`;
 }
 /**
  * The tracker's contract lines (expedition.md 9.3): the current zone's contracts pinned under the minimap (dot in the
@@ -368,7 +368,7 @@ export function trackerContracts(v, ctx) {
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
       h('span.t', h('i.dot'), contractTitle(c, ctx.data.content)), h('span.pr', progressText(c)));
-    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. Only nodes with its mark count; the map marks the sites you see.` : null,
+    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Done: ${c.progress} of ${c.need}. The map marks the places you can see.` : null,
       warn: c.status === 'active' ? 'Expires when you leave this zone (a Road or the Bell): no reward.' : null }));
     out.push(el);
   }
@@ -426,12 +426,12 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   const list = h('div.hc-swap' + (state.swap ? '' : '.hidden'), cv.contracts.filter((c) => o.swap.includes(c.id)).map((c) => {
     const b = h('button.hc-give', { type: 'button', dataset: { contract: c.id }, style: { '--cc': colors.get(c.id) || OFF_COLOR } }, h('i.dot'), h('span', `Give up: ${contractTitle(c, ctx.data.content)}`), h('span.muted', ` · zone ${c.z}, ${progressText(c)}`));
     b.addEventListener('click', () => { taken(); ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: c.id }); });
-    tip(b, () => contractTip(c, ctx, { warn: `Given up for the offer: no refund, ${c.progress ? `its ${c.progress} ${plural(c.progress, 'site')} won are lost` : 'nothing won yet'}.` }));
+    tip(b, () => contractTip(c, ctx, { warn: `Given up for the offer: no refund, ${c.progress ? `its ${c.progress} ${plural(c.progress, 'place')} won are lost` : 'nothing won yet'}.` }));
     return b;
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
   const pay = payLine(rw, 'div.hc-rw');
-  tip(pay, () => h('div', h('div.tt-name', 'Reward when its last site is won'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
+  tip(pay, () => h('div', h('div.tt-name', 'Reward when it is done'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
 }
@@ -450,7 +450,7 @@ export function siteLines(n, v, ctx) {
   const colors = contractColors(v.contracts);
   return n.sites.map((id) => {
     const c = v.contracts.contracts.find((x) => x.id === id);
-    return h('div.tt-line.site', { style: { '--cc': colors.get(id) || OFF_COLOR } }, h('i.dot'), c ? `Contract site: ${contractTitle(c, ctx.data.content)} (${progressText(c)})` : 'Contract site');
+    return h('div.tt-line.site', { style: { '--cc': colors.get(id) || OFF_COLOR } }, h('i.dot'), c ? `Marked for ${contractTitle(c, ctx.data.content)} (${progressText(c)})` : 'Marked for a contract');
   });
 }
 export { numWord };

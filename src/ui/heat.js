@@ -102,7 +102,7 @@ export const DIM_IN_WORDS = 'You stand in the Dimming';
  */
 export function dimTipLine(x) {
   const n = Math.abs(x.heat || 0);
-  const mine = x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}. ` : '';
+  const mine = x.dimIn > 0 ? `Your place dims in ${tolls(x.dimIn)}. ` : '';
   return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The dark near you sets the Furnace now.`;
 }
 /**
@@ -498,7 +498,7 @@ export function heatBadge(state, ctx, kind = 'node') {
   if (!H || !state || !(H.gain[state] > 0 || H.rarityUp[state] > 0)) return null;
   const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? `▲ ${HW.Name}` : `${HEAT_NAME[state]} bonus`);
   tip(el, () => h('div', h('div.tt-name', kind === 'item' ? `Raised by ${HW.name}` : `Entered ${HEAT_NAME[state]}`),
-    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: one rarity better than it dropped.` : `${payText(state, H)}.`)));
+    h('div.tt-line.desc', kind === 'item' ? `Found in a place entered ${HEAT_NAME[state]}: one rarity better than it dropped.` : `${payText(state, H)}.`)));
   return el;
 }
 
@@ -535,7 +535,7 @@ export function buildHeatSummary(sum, ctx) {
   // the state it was entered in, so only the states with nodes are named; the Dimming (Infernal where it stands) has its
   // own count, the Dimmed encounters
   const entered = STATES.map((s, i) => [s, ht.nodesByState[i]]).filter(([, n]) => n > 0);
-  const nodesLine = entered.length ? `Nodes entered, by the state you entered them in: ${entered.map(([s, n]) => `${n} ${HEAT_NAME[s]}`).join(' · ')}.` : 'No node entered.';
+  const nodesLine = entered.length ? `Places entered, by the state you entered them in: ${entered.map(([s, n]) => `${n} ${HEAT_NAME[s]}`).join(' · ')}.` : 'No place entered.';
   const dim = ht.dimFights || 0;
   const dimLine = dim ? ` The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (${HEAT_NAME.scorched} where it stands).` : '';
   card.appendChild(h('div.hc-foot', `${nodesLine} Fights won while ${HEAT_NAME.hot} or ${HEAT_NAME.scorched}: ${hotFights}.${dimLine} Hover a point for its ${HW.units}.`));

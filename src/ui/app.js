@@ -937,7 +937,7 @@ function devText(op, args, r, v) {
 }
 
 /** Esc on the zone map with nothing over it (blind round 2, draft wording). */
-export const MAP_ESC = 'The zone map stays open: click a lit node to move';
+export const MAP_ESC = 'The zone map stays open: click a lit place to move';
 
 /** What a banner keeps clear of outside fights while a screen's panel is up (placeBanner, blind round 2). */
 const BANNER_KEEP_MAP = '#screens .mapwin, #screens .panel, #toasts .toast, #tracker, #player-frame, #pet-frame, #minimap, #combatlog, #actionbar, #coach, #heat';

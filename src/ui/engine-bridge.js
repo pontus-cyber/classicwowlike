@@ -1503,7 +1503,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const name = c ? TXT.contractTitle(c, CONTENT) : TXT.CONTRACT_KIND[e.kind] || 'A contract';
     switch (e.what) {
       case 'take': return { t: 'msg', text: `Contract taken: ${name}`, kind: 'good' };
-      case 'site': return { t: 'msg', text: `Contract site won: ${name} · ${e.progress} / ${e.need}`, kind: 'good' };
+      case 'site': return { t: 'msg', text: `Marked place won for ${name} · ${e.progress} / ${e.need}`, kind: 'good' };
       case 'complete': return { t: 'msg', text: `Contract complete: ${name}`, kind: 'good' };
       case 'expire': return { t: 'msg', text: `Contract expired: ${name}`, kind: 'info' };
       case 'abandon': return { t: 'msg', text: `Contract given up: ${name}`, kind: 'info' };
