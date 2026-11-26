@@ -2,7 +2,7 @@
 // 2026-11-26; feedback 2026-11-26-blind-demo-returning item 1, -skipper-retest s0205-s0207; lines draft). The bridge's
 // bellFight is the engine's own RING_BELL step on a copy (the run is not changed) and names the fight that comes first;
 // bellFightInfo turns it into the confirm's line and threat; defaultPick is the reward Space takes. The browser side
-// (the pause of autoplay and speed, the last moment before the fallen screen) is ui-regress part AE.
+// (the pause of autoplay and speed, the last moment before the fallen screen) is ui-regress part AF.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

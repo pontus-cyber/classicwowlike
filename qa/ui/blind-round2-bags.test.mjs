@@ -2,7 +2,7 @@
 // 6 and -skipper-retest; lines draft), the bridge's side in Node: junk never stays in the bags (CASH_JUNK after the step,
 // one log line, one row in the spoils); a closed chest with full bags shows no "Items waiting" before it is opened and is
 // opened once (bug); Take all with full bags takes what fits, leaves the rest and moves on (Space always moves on).
-// The browser side (Leave in one click, the default reward pick, Equip on purchase) is ui-regress part AE.
+// The browser side (Leave in one click, the default reward pick, Equip on purchase) is ui-regress part AF.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

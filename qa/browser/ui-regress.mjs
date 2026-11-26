@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node qa/browser/ui-regress.mjs [--file <build>]   (no --file: builds /tmp/tbwcr-<worktree>/game.html from src/ first, build-path.mjs)
- *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD,AE]
+ *   node qa/browser/ui-regress.mjs [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD,AE,AF]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -192,9 +192,9 @@
  *   BC demo blind round 1, B and C (docs/handoffs/ui-2026-11-26b.md): the Furnace's first-map note, "Next zone" signs, the
  *      Key's names, the Bell's button, tip and confirm dialog (the chosen action highlighted, no tooltip over it), and a
  *      Dimming fight before the Bell named before the click: see partBC.
- *   AE demo blind round 2, R2-3 to R2-5 (docs/handoffs/ui-2026-11-26d.md): the Bell's fight in the Dimming (enemies and threat in
+ *   AF demo blind round 2, R2-3 to R2-5 (docs/handoffs/ui-2026-11-26d.md): the Bell's fight in the Dimming (enemies and threat in
  *      the confirm, autoplay and speed paused, the last moment before the fallen screen), Leave in one click, Space with full
- *      bags, Buy and equip, the reward's default pick, Accept's key, the run end's buttons, Autoplay kept: see partAE.
+ *      bags, Buy and equip, the reward's default pick, Accept's key, the run end's buttons, Autoplay kept: see partAF.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -238,7 +238,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = resolveBuild(arg('--file', null));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD,AE').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BC,AD,AE,AF').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -7573,20 +7573,20 @@ async function partAD(browser, W, H) {
 }
 
 /**
- * Part AE - demo blind round 2, R2-3 to R2-5 (docs/handoffs/ui-2026-11-26d.md; feedback 2026-11-26-blind-demo-returning and
+ * Part AF - demo blind round 2, R2-3 to R2-5 (docs/handoffs/ui-2026-11-26d.md; feedback 2026-11-26-blind-demo-returning and
  * -skipper-retest), real engine. States are made in Node (R.debug) and loaded (window.__ui.loadState).
- *   AE1 the Bell rung in the Dimming with Autoplay on and Instant speed: the confirm names the fight's enemies and its threat
+ *   AF1 the Bell rung in the Dimming with Autoplay on and Instant speed: the confirm names the fight's enemies and its threat
  *       (the engine's own step, the same enemies the fight then has); in the fight autoplay is off and the speed held at 1x
  *       (the setting kept); the hero (far below the enemies) dies: the fight's last moment stays on screen at least
  *       1 s before the fallen screen.
- *   AE2 the loot window with room for one of two items: "Take what fits" (Space) and "Leave 2 behind"; Leave is one click.
- *   AE3 full bags: Space takes what fits, leaves the rest and moves on; the bags-full line is said once (the window's foot,
+ *   AF2 the loot window with room for one of two items: "Take what fits" (Space) and "Leave 2 behind"; Leave is one click.
+ *   AF3 full bags: Space takes what fits, leaves the rest and moves on; the bags-full line is said once (the window's foot,
  *       no toast, no log line).
- *   AE4 the vendor: an upgrade in stock reads "Buy and equip"; one click buys it and puts it on.
- *   AE5 a quest reward: the default pick's button (Space) takes it; Accept shows its key; Autoplay turned on by the player is
+ *   AF4 the vendor: an upgrade in stock reads "Buy and equip"; one click buys it and puts it on.
+ *   AF5 a quest reward: the default pick's button (Space) takes it; Accept shows its key; Autoplay turned on by the player is
  *       on again in the next run (Same hero).
  */
-async function partAE(browser, W, H) {
+async function partAF(browser, W, H) {
   const load = async (page, st) => { await idle(page); const ok = await page.evaluate((x) => window.__ui.loadState(x), R.serialize(st)); await idle(page); return ok; };
   const fillGear = (st, free) => { const g = st.player.equipped.chest; let k = 0; while (st.player.bag.length < R.bagCapacity(st) - free) st.player.bag.push({ ...g, uid: `ae-fill-${k++}` }); return st; };
   // ---- AE1
@@ -7598,19 +7598,19 @@ async function partAE(browser, W, H) {
       st = R.step(st, { type: 'LEAVE_HUB' }).state;
       const n = [...R.mapView(st).nodes].filter((x) => !x.hub).sort((a, b) => a.dimAt - b.dimAt)[0];
       st.zone.pos = n.id; st.zone.start -= n.dimAt + 3; st.autoplay = true;
-      check('AE-1', 'a zone 2 state on a Dimmed node loads', await load(page, st), '');
+      check('AF-1', 'a zone 2 state on a Dimmed node loads', await load(page, st), '');
       const want = R.step(st, { type: 'RING_BELL' }).state.fight.enemies.map((e) => e.name);
       await page.locator('#screens .expmap .mhead [data-leave="RING_BELL"]').click(); await idle(page);
       const ask = await page.evaluate(() => { const f = document.querySelector('.leavewarn .lw-foes'); return f ? { text: f.innerText, threat: f.dataset.threat } : null; });
-      await shot(page, 'AE1-bell-confirm');
-      check('AE-1', 'the Bell\'s confirm names the fight in the Dimming, its enemies and its threat, and that autoplay and speed pause', !!ask && want.every((nm) => ask.text.includes(nm)) && /Threat: Deadly\./.test(ask.text) && ask.threat === 'deadly' && /Autoplay and fast speed pause for this fight\./.test(ask.text), JSON.stringify({ ask, want }));
+      await shot(page, 'AF1-bell-confirm');
+      check('AF-1', 'the Bell\'s confirm names the fight in the Dimming, its enemies and its threat, and that autoplay and speed pause', !!ask && want.every((nm) => ask.text.includes(nm)) && /Threat: Deadly\./.test(ask.text) && ask.threat === 'deadly' && /Autoplay and fast speed pause for this fight\./.test(ask.text), JSON.stringify({ ask, want }));
       const t0 = await page.evaluate(() => { window.__aeT = { sum: 0, dying: 0 }; const tick = () => { const now = performance.now(); if (!window.__aeT.dying && document.body.classList.contains('dying')) window.__aeT.dying = now; if (!window.__aeT.sum && window.__ui.view().phase === 'SUMMARY') window.__aeT.sum = now; if (!window.__aeT.dying) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return performance.now(); });
       await page.locator('.leavewarn [data-go="RING_BELL"]').click();
       await page.waitForFunction(() => { const v = window.__ui.view(); return v.combat && !v.combat.over && !v.autoplay; }, null, { timeout: 10000 });
       await idle(page);
       const inF = await page.evaluate(() => ({ auto: window.__ui.view().autoplay, held: window.__ui.settings.held, speed: window.__ui.settings.get('speed'), btn: document.querySelector('#actionbar .speedbtn b').textContent, names: window.__ui.view().combat.enemies.map((e) => e.name), log: [...document.querySelectorAll('#combatlog .lines > *')].map((x) => x.textContent).slice(-6) }));
-      await shot(page, 'AE1-bell-fight');
-      check('AE-1', 'in the Bell\'s fight autoplay is off, the speed held at 1× (Instant kept as the setting), one log line says so; the enemies are the confirm\'s', !inF.auto && inF.held && inF.speed === 0 && inF.btn === '1×' && inF.log.some((l) => /autoplay and fast speed pause for it/.test(l)) && JSON.stringify(inF.names) === JSON.stringify(want), JSON.stringify(inF));
+      await shot(page, 'AF1-bell-fight');
+      check('AF-1', 'in the Bell\'s fight autoplay is off, the speed held at 1× (Instant kept as the setting), one log line says so; the enemies are the confirm\'s', !inF.auto && inF.held && inF.speed === 0 && inF.btn === '1×' && inF.log.some((l) => /autoplay and fast speed pause for it/.test(l)) && JSON.stringify(inF.names) === JSON.stringify(want), JSON.stringify(inF));
       // the player turns autoplay on again (Z): the hero, 18 levels below, dies
       await page.keyboard.press('KeyZ');
       await page.waitForFunction(() => window.__ui.view().phase === 'SUMMARY', null, { timeout: 120000 });
@@ -7618,9 +7618,9 @@ async function partAE(browser, W, H) {
       const tm = await page.evaluate(() => window.__aeT);
       await idle(page);
       const after = await page.evaluate(() => ({ held: window.__ui.settings.held }));
-      check('AE-1', `a death in it: the fight's last moment stays ${Math.round(tm.dying - tm.sum)} ms (at least 1 000) before the fallen screen; the hold ends with the fight`, tm.sum > t0 && tm.dying - tm.sum >= 1000 && !after.held, JSON.stringify({ tm, after }));
-    } catch (e) { await shot(page, 'AE1-error'); check('AE-1', 'part AE1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
-    check('AE-1', 'part AE1: no console errors', errors.length === 0, errors.join(' | '));
+      check('AF-1', `a death in it: the fight's last moment stays ${Math.round(tm.dying - tm.sum)} ms (at least 1 000) before the fallen screen; the hold ends with the fight`, tm.sum > t0 && tm.dying - tm.sum >= 1000 && !after.held, JSON.stringify({ tm, after }));
+    } catch (e) { await shot(page, 'AF1-error'); check('AF-1', 'part AF1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AF-1', 'part AF1: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   // ---- AE2, AE3
@@ -7634,25 +7634,25 @@ async function partAE(browser, W, H) {
       st.loot.push({ ...g, uid: 'ae-w1', name: 'First Vest' }, { ...g, uid: 'ae-w2', name: 'Second Vest' });
       await load(page, st);
       const foot = await page.evaluate(() => ({ btns: [...document.querySelectorAll('.loot .foot .btn')].map((b) => b.textContent), note: (document.querySelector('.loot .foot .bfull') || {}).textContent || null }));
-      await shot(page, 'AE2-loot-fits');
-      check('AE-2', 'room for one of two: "Leave 2 behind" and "Take what fits" (Space); the foot says the bags are full', foot.btns.includes('Leave 2 behind') && foot.btns.some((b) => /^Take what fits/.test(b)) && !!foot.note, JSON.stringify(foot));
+      await shot(page, 'AF2-loot-fits');
+      check('AF-2', 'room for one of two: "Leave 2 behind" and "Take what fits" (Space); the foot says the bags are full', foot.btns.includes('Leave 2 behind') && foot.btns.some((b) => /^Take what fits/.test(b)) && !!foot.note, JSON.stringify(foot));
       const n0 = await page.evaluate(() => window.__ui.engineLog().length);
       await page.locator('.loot .foot [data-leave]').click(); await idle(page);
       const left = await page.evaluate((n) => ({ loot: !!window.__ui.view().loot, log: window.__ui.engineLog().slice(n).map((a) => a.type) }), n0);
-      check('AE-2', 'Leave is one click: both items dropped, the window closed', !left.loot && left.log.filter((t) => t === 'LOOT_DROP').length === 2, JSON.stringify(left));
+      check('AF-2', 'Leave is one click: both items dropped, the window closed', !left.loot && left.log.filter((t) => t === 'LOOT_DROP').length === 2, JSON.stringify(left));
       // AE3: full bags
       st = fillGear(base(), 0);
       st.loot.push({ ...g, uid: 'ae-w3', name: 'Third Vest' });
       await load(page, st);
       const lines0 = await page.evaluate(() => document.querySelectorAll('#combatlog .lines > *').length);
       const f3 = await page.evaluate(() => ({ btns: [...document.querySelectorAll('.loot .foot .btn')].map((b) => b.textContent), notes: document.querySelectorAll('.loot .bfull').length, toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent) }));
-      await shot(page, 'AE3-loot-full');
+      await shot(page, 'AF3-loot-full');
       await page.keyboard.press('Space'); await idle(page);
       const a3 = await page.evaluate((k) => ({ loot: !!window.__ui.view().loot, lines: [...document.querySelectorAll('#combatlog .lines > *')].slice(k).map((x) => x.textContent), toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent) }), lines0);
-      check('AE-3', 'full bags: one button, Continue (Space), and one bags-full line in the foot, no toast', f3.btns.length === 1 && /^Continue/.test(f3.btns[0]) && f3.notes === 1 && !f3.toasts.some((t) => /bags are full/i.test(t)), JSON.stringify(f3));
-      check('AE-3', 'Space moves on: the window closes; the log names what stayed, and no bags-full line or toast is added', !a3.loot && a3.lines.some((l) => l === 'Left behind (bags full): Third Vest.') && !a3.lines.some((l) => /bags are full/i.test(l)) && !a3.toasts.some((t) => /bags are full/i.test(t)), JSON.stringify(a3));
-    } catch (e) { await shot(page, 'AE2-error'); check('AE-2', 'part AE2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
-    check('AE-2', 'part AE2: no console errors', errors.length === 0, errors.join(' | '));
+      check('AF-3', 'full bags: one button, Continue (Space), and one bags-full line in the foot, no toast', f3.btns.length === 1 && /^Continue/.test(f3.btns[0]) && f3.notes === 1 && !f3.toasts.some((t) => /bags are full/i.test(t)), JSON.stringify(f3));
+      check('AF-3', 'Space moves on: the window closes; the log names what stayed, and no bags-full line or toast is added', !a3.loot && a3.lines.some((l) => l === 'Left behind (bags full): Third Vest.') && !a3.lines.some((l) => /bags are full/i.test(l)) && !a3.toasts.some((t) => /bags are full/i.test(t)), JSON.stringify(a3));
+    } catch (e) { await shot(page, 'AF2-error'); check('AF-2', 'part AF2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AF-2', 'part AF2: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   // ---- AE4
@@ -7671,13 +7671,13 @@ async function partAE(browser, W, H) {
       const b = page.locator('.svc .vendor-cols > div:nth-child(1) .trow button', { hasText: 'Buy and equip' }).first();
       const cnt = await page.locator('.svc .vendor-cols > div:nth-child(1) .trow button', { hasText: 'Buy and equip' }).count();
       const i = Number(await b.evaluate((x) => x.closest('.trow').dataset.i));
-      await shot(page, 'AE4-vendor');
+      await shot(page, 'AF4-vendor');
       await b.click(); await idle(page);
       const it = gear.find((x) => open1.service.stock.indexOf(x) === i) || open1.service.stock[i];
       const worn = await page.evaluate((slot) => { const e = window.__ui.view().player.equip[slot]; return e ? e.uid : null; }, it.item.slot);
-      check('AE-4', `the vendor's upgrades read "Buy and equip" (${cnt}); one click buys and puts it on`, cnt === gear.length && cnt > 0 && worn === it.item.uid, JSON.stringify({ cnt, gear: gear.length, worn, want: it.item.uid }));
-    } catch (e) { await shot(page, 'AE4-error'); check('AE-4', 'part AE4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
-    check('AE-4', 'part AE4: no console errors', errors.length === 0, errors.join(' | '));
+      check('AF-4', `the vendor's upgrades read "Buy and equip" (${cnt}); one click buys and puts it on`, cnt === gear.length && cnt > 0 && worn === it.item.uid, JSON.stringify({ cnt, gear: gear.length, worn, want: it.item.uid }));
+    } catch (e) { await shot(page, 'AF4-error'); check('AF-4', 'part AF4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AF-4', 'part AF4: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   // ---- AE5
@@ -7691,17 +7691,17 @@ async function partAE(browser, W, H) {
         if (v.intro && !accept) accept = await page.evaluate(() => { const b = [...document.querySelectorAll('#screens .dialog .btn.primary')].find((x) => /^Accept/.test(x.textContent)); return b ? b.textContent : null; });
         if (v.reward) {
           pick = await page.evaluate(() => { const b = document.querySelector('#screens .dialog .btn.dpick'); return b ? { text: b.textContent, i: Number(b.dataset.pick), card: [...document.querySelectorAll('.choice-cards .icard')].findIndex((c) => c.classList.contains('dflt')) } : null; });
-          await shot(page, 'AE5-reward');
+          await shot(page, 'AF5-reward');
           const n0 = await page.evaluate(() => window.__ui.engineLog().length);
           await page.keyboard.press('Space'); await idle(page);
           const sent = await page.evaluate((n) => window.__ui.engineLog().slice(n), n0);
-          check('AE-5', 'a quest reward has a default pick (marked card, its button with Space); Space takes it', !!pick && pick.i === pick.card && /Space$/.test(pick.text) && sent.some((a) => a.type === 'CHOOSE_REWARD' && a.index === pick.i), JSON.stringify({ pick, sent }));
+          check('AF-5', 'a quest reward has a default pick (marked card, its button with Space); Space takes it', !!pick && pick.i === pick.card && /Space$/.test(pick.text) && sent.some((a) => a.type === 'CHOOSE_REWARD' && a.index === pick.i), JSON.stringify({ pick, sent }));
           break;
         }
         if (v.phase === 'SUMMARY') break;
         await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
       }
-      check('AE-5', 'Accept shows its key (Space)', accept === 'AcceptSpace', String(accept));
+      check('AF-5', 'Accept shows its key (Space)', accept === 'AcceptSpace', String(accept));
       // Autoplay on by the player (Z in a fight), kept into the next run
       for (let i = 0; i < 200 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over && !v.loot); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       await page.keyboard.press('KeyZ'); await idle(page);
@@ -7709,15 +7709,15 @@ async function partAE(browser, W, H) {
       for (let i = 0; i < 3000 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       await page.locator('.summary .sfoot [data-same]').waitFor(); await page.waitForTimeout(3200); await idle(page);
       const end = await page.evaluate(() => [...document.querySelectorAll('.summary .sfoot .btn')].map((b) => [b.dataset.end, b.textContent.replace(/\d+$/, '').trim(), b.classList.contains('primary')]));
-      check('AE-5', 'the run end: Spend Echoes, Choose a hero, Same hero (primary), in that order', JSON.stringify(end.map((x) => x[0])) === '["hall","hero","same"]' && end[2][2] && end[1][1] === 'Choose a hero', JSON.stringify(end));
+      check('AF-5', 'the run end: Spend Echoes, Choose a hero, Same hero (primary), in that order', JSON.stringify(end.map((x) => x[0])) === '["hall","hero","same"]' && end[2][2] && end[1][1] === 'Choose a hero', JSON.stringify(end));
       await page.locator('.summary .sfoot [data-same]').hover(); await page.waitForTimeout(300);
       const tipText = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText : ''; });
-      check('AE-5', '"Same hero" explains itself in its tooltip', /starts at once/.test(tipText) && /start camp/.test(tipText), tipText);
+      check('AF-5', '"Same hero" explains itself in its tooltip', /starts at once/.test(tipText) && /start camp/.test(tipText), tipText);
       await page.locator('.summary .sfoot [data-same]').click(); await idle(page);
       const nx = await page.evaluate(() => ({ phase: window.__ui.view().phase, auto: window.__ui.view().autoplay, own: window.__ui.ownActions().slice(-1)[0] }));
-      check('AE-5', 'Autoplay turned on by the player is on again in the next run', stored === true && nx.phase === 'PREP' && nx.auto === true && nx.own && nx.own.type === 'SET_AUTOPLAY' && nx.own.on === true, JSON.stringify({ stored, nx }));
-    } catch (e) { await shot(page, 'AE5-error'); check('AE-5', 'part AE5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
-    check('AE-5', 'part AE5: no console errors', errors.length === 0, errors.join(' | '));
+      check('AF-5', 'Autoplay turned on by the player is on again in the next run', stored === true && nx.phase === 'PREP' && nx.auto === true && nx.own && nx.own.type === 'SET_AUTOPLAY' && nx.own.on === true, JSON.stringify({ stored, nx }));
+    } catch (e) { await shot(page, 'AF5-error'); check('AF-5', 'part AF5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AF-5', 'part AF5: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
@@ -7757,6 +7757,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('BC')) await partBC(browser, W, H);
   if (PARTS.includes('AD')) await partAD(browser, W, H);
   if (PARTS.includes('AE')) await partAE(browser, W, H);
+  if (PARTS.includes('AF')) await partAF(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
