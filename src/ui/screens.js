@@ -34,7 +34,7 @@ import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kin
 import { contractTitle } from './ui-text.js';
 import { gateLine, closedRoadLine } from './onboarding.js';
 import { token, artStyle } from './theme.js';
-import { DEMO_TEXT, fill as demoFill, buildDemoBlock, atDemoExit, leaveLine as demoLeaveLine, capLevelText, demoOn } from './demo.js';
+import { DEMO_TEXT, fill as demoFill, buildDemoBlock, atDemoExit, leaveLine as demoLeaveLine, capLevelText, demoOn, demoEarly, bellLabelDemo, demoProgress, buildLeftHead } from './demo.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
 const heatOf = (v, action) => (v.heat && v.heat.next ? v.heat.next[heatKey(action)] || null : null);
@@ -613,7 +613,9 @@ function buildExpMap(v, ctx, readOnly) {
   // demo blind round 1 C (draft): the Bell's button says where it takes you and what its number is
   const ek = exitKind(v, ctx);
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
-  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([bellLabel(mv.bell.charges, ek, roadTo(v, ctx)), { type: 'RING_BELL' }]);
+  // demo.md 1.2a (R2-1, draft): the zone 2 Bell reads "End the demo run" (or "End this run early") and looks unlike zone 1's
+  const demoBell = bellLabelDemo(v, ctx);
+  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([demoBell || bellLabel(mv.bell.charges, ek, roadTo(v, ctx)), { type: 'RING_BELL' }]);
   const meNode = mv.nodes[mv.pos];
   const expiring = readOnly ? [] : expiringHere(v);
   // blind panel 2026-11-13 (item 8): the Bell (one charge a run, it leaves the zone) always asks first; a Road asks when
@@ -625,6 +627,7 @@ function buildExpMap(v, ctx, readOnly) {
   const btns = acts.map(([label, a]) => {
     const b = btn(label, () => { if (asks(a.type) && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
     b.dataset.leave = a.type;
+    if (demoBell && a.type === 'RING_BELL') { b.classList.add('demoexit'); if (demoEarly(v, ctx)) b.classList.add('early'); }
     // demo blind round 1 C (draft): the Bell's and the Road's tips differ: where each takes you, the Bell's charges (its
     // button's number), that a Road needs none, and a Dimming fight that comes first, before the click
     const bell = a.type === 'RING_BELL';
@@ -632,7 +635,7 @@ function buildExpMap(v, ctx, readOnly) {
       const p = heatOf(ctx.view, a); const where = bell ? bellLine(ek, roadTo(v, ctx)) : roadLine(ek, roadTo(v, ctx));
       const fl = bell ? leaveFightLine(p, !!(meNode && meNode.dimmed)) : '';
       return h('div', h('div.tt-name', bell ? EXIT_WORDS.bellTitle : EXIT_WORDS.roadTitle),
-        demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx)) : null, where ? h('div.tt-line.lw-where', where) : null,
+        demoExit ? h('div.tt-line.demo-leave', demoLeaveLine(ctx, v)) : null, where ? h('div.tt-line.lw-where', where) : null,
         h('div.tt-sub.lw-charges', bell ? bellCharges(mv.bell.charges) : EXIT_WORDS.roadFree),
         fl ? h('div.tt-warn.lw-fight', fl) : null,
         expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(p, ctx),
@@ -649,20 +652,22 @@ function buildExpMap(v, ctx, readOnly) {
     btns.unshift(sb);
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`), legacyShown() ? h('div.zmatch', ZONE_MATCH_LINE) : null), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`), legacyShown() ? h('div.zmatch', ZONE_MATCH_LINE) : null, readOnly ? null : demoProgress(v, ctx)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
     // demo blind round 1 C (skipper item 22, s0261, s0352): the action the player chose is the highlighted one, not Stay
-    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.primary');
+    const go = btn(road ? (expiring.length ? 'Take the Road anyway' : 'Take the Road') : demoBell || (expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell'), () => { leave.armed = null; ctx.act(a); }, '.primary');
     go.dataset.go = a.type;
     const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); });
     // section 7 (D150): the tolls and the fight that comes first are the engine's preview of the ring (RING_BELL), as on its tooltip
     const bp = !road ? heatOf(v, a) : null;
     const fight = !road ? leaveFightLine(bp, !!(meNode && meNode.dimmed)) : ''; // demo blind round 1 C (skipper item 7)
     const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `${demoExit ? '' : `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. `}${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`}${demoExit ? '' : ` No way back to ${z.name}.`}`) : null;
-    win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
-      h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), fight ? h('div.lw-l.lw-fight', fight) : null, bell,
-      demoExit ? h('div.lw-l.lw-demo', demoLeaveLine(ctx)) : null,
+    // demo.md 1.2a (R2-1, draft): in the demo's last zone the question names what the leave does
+    const ask = demoExit ? DEMO_TEXT[demoEarly(v, ctx) ? 'askEarly' : 'askDone'] : road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?';
+    win.appendChild(h('div.leavewarn' + (demoExit ? '.demoexit' : '') + (demoEarly(v, ctx) ? '.early' : ''), { role: 'alertdialog', 'aria-label': ask },
+      h('div.lw-t', ask), fight ? h('div.lw-l.lw-fight', fight) : null, bell,
+      demoExit ? h('div.lw-l.lw-demo', demoLeaveLine(ctx, v)) : null,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
       h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
   }
@@ -1125,7 +1130,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
     if (idleTrainer(n, v) && !n.lost) box.appendChild(h('div.tt-warn.tt-idle', idleTrainerLine(v)));
     if (n.done && !n.lost) box.appendChild(h('div.tt-hint', 'Done'));
   }
-  if (n.road) { const i = (mv.roads || []).indexOf(n.id); const rn = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'; box.appendChild(atDemoExit(v, ctx) ? h('div.tt-line.demo-leave', `${rn}. ${demoLeaveLine(ctx)}`) : h('div.tt-line', `${rn}: leads to ${roadTo(v, ctx)}`)); }
+  if (n.road) { const i = (mv.roads || []).indexOf(n.id); const rn = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'; box.appendChild(atDemoExit(v, ctx) ? h('div.tt-line.demo-leave', `${rn}. ${demoLeaveLine(ctx, v)}`) : h('div.tt-line', `${rn}: leads to ${roadTo(v, ctx)}`)); }
   if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
   if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
   if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost.'));
@@ -1548,6 +1553,9 @@ function buildSummary(v, ctx) {
   const demoBuild = !!(ctx.data.demo && ctx.data.demo.build);
   if (demoEnd) win.classList.add('demo-end');
   if (demoEnd) win.appendChild(h('div.shead', buildDemoBlock(s, v.meta && v.meta.after, ctx),
+    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
+  // demo.md 1.2a (R2-1, draft): a demo run that left its last zone early: a plain run end that says so (no demo block)
+  else if (s.demoLeft && demoOn(ctx)) win.appendChild(h('div.shead', buildLeftHead(s, ctx),
     h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
   else win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
     // Legacy (legacy.md 1.5; draft line): a run abandoned from the menu ends as a death, and says so

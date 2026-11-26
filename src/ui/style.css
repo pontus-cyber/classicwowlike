@@ -739,6 +739,18 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .summary .demoend .dm-sofar, .summary .demoend .dm-hall { font-size: var(--fs-body-6); color: var(--ink-dim); }
 .summary .demoend .dm-cap { font-size: var(--fs-body-6); color: var(--gold); }
 .summary .demoend .dm-full { font-size: var(--fs-body-6); font-style: italic; margin-top: var(--sp-40); }
+/* demo.md 1.2a (R2-1, draft): the zone 2 Bell is the demo's end, so it looks unlike zone 1's "next zone" Bell: a gold
+   banner button (early: a muted red outline); the map header's progress chip; the early-leave summary head */
+.expmap .mhead .btn.demoexit { background: var(--gold); color: #2a1a08; border-color: var(--gold); font-weight: var(--fw-bold); letter-spacing: .04em; }
+.expmap .mhead .btn.demoexit.early { background: transparent; color: var(--danger-pale); border-color: var(--danger-soft); font-weight: var(--fw-semibold); }
+.expmap .mhead .demoprog { margin-top: var(--sp-20); font-size: var(--fs-body-3); color: var(--ink-dim); }
+.expmap .mhead .demoprog.done { color: var(--gold); }
+.leavewarn.demoexit .lw-t { color: var(--gold); }
+.leavewarn.demoexit.early .lw-t { color: var(--danger-pale); }
+.summary .demoleft { display: flex; flex-direction: column; align-items: center; gap: var(--sp-20); margin-bottom: var(--sp-40); }
+.summary .demoleft .t1 { letter-spacing: .4em; text-transform: uppercase; }
+.summary .demoleft .t2 { color: var(--danger-pale); }
+.summary .demoleft .dl-line, .summary .demoleft .dl-welcome { font-size: var(--fs-body-6); color: var(--ink-dim); }
 #create .ctitle .nosave { color: var(--gold); }
 
 /* tooltip */

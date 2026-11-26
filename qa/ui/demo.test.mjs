@@ -23,7 +23,7 @@ const C = R.C;
 const { CONTENT } = await import('../../src/content/index.js');
 const { createBridge } = await import('../../src/ui/engine-bridge.js');
 const { store, keyOf } = await import('../../src/ui/store.js');
-const { DEMO_TEXT, fill, andList, wordCount } = await import('../../src/ui/demo.js');
+const { DEMO_TEXT, fill, andList, wordCount, leaveLine, bellLabelDemo, demoEarly, demoExitOf } = await import('../../src/ui/demo.js');
 const { DEMO_BUILD } = await import('../../src/build-flags.js');
 const { setDisplay } = await import('../../src/ui/util.js');
 
@@ -127,6 +127,41 @@ test('1.2, 1.4: a run that ends at the cut: summary demo { lastZone, zones }, de
       break;
     }
     assert.ok(found, 'one of five runs reached the cut');
+  } finally { done(); }
+});
+
+test('1.2a (R2-1, draft): zone 2 shows the demo end\'s progress; the Bell reads differently; an early leave is a plain run end', () => {
+  own();
+  try {
+    const b = createBridge({ seed: 21, demo: true });
+    b.dispatch({ type: 'START_RUN' });
+    for (let i = 0; i < 8000 && b.view.phase !== 'SUMMARY' && !(b.view.zone && b.view.zone.idx === 2); i++) b.dispatch({ type: 'AUTO' });
+    let v = b.view;
+    if (v.phase === 'SUMMARY') return; // died in zone 1: the engine tests cover the rule
+    const ctx = { data: b.data };
+    if (v.phase === 'ZONE_HUB') { b.dispatch({ type: 'LEAVE_HUB' }); v = b.view; }
+    assert.deepEqual(demoExitOf(v), { wins: 0, need: C.DEMO_END_WINS, done: false });
+    assert.ok(demoEarly(v, ctx));
+    assert.equal(bellLabelDemo(v, ctx), 'End this run early');
+    const z2 = CONTENT.zones[1].name;
+    assert.equal(leaveLine(ctx, v), `Leaving now ends this run early. Win three more fights in ${z2} to finish the demo; an early leave earns nothing for ${z2}.`);
+    // zone 1's Bell is the plain one
+    assert.equal(bellLabelDemo({ zone: { idx: 1, exp: {} } }, ctx), null);
+    // done: the demo end's own label and line
+    const vd = { ...v, zone: { ...v.zone, exp: { ...v.zone.exp, demoExit: { wins: 3, need: 3, done: true } } } };
+    assert.equal(bellLabelDemo(vd, ctx), 'End the demo run');
+    assert.equal(leaveLine(ctx, vd), `Leaving ${z2} ends this demo run. You keep your levels and Legacy points.`);
+    // the early leave by the Bell (from the map; a Dimmed node fights first, which is a zone 2 win)
+    const r = b.dispatch({ type: 'RING_BELL' });
+    if (!r.ok) return; // no charge left (the policy rang it): nothing to check here
+    for (let i = 0; i < 400 && b.view.phase !== 'SUMMARY'; i++) b.dispatch({ type: 'AUTO' });
+    const sm = b.view.summary;
+    if (sm.outcome !== 'left') return;
+    assert.equal(sm.demo, null);
+    assert.equal(sm.demoLeft.need, C.DEMO_END_WINS);
+    assert.ok(sm.demoLeft.wins < C.DEMO_END_WINS);
+    for (const id of ['bellDone', 'bellEarly', 'askDone', 'askEarly', 'progress', 'progressDone', 'earlyLine', 'leftHeading', 'leftLine', 'welcomeWaits']) assert.doesNotMatch(DEMO_TEXT[id], BANNED, id);
+    assert.doesNotMatch(fill('leftHeading', { who: 'Vex', last: z2 }), /made it through/);
   } finally { done(); }
 });
 

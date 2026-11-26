@@ -1118,6 +1118,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       // estimate); demo { lastZone, zones (the names of zones 1 to lastZone) } when the run ended at the cut
       demoRun: !!sm.demoRun,
       demo: sm.demo ? { lastZone: sm.demo.lastZone, zones: CONTENT.zones.slice(0, sm.demo.lastZone).map((zz) => zz.name) } : null,
+      // demo.md 1.2a (R2-1, draft): a demo run that left its last zone early (outcome 'left'): { zone, wins, need, welcome }
+      demoLeft: sm.demoLeft ? { ...sm.demoLeft } : null,
       cap: sm.hero && sm.hero.cap ? sm.hero.cap : null,
     };
   }

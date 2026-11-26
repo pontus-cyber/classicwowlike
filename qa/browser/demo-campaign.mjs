@@ -22,6 +22,9 @@
  *   - text logic (hand-off content-2026-11-25 L1, L3, L4): the Furnace meter's tooltip at the first hub is the demo line (no
  *     "final boss") and its "Boss +N %" is never shown; the hall's five stat and kit cards read one rank; Settings has no
  *     "Engine: ... build ..." line
+ *   - demo.md 1.2a (R2-1, draft): on zone 2's map the header shows the progress chip and the Bell button reads "End the demo
+ *     run" / "End this run early" with its own look (class demoexit); one extra run leaves zone 2 early by that button and
+ *     its confirm: outcome left, the early-leave head ("left ... early", no demo block, no "made it through")
  *   - storage: every key the page wrote starts with tbwcr.demo.
  *   - no request besides the file, no console error or page error; the file holds no <a href> and no window.open
  * Screenshots (--shots): the demo-end screen and the Legacy hall. Exit 1 on any failure.
@@ -102,7 +105,7 @@ check(!devOp || devOp.ok === false, 'a dev op ran in the demo');
 check(!(await page.evaluate(() => /\bSeed\b/.test(document.body.innerText))), 'hero select shows the word Seed');
 
 const CLASSES = ['rogue', 'mage', 'hunter'];
-let shotEnd = false; let shotHall = false; let hubTip = null; const signs = {};
+let shotEnd = false; let shotHall = false; let hubTip = null; const signs = {}; const z2bell = [];
 /** L1: the Furnace meter's tooltip text (hover #heat), or '' when it could not be hovered. */
 async function heatTipText() {
   try {
@@ -127,6 +130,10 @@ async function oneRun(n, cls) {
       const ws = await page.evaluate(() => [...document.querySelectorAll('#screens .expmap .xroad .xsign b')].map((b) => b.textContent.replace(/[«»]/g, '').trim()));
       if (ws.length) signs[v.z] = ws;
     }
+    // demo.md 1.2a: zone 2's map: the progress chip and the Bell's own label and look
+    if (v.phase === 'MAP' && v.z === 2 && z2bell.length < 6) {
+      z2bell.push(await page.evaluate(() => { const b = document.querySelector('#screens .expmap .mhead [data-leave="RING_BELL"]'); const c = document.querySelector('#screens .expmap .mhead .demoprog'); return { chip: c ? c.textContent : null, bell: b ? b.textContent : null, cls: b ? b.className : '' }; }));
+    }
     maxZone = Math.max(maxZone, v.z);
     if (v.z > 2 || v.camp || v.boss || v.phase === 'CAMP' || v.phase === 'BOSS') { check(false, `run ${n}: zone ${v.z}, camp ${v.camp}, boss ${v.boss}`); break; }
     const r = await page.evaluate(() => window.__ui.act({ type: 'AUTO' }));
@@ -150,7 +157,7 @@ async function oneRun(n, cls) {
   const words = (out.text.match(/[A-Za-z0-9][\w'’-]*/g) || []).length;
   log(`run ${n} ${cls}: ${out.outcome} after ${steps} steps, max zone ${maxZone}, hero ${out.hero}, demo block ${out.block} (${words} words)`);
   check(out.phase === 'SUMMARY', `run ${n}: no summary`);
-  check(['demo', 'death'].includes(out.outcome), `run ${n}: outcome ${out.outcome}`);
+  check(['demo', 'death', 'left'].includes(out.outcome), `run ${n}: outcome ${out.outcome}`);
   check(!out.kv.includes('Oruvath') && !out.kv.includes('Play time') && !out.kv.includes('Seed') && !out.seedWord, `run ${n}: Oruvath, Play time or Seed on the summary (${out.kv.join(', ')})`);
   if (out.outcome === 'demo') {
     check(out.block && out.next && out.hall, `run ${n}: the demo-end screen lacks its block or buttons`);
@@ -218,11 +225,43 @@ const after = await page.evaluate(() => { const m = window.__ui.view().meta; ret
 log(`start over: before runs ${before.runs}, Legacy ${before.echoes}; after ${JSON.stringify(after)}`);
 check(after.phase === 'CREATE' && after.runs === 0 && after.legacy === 0 && after.heroes === 0 && after.guided === true, 'Start over did not give a new profile with the guided run');
 const c2 = await campaign('B');
+// demo.md 1.2a (R2-1, draft): the zone 2 Bell before three wins, then an early leave by it
+log(`zone 2 map (chip, Bell): ${JSON.stringify(z2bell.slice(0, 3))}`);
+check(z2bell.length > 0 && z2bell.every((x) => x.chip && /^Demo end/.test(x.chip)), `zone 2's map lacks the demo end chip: ${JSON.stringify(z2bell.slice(0, 2))}`);
+check(z2bell.filter((x) => x.bell).every((x) => /demoexit/.test(x.cls) && /^End (the demo run|this run early)$/.test(x.bell.trim())), `zone 2's Bell button: ${JSON.stringify(z2bell.filter((x) => x.bell).slice(0, 2))}`);
+async function earlyRun() {
+  await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle();
+  await page.getByRole('button', { name: 'Enter the world' }).click(); await idle();
+  for (let i = 0; i < 6000; i++) {
+    const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, z: x.zone ? x.zone.idx : 0 }; });
+    if (v.phase === 'SUMMARY' || (v.phase === 'MAP' && v.z === 2)) break;
+    if (v.phase === 'ZONE_HUB' && v.z === 2) { await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(); continue; }
+    await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle();
+  }
+  const bell = page.locator('#screens .expmap .mhead [data-leave="RING_BELL"]');
+  if (await bell.count() !== 1) { log('early run: no Bell button on zone 2\'s map (died, or no charge); skipped'); return null; }
+  check((await bell.innerText()).trim() === 'End this run early' && /early/.test(await bell.getAttribute('class')), `early run: the Bell reads "${await bell.innerText()}"`);
+  await bell.click(); await idle();
+  const ask = await page.locator('#screens .leavewarn .lw-t').innerText().catch(() => '');
+  const line = await page.locator('#screens .leavewarn .lw-demo').innerText().catch(() => '');
+  check(ask === 'End this run early?' && /ends this run early/.test(line), `early run: the confirm reads "${ask}" / "${line}"`);
+  await page.locator('#screens .leavewarn [data-go="RING_BELL"]').click(); await idle();
+  for (let i = 0; i < 400; i++) { if ((await page.evaluate(() => window.__ui.view().phase)) === 'SUMMARY') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(); }
+  await page.waitForSelector('.summary .sfoot button', { timeout: 15000 }).catch(() => null);
+  const out = await page.evaluate(() => { const s = window.__ui.view().summary || {}; const sm = document.querySelector('.summary'); return { outcome: s.outcome, left: !!document.querySelector('.summary .demoleft'), end: !!document.querySelector('.summary .demoend'), text: sm ? sm.innerText : '' }; });
+  log(`early run: ${out.outcome}; head ${out.text.split('\n').slice(0, 4).join(' | ')}`);
+  if (out.outcome === 'death') return out.outcome; // a Dimmed fight before the Bell killed the hero
+  check(out.outcome === 'left' && out.left && !out.end && !/made it through/i.test(out.text) && /left .* early/.test(out.text), `early run: ${JSON.stringify({ ...out, text: out.text.slice(0, 200) })}`);
+  await page.screenshot({ path: path.join(SHOTS, `demo-left-${W}x${H}.png`) });
+  await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle();
+  return out.outcome;
+}
+const early = await earlyRun();
 const keys = await page.evaluate(() => Object.keys(localStorage));
 check(keys.length > 0 && keys.every((k) => k.startsWith('tbwcr.demo.')), `storage keys outside tbwcr.demo.: ${keys.filter((k) => !k.startsWith('tbwcr.demo.')).join(', ')}`);
 check(requests.length === 0, `requests besides the file: ${requests.slice(0, 3).join(', ')}`);
 check(errors.length === 0, `console: ${errors.slice(0, 3).join(' | ')}`);
 await browser.close();
-console.log(`demo campaign ${W}x${H}: A ${c1.join(', ')} · B ${c2.join(', ')} · keys ${keys.length} · ${fails.length ? `FAIL (${fails.length})` : 'pass'}`);
+console.log(`demo campaign ${W}x${H}: A ${c1.join(', ')} · B ${c2.join(', ')} · early ${early} · keys ${keys.length} · ${fails.length ? `FAIL (${fails.length})` : 'pass'}`);
 console.log(`screenshots: ${SHOTS}`);
 process.exitCode = fails.length ? 1 : 0;
