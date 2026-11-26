@@ -25,7 +25,7 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * switch without a tag is marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95
  * in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br', legacy: 'leg', oruvathLegacy: 'or2', economyV2: 'e2', demo: 'demo' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br', legacy: 'leg', oruvathLegacy: 'or2', economyV2: 'e2', demo: 'demo', eliteSpread: 'es' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list
