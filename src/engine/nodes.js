@@ -1275,6 +1275,22 @@ export function sellJunk(s, ev) {
   for (const it of s.player.bag.filter((x) => x.kind === 'junk')) sell(s, ev, it.uid);
 }
 
+/**
+ * CASH_JUNK (demo blind round 2 R2-3, draft): every junk item in the bags and the loot window sold at its vendor price
+ * (sellValue), out of a fight, with no vendor. One event `junkSold` { count (pieces), value, items (uids) }, then the gold
+ * (why 'sell'). No vendor transaction is counted; no draw.
+ */
+export function cashJunk(s, ev) {
+  const p = s.player;
+  const list = [...p.bag.filter((x) => x.kind === 'junk'), ...(s.loot || []).filter((x) => x.kind === 'junk')];
+  const value = list.reduce((a, it) => a + sellValue(s, it), 0);
+  const count = list.reduce((a, it) => a + (it.qty || 1), 0);
+  p.bag = p.bag.filter((x) => x.kind !== 'junk');
+  if (s.loot) s.loot = s.loot.filter((x) => x.kind !== 'junk');
+  ev.push({ t: 'junkSold', count, value, items: list.map((it) => it.uid) });
+  if (value > 0) addGoldRaw(s, ev, value, 'sell');
+}
+
 // ---------------- Out-of-combat item use (rules 8.6) ----------------
 export function useItemOutOfCombat(s, ev, id) {
   const p = s.player;

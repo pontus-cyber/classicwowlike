@@ -8,6 +8,8 @@
 // has ended, D142), and the guided run's bookkeeping after every action. Legacy (D154, legacy.md 1.5; a Legacy run):
 // ABANDON_RUN ends the run as a death where the hero stands (any phase from PREP to the boss fight, fights and the loot
 // window included; not listed by legalActions: a menu action), and END_RUN's result carries `legacy` (the points paid).
+// Demo blind round 2 R2-3 (draft): CASH_JUNK sells the junk in the bags and the loot window out of a fight, anywhere (the
+// client's auto-sale; not listed by legalActions).
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
   SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS, PREP_OPTION_IDS,
@@ -24,7 +26,7 @@ import { engageError, engageAct } from './engage.js';
 import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
   completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
-  respecCost, learnSpell, trainSpell, trainAll, trainable, learnable, respec, buy, sell, sellJunk, useItemOutOfCombat,
+  respecCost, learnSpell, trainSpell, trainAll, trainable, learnable, respec, buy, sell, sellJunk, cashJunk, useItemOutOfCombat,
   clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter, setOut, abandonRun,
 } from './nodes.js';
 import { isLegacy } from './legacy.js';
@@ -38,7 +40,7 @@ import { applyRunToProfile } from './meta.js';
 import { skipGuideError, skipGuide, tutorialAfter } from './tutorial.js';
 
 const OOC = new Set(['EQUIP', 'UNEQUIP', 'DISCARD', 'USE_ITEM', 'SET_BAR', 'SET_ITEM_BAR', 'SPEND_TALENT']);
-const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', 'SKIP_GUIDE', 'ABANDON_RUN', ...OOC]);
+const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', 'SKIP_GUIDE', 'ABANDON_RUN', 'CASH_JUNK', ...OOC]);
 const COMBAT = new Set(['CAST', 'ATTACK', 'USE_ITEM', 'FLEE', 'PASS', 'ENGAGE']);
 export const NAME_MAX = 24;
 
@@ -222,6 +224,14 @@ const A = {
   SELL_JUNK: {
     check: (s) => svc(s, 'vendor') || (!s.player.bag.some((x) => x.kind === 'junk') ? 'no junk to sell' : null),
     apply: (s, ev) => sellJunk(s, ev),
+  },
+  // Demo blind round 2 R2-3 (2026-11-26, draft): the client's junk auto-sale. Out of a fight, anywhere in the run (hub, map,
+  // node, Camp; the loot window open too), every junk item in the bags and the loot window is sold at its vendor price
+  // (items.js sellValue). Not listed by legalActions: the UI sends it after a step that brought junk; bots and autoplay
+  // never do, so the simulator's runs are unchanged.
+  CASH_JUNK: {
+    check: (s) => (!oocAllowed(s) ? 'only out of combat' : !s.player.bag.some((x) => x.kind === 'junk') && !(s.loot || []).some((x) => x.kind === 'junk') ? 'no junk to sell' : null),
+    apply: (s, ev) => cashJunk(s, ev),
   },
   // ---------------- Map ----------------
   CHOOSE_NODE: {

@@ -188,6 +188,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `BUY` | `index` into `state.service.stock` | vendor; gold, bag space, Ember limit |
 | `SELL` | `itemId` (bag uid) | vendor |
 | `SELL_JUNK` | | vendor; junk in bag |
+| `CASH_JUNK` | | (demo blind round 2 R2-3, draft) out of a fight in ZONE_HUB, MAP, NODE or CAMP (the loot window open too); junk in the bags or the loot window. Sells all of it at its vendor price, no vendor needed (event `junkSold`, then `gold` why 'sell'). Not listed by `legalActions`: the client's junk auto-sale; bots and autoplay never send it |
 | `CHOOSE_NODE` | `lane` 0-2 | MAP; `mapView(state).next` lists reachable lanes. Not in an expedition run |
 | `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move). Costs TIME_TRAVEL with every profile (M2 v4: Wayfinder removed). Not in an expedition run |
 | `GRIND_SET_WAVES` | `n` 1-3 | Grind node, on entry (starts wave 1). (expedition) 1-EXPED_GRIND_MAX_WAVES; with one wave the Grind starts it on entry and this stage is skipped |
@@ -316,6 +317,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT). Never `second_breath` in the end-boss fight (M2 v3) |
 | `xp` | `amount, rested, why, heat` | (heat) `heat` (only when > 0): the part of `amount` that heat added (rules 1.7.3). (M2b v15) `why: 'swift'`: the Swift passage of a Road (after its `swift` event) |
 | `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained (Legacy: one per hero level gained, with `heroLevel`, the level to show, and `talentPoints`, the points the step gave; `level` is the power level, 2 or 3 higher than before). Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
+| `junkSold` | `count, value, items` | (demo blind round 2 R2-3) CASH_JUNK: the junk pieces sold, their value in copper and the uids; a `gold` event (why 'sell') follows when value > 0 |
 | `gold` | `amount, why, heat` | negative when spent. (heat) `heat` (only when > 0): the part of `amount` that heat added |
 | `loot` | `item, to` (`bag` or `window`) | |
 | `victory`, `fled` | `kind, rounds` | fight over |
