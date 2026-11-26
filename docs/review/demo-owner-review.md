@@ -78,3 +78,10 @@ In the order a new player meets them. `{key}` and the like are filled in on scre
 ## 3. One open question that decides lines 15 and the Furnace tooltip
 
 The full game warns that overspending tolls makes the final boss stronger; no demo run meets him (demo spec question Q1, default "keep the Furnace as in the full game"). The demo lines above (line 15, and the Furnace tooltip "Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.") say the cost the demo player can feel. Default: these demo lines. Alternative: the full game's lines in the demo too.
+
+
+## Added 2026-11-26 (Lead)
+
+| Name | Current | Alternative | Note |
+|---|---|---|---|
+| The Bell that moves you to the next zone | Homeward Bell | Onward Bell | Both blind demo testers read 'Homeward' as going back; the name is fixed in docs/lore/style.md, so a change also needs the lore chat |
