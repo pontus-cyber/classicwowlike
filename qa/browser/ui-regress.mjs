@@ -7142,6 +7142,9 @@ async function partAA0(browser, W, H) {
       check('AA-3', 'the reward window with full bags says the one full-bags sentence; Equip now\'s tooltip says the worn piece is left behind',
         warn.length === 1 && warn[0] === BAGS_FULL && (!old || tt.includes(`your bags are full, so your ${old.name} is left behind`)), JSON.stringify({ warn, tt: tt.slice(-160) }));
       await page.locator('#screens .choice-cards .eqnow').first().click(); await idle(page);
+      // the stack shows two toasts at a time and queues the rest (app.js TOAST_MAX 2, TOAST_MS 2.7 s). A toast of the run so far
+      // that is still up puts this line in the queue, so wait for it to show (BUG-QA-14); the log line is checked at once
+      if (old) await page.waitForFunction((l) => window.__aaT.includes(l), `Your old ${old.name} is left behind (no room in your bags).`, { timeout: 9000 }).catch(() => {});
       const f = await nodeState(page);
       const win = await page.evaluate(() => ({ loot: (() => { const v = window.__ui.view(); return v.loot ? v.loot.title : null; })(), dom: !!document.querySelector('#screens .loot'), log: [...document.querySelectorAll('#combatlog .lines div')].map((x) => x.innerText).slice(-6), toasts: window.__aaT }));
       await shot(page, 'AA3-equip-now-full-bags');
