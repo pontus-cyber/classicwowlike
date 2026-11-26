@@ -222,7 +222,7 @@ export const TUTORIAL = {
     { id: 'H26', system: 'Dungeon', line: 'Dungeon: several fights and a boss in one visit.' },
     { id: 'H27', system: 'Disrupt', line: 'Bosses resist control: {key_engage2} disrupts their first wind-up instead.' },
     { id: 'H28', system: 'Vendor', line: 'Sell what you do not need. Potions are always in stock.' },
-    { id: 'H29', system: 'Rest', line: 'Rest: back to full health and mana, for tolls.' },
+    { id: 'H29', system: 'Rest', line: 'Rest: back to full health, for tolls.' },
     { id: 'H30', system: 'Pass', line: 'Sapped: press Pass ({key_pass}) and it stays sapped, so its wind-up never comes.' },
     { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It stops Deathblows too.' },
     { id: 'H32', system: 'Flee', line: 'You can flee ({key_flee}). The place stays open for later.' },

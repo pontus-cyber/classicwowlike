@@ -278,6 +278,19 @@ export const ECHO_LINE = {
   heat: `Fights won ${HEAT_WORDS.state.hot} or ${HEAT_WORDS.state.scorched}`, // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
   contracts: 'Contracts completed', reserve: 'Reserve kept', // expedition.md 8.1, 11.1 (prep)
 };
+/**
+ * "N unlocks within reach" (R2-6, draft): how many hall entries the balance buys together, cheapest first, not how many it
+ * could buy one at a time (77 points with entries of 50, 60, 70 and 80 reads "one", not "four"). offers: R.metaOffers (the
+ * view's `meta.offers`: available, nextCost); balance: the points in hand. The next rank of an entry counts once.
+ */
+export function reachCount(offers, balance) {
+  const costs = (offers || []).filter((o) => o.available).map((o) => o.nextCost).filter((c) => typeof c === 'number').sort((a, b) => a - b);
+  let left = balance || 0; let n = 0;
+  for (const c of costs) { if (c > left) break; left -= c; n++; }
+  return n;
+}
+/** R2-6 (draft): in a Legacy run the zones follow the hero's level, so the same zone shows other levels in another run. */
+export const ZONE_MATCH_LINE = "The zone matches your level, so its levels change from run to run.";
 export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ------------------------------------------------------------------ start camp and contracts (expedition.md 2, 3, 9; prep)

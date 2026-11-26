@@ -1164,7 +1164,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     try {
       const r = R.step(s, { type: 'END_RUN' }).state;
       const p = r.result.profile;
-      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length, nextHall: econOn(s) ? nextHall(p, s.player && s.player.classId) : null,
+      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: TXT.reachCount(R.metaOffers(p), balanceOf(p)), nextHall: econOn(s) ? nextHall(p, s.player && s.player.classId) : null,
         // the demo-end screen's "So far" (demo.md 1.4): runs, the heroes with a run, the demo hall's entries owned
         demo: s.demo ? demoSoFar(p) : null };
     } catch { out = null; }

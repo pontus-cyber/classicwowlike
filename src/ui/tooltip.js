@@ -183,7 +183,9 @@ export function itemTip(item, ctx, opts = {}) {
     if (opts.compare !== false && eq && eq.uid !== item.uid) {
       const a = ctx.bridge.itemScore(item); const b = ctx.bridge.itemScore(eq);
       const diff = Math.round((a - b) * 10) / 10;
-      box.appendChild(h('div.tt-compare', U.off ? offLine() : diff > 0 ? h('span.up', `▲ Upgrade (+${diff} overall)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'As good overall as what you wear')));
+      box.appendChild(h('div.tt-compare', U.off ? offLine() : diff > 0 ? h('span.up', `▲ Upgrade (+${diff} score)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff} score)`) : h('span', 'As good overall as what you wear')));
+      // R2-6 (draft): what the number is, said once where it first appears
+      if (!U.off && diff !== 0) box.appendChild(h('div.tt-sub.tt-score', 'Score adds up the item\'s stats, weighted for your class. Higher is better.'));
       const deltas = [];
       for (const k of ['wd', 'armor', 'sta', 'agi', 'int', 'spi', 'power', 'crit']) {
         const dv = (item.stats[k] || 0) - (eq.stats[k] || 0);

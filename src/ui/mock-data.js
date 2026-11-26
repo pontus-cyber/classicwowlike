@@ -234,7 +234,7 @@ export const BOONS = {
   insight: { id: 'insight', name: 'Boon of Insight', w: 20, text: '+20 % experience for the next 3 places.' },
   fury: { id: 'fury', name: 'Boon of Fury', w: 20, text: '+15 % damage for the next 3 places.' },
   plenty: { id: 'plenty', name: 'Boon of Plenty', w: 20, text: 'A pouch of gold, now.' },
-  mending: { id: 'mending', name: 'Boon of Mending', w: 20, text: 'Full health and mana now, plus rested experience.' },
+  mending: { id: 'mending', name: 'Boon of Mending', w: 20, text: 'Full health now, plus rested experience. A Mage also gets its mana back.' },
   clarity: { id: 'clarity', name: 'Boon of Clarity', w: 10, text: 'Your next respec is free, and every spell is trained to your level now.' },
 };
 

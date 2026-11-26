@@ -9,7 +9,7 @@ import { h, clear, fmtNum, legacyWords, lvLearn, legacyShown } from './util.js';
 import { icon, spellIcon } from './art-icons.js';
 import { tip, hide as hideTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { META_KIND, metaEffect, metaReqText, nextRunLines, oathEffect, numWord, plural, pct1 } from './ui-text.js';
+import { META_KIND, metaEffect, metaReqText, nextRunLines, oathEffect, numWord, plural, pct1, reachCount } from './ui-text.js';
 
 /** Icon of an unlock: its spell for the Lost Techniques, else a glyph for its effect. */
 const META_ICON = {
@@ -81,7 +81,7 @@ export function createMeta(ctx) {
     const m = v.meta; const D = ctx.data.meta; const d = ctx.data;
     const lines = nextRunLines(m.next, D, d);
     const nowOf = new Map(lines.map((l) => [l.id, l.text]));
-    const reach = m.offers.filter((o) => o.affordable).length;
+    const reach = reachCount(m.offers, m.echoes);
     const win = h('div.mwin.panel');
     // header: title, feedback line, balance, close
     const bal = h('div.mbal', h('i.eg.big'), h('b.n', fmtNum(m.echoes)), h('span.u', 'Echoes'), h('span.delta'));
@@ -316,7 +316,7 @@ export function createMeta(ctx) {
   }
   function idleTicker(m) {
     if (!ticker) return;
-    const reach = m.offers.filter((o) => o.affordable);
+    const reach = { length: reachCount(m.offers, m.echoes) };
     ticker.className = 'mtick idle';
     ticker.textContent = legacyWords(reach.length ? `${cap(numWord(reach.length))} ${plural(reach.length, 'unlock')} within reach.` : m.offers.every((o) => o.rank >= o.ranks) ? 'Every unlock is yours.' : 'Every run earns Echoes, even a short one.');
   }

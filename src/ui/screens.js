@@ -26,7 +26,7 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblo
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL } from './ui-text.js';
+import { numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL, reachCount, ZONE_MATCH_LINE } from './ui-text.js';
 import { EXIT_WORDS, bellLabel, bellLine, bellCharges, roadLine, roadSignWord, leaveFightLine } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival } from './heat.js';
@@ -55,6 +55,8 @@ function tollLabel(el, p) {
 export const TOO_FAR = 'Too far: click a lit place';
 export const ROAD_FIRST = 'Walk to the Road first';
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
+/** The class resource's one name (R2-6: the Hunter's is Focus everywhere, never "Resource" or "mana"). */
+const RES_WORD = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
 const NEUTRAL = '#f0e0c0';
 /**
@@ -84,7 +86,7 @@ function nodeDesc(type, r) {
     case 'grind': return `Fight 1 to ${r.grindMaxWaves} waves of ${numWord(r.grindWaveSize)} enemies. Steady experience, gold and more drops.`;
     case 'elite': return `One powerful enemy, ${numWord(r.eliteLevelOffset)} ${plural(r.eliteLevelOffset, 'level')} higher. High experience and a guaranteed good item.`;
     case 'dungeon': return `${cap(numWord(r.dungeonTrashFights))} fights and a dungeon boss. The best loot in the zone, and the most dangerous place.`;
-    case 'rest': return 'Full health and mana, and rested experience: kills give double XP until it runs out.';
+    case 'rest': return `Full health${r.hasMana === false ? '' : ' and mana'}, and rested experience: kills give double XP until it runs out.`; // hasMana: a Mage's mana; the other classes' energy and focus start every fight full
     case 'vendor': return 'Buy potions, rations and gear; sell junk and old equipment.';
     case 'trainer': return 'Learn new spells and train known ones to your level.';
     case 'treasure': return 'A chest with gold and an item. It may be guarded or trapped.';
@@ -113,7 +115,7 @@ export function expNodeDesc(n, p, rules) {
     return `${n.waves === 1 ? `One wave${foes}` : `1 to ${n.waves} waves; the first${foes}`}. Steady experience, gold and more drops.`;
   }
   // blind round 2 (competitive s0143): the expedition map's counts (its dungeon's own fights when they are known)
-  return nodeDesc(n.type, { ...rules, dungeonTrashFights: n.fights && n.fights.length ? n.fights.length : rules.expDungeonTrashFights ?? rules.dungeonTrashFights, grindMaxWaves: rules.expGrindMaxWaves ?? rules.grindMaxWaves });
+  return nodeDesc(n.type, { ...rules, hasMana: !p || !p.res ? undefined : p.res.kind === 'mana', dungeonTrashFights: n.fights && n.fights.length ? n.fights.length : rules.expDungeonTrashFights ?? rules.dungeonTrashFights, grindMaxWaves: rules.expGrindMaxWaves ?? rules.grindMaxWaves });
 }
 /** A seen chest (mapView `guarded` known): only the trap stays unknown (blind demo round 1: "Unguarded" then "may be guarded"). */
 const treasureDesc = (n) => (n.guarded ? 'A chest with gold and an item, watched by a guard. It may also be trapped.' : 'A chest with gold and an item. It may be trapped.');
@@ -238,7 +240,7 @@ function buildCreate(ctx) {
     echoes.addEventListener('click', () => { name.blur(); seed.blur(); ctx.ui.openMeta(); });
     tip(echoes, () => {
       const m = ctx.view.meta; if (!m) return null;
-      const reach = m.offers.filter((o) => o.affordable).length;
+      const reach = reachCount(m.offers, m.echoes);
       return h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', d.demo ? 'Spend Echoes on lasting unlocks.' : 'Spend Echoes on lasting unlocks: stats, items in the drop pools, skills and more.'), // the demo: its hall sells none of the latter
         h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
     });
@@ -308,7 +310,7 @@ function updateCreate(root, v, ctx) {
   if (eb) eb.classList.toggle('hidden', first);
   if (eb && m) {
     eb.querySelector('.n').textContent = fmtNum(m.echoes);
-    const reach = m.offers.filter((o) => o.affordable).length; const badge = eb.querySelector('.badge');
+    const reach = reachCount(m.offers, m.echoes); const badge = eb.querySelector('.badge');
     badge.textContent = String(reach); badge.classList.toggle('hidden', !reach);
   }
   // Oaths (rules 11.5): only when the profile owns them (SET_OATH is legal)
@@ -402,12 +404,21 @@ export function trainerMeta(v) {
  * the autoplay's own test): its card is greyed, no click, no toll.
  */
 export const trainerIdle = (v) => !!(v.trainer && !v.trainer.useful);
+/** The hub row's grey-out: nothing to teach and no talent spent yet (the same test the map's Trainer place uses). */
+export const trainerGreyed = (v) => trainerIdle(v) && !Object.values((v.player && v.player.talents) || {}).some((x) => x > 0);
+/**
+ * R2-6 (draft): a Trainer place on the zone map with nothing to teach now (the hub row greys out the same way): the map shows
+ * it before the click, as a dimmed place and a tooltip line. Only a place the player knows (`know` full) and has not used.
+ */
+export const idleTrainer = (n, v) => !!n && n.type === 'trainer' && !n.hub && !n.done && n.know === 'full' && trainerGreyed(v);
+/** The tooltip line of an idle map Trainer: "Nothing to train yet. Next spell at level 4." */
+export const idleTrainerLine = (v) => { const m = trainerMeta(v); return /^Nothing/.test(m) ? m : `Nothing to train yet. ${m}`; };
 
 const hubSwap = { swap: false }; // the hub offer's swap list stays open across the hub screen's rebuilds
 function buildHub(v, ctx) {
   const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.time;
   const el = h('div.side.panel');
-  el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${lv(z.band[0])}–${lv(z.band[1])}`))));
+  el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${lv(z.band[0])}–${lv(z.band[1])}`), legacyShown() ? h('div.zmatch', ZONE_MATCH_LINE) : null)));
   // blind panel 2026-11-13 (item 5): a little tighter, so the offer and the three services fit at 1366x768 (style.css .side)
   const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.2rem' } }, z.hubText || z.blurb));
@@ -420,7 +431,7 @@ function buildHub(v, ctx) {
   // the pointer is (the next click hit the Inn instead of the Trainer)
   else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its marks are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
-  const trainerCard = svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0));
+  const trainerCard = svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerGreyed(v));
   // blind round 2 (casual re-run s0279): the card stands out while a new spell the gold covers waits there
   if (!used.trainer && v.trainer && v.trainer.useful && (v.trainer.learn || []).length) trainerCard.classList.add('waiting');
   body.append(
@@ -638,7 +649,7 @@ function buildExpMap(v, ctx, readOnly) {
     btns.unshift(sb);
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`), legacyShown() ? h('div.zmatch', ZONE_MATCH_LINE) : null), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
     // demo blind round 1 C (skipper item 22, s0261, s0352): the action the player chose is the highlighted one, not Stay
@@ -785,7 +796,7 @@ function buildExpMap(v, ctx, readOnly) {
     const loud = here || !!m || !!(n.sites && n.sites.length);
     const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
     const shownLvl = nodeLevel(n);
-    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (n.road && n.closed ? '.rclosed' : '') + (loud ? '' : '.quiet'),
+    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (idleTrainer(n, v) ? '.idle' : '') + (n.road && n.closed ? '.rclosed' : '') + (loud ? '' : '.quiet'),
       { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${n.name && (n.type === 'elite' || !type) ? n.name : type ? NODE_NAME[type] || 'Hub' : 'Unknown'} place ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(shownLvl, p.level) : NEUTRAL } }, label));
@@ -1111,6 +1122,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
       if (n.calls) box.appendChild(h('div.tt-line.tt-calls', callsText(n.calls)));
     } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
     if (n.type && !n.lost) box.appendChild(h('div.tt-line.desc', expNodeDesc(n, p, ctx.data.rules)));
+    if (idleTrainer(n, v) && !n.lost) box.appendChild(h('div.tt-warn.tt-idle', idleTrainerLine(v)));
     if (n.done && !n.lost) box.appendChild(h('div.tt-hint', 'Done'));
   }
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); const rn = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'; box.appendChild(atDemoExit(v, ctx) ? h('div.tt-line.demo-leave', `${rn}. ${demoLeaveLine(ctx)}`) : h('div.tt-line', `${rn}: leads to ${roadTo(v, ctx)}`)); }
@@ -1229,10 +1241,11 @@ function btn(label, onClick, cls = '') { const b = h('button.btn' + cls, label);
 
 function foeList(v, list, ctx) {
   const p = v.player;
-  // each enemy at its own level (an elite's is above its escort's), same name and level counted once: "2 × Barn Wolf"
+  // each enemy at its own level (an elite's is above its escort's), same name and level counted once: "2 × Barn Wolf (level 1)"
   const counts = new Map();
   for (const t of list || []) { const L = t.level ?? v.node.cl; const key = `${L}|${t.name}`; const x = counts.get(key) || { nm: t.name, L, k: 0 }; x.k++; counts.set(key, x); }
-  return h('div.foes', [...counts.values()].map(({ nm, L, k }) => h('div.foe', h('span.con', { style: { color: conColor(L, p.level) } }, String(lv(L))), `${k > 1 ? k + ' × ' : ''}${nm}`)));
+  // R2-6 (draft): "2 × Barn Wolf (level 1)": the level after the name, in words, so a bare number never reads as a count
+  return h('div.foes', [...counts.values()].map(({ nm, L, k }) => h('div.foe', `${k > 1 ? k + ' × ' : ''}${nm}`, h('span.con', { style: { color: conColor(L, p.level) } }, `(level ${lv(L)})`))));
 }
 /** Blind demo round 1 (A): the panel's line for the enemy a fight calls in later (the view's `calls`), or null. */
 const callsLine = (c) => (c ? h('div.foes-calls', callsText(c, c.name)) : null);
@@ -1302,7 +1315,7 @@ function buildNode(v, ctx) {
   }
   if (n.type === 'rest') {
     return dialog('Rest', 'Campfire', [h('div', { style: { font: 'italic 1.5rem var(--font-title)', color: 'var(--ink-dim)' } }, 'You rest by the fire until the ache leaves your bones.'),
-      h('dl.kv', h('dt', 'Health'), h('dd.good', 'Full'), h('dt', p.res.kind === 'mana' ? 'Mana' : 'Resource'), h('dd.good', 'Full'), p.pet ? h('dt', 'Pet') : null, p.pet ? h('dd.good', 'Restored') : null, h('dt', 'Rested'), h('dd', { style: { color: '#9fb8ff' } }, `${fmtNum(p.rested)} XP: kills give double experience`))],
+      h('dl.kv', h('dt', 'Health'), h('dd.good', 'Full'), h('dt', RES_WORD[p.res.kind] || 'Resource'), h('dd.good', 'Full'), p.pet ? h('dt', 'Pet') : null, p.pet ? h('dd.good', 'Restored') : null, h('dt', 'Rested'), h('dd', { style: { color: '#9fb8ff' } }, `${fmtNum(p.rested)} XP: kills give double experience`))],
     [btn('Continue', () => ctx.act({ type: 'LEAVE' }), '.primary')], { left });
   }
   if (n.type === 'shrine') {
@@ -1400,7 +1413,7 @@ function buildReward(v, ctx) {
     // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
     const offer = it.kind === 'gear' && U.up;
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
-    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (U.up ? 'good' : 'muted'), !U.up ? 'Not an upgrade' : up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : '▲ Empty slot'), eq));
+    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (U.up ? 'good' : 'muted'), !U.up ? 'Not an upgrade' : up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10} score)` : '▲ Empty slot'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
     // Legacy bugs 2026-11-19 (blind returning player s0044, s0160): the engine puts it on in the choice's own step
     // (CHOOSE_REWARD `equip`), before a Dimmed encounter that starts at once, and from the loot window when the bags are

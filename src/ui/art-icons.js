@@ -62,6 +62,9 @@ const G = {
   ring(c) { c.lineWidth = 7; c.beginPath(); c.arc(32, 38, 15, 0, 7); c.stroke(); c.beginPath(); c.moveTo(32, 8); c.lineTo(40, 18); c.lineTo(32, 26); c.lineTo(24, 18); c.closePath(); c.fill(); },
   gem(c) { c.beginPath(); c.moveTo(20, 10); c.lineTo(44, 10); c.lineTo(54, 24); c.lineTo(32, 56); c.lineTo(10, 24); c.closePath(); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = 2; c.beginPath(); c.moveTo(10, 24); c.lineTo(54, 24); c.moveTo(24, 24); c.lineTo(32, 54); c.lineTo(40, 24); c.stroke(); c.restore(); },
   staff(c) { c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(14, 58); c.lineTo(44, 18); c.stroke(); c.beginPath(); c.arc(48, 14, 8, 0, 7); c.fill(); },
+  blade(c) { c.beginPath(); c.moveTo(40, 6); c.quadraticCurveTo(56, 26, 36, 38); c.lineTo(32, 34); c.quadraticCurveTo(44, 24, 36, 10); c.closePath(); c.fill(); c.fillRect(18, 34, 22, 5); c.fillRect(24, 39, 6, 16); },
+  axe(c) { c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(16, 58); c.lineTo(42, 14); c.stroke(); c.beginPath(); c.moveTo(38, 10); c.quadraticCurveTo(58, 10, 56, 30); c.lineTo(42, 30); c.quadraticCurveTo(48, 20, 38, 10); c.closePath(); c.fill(); },
+  hook(c) { c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(30, 58); c.lineTo(30, 20); c.quadraticCurveTo(30, 8, 42, 8); c.quadraticCurveTo(52, 10, 50, 20); c.stroke(); c.fillRect(22, 44, 16, 5); },
   bow(c) { c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(14, 8); c.quadraticCurveTo(54, 32, 14, 56); c.stroke(); c.lineWidth = 1.5; c.beginPath(); c.moveTo(14, 8); c.lineTo(14, 56); c.stroke(); },
   tome(c) { c.beginPath(); c.moveTo(12, 14); c.lineTo(32, 18); c.lineTo(52, 14); c.lineTo(52, 50); c.lineTo(32, 54); c.lineTo(12, 50); c.closePath(); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = 2; c.beginPath(); c.moveTo(32, 18); c.lineTo(32, 54); c.stroke(); c.restore(); },
   quiver(c) { c.save(); c.translate(32, 32); c.rotate(0.4); c.fillRect(-8, -14, 16, 36); c.fillRect(-6, -26, 3, 14); c.fillRect(-1, -28, 3, 14); c.fillRect(4, -24, 3, 12); c.restore(); },
@@ -194,13 +197,37 @@ const SLOT_GLYPH = { head: 'helm', neck: 'amulet', chest: 'chest', hands: 'glove
 const CONS = { healing_draught: ['potion', 'blood'], greater_healing_draught: ['potion', 'epic'], mana_draught: ['potion', 'rare'], trail_rations: ['bread', 'earth'],
   purifying_tonic: ['potion', 'heal'], spark_flask: ['flask', 'arcane'], elixir_ferocity: ['potion', 'fire'], ember_of_return: ['ember', 'gold'] };
 
+/**
+ * A weapon's kind from its name (R2-6: a Hunter's reward list holds knives, hooks, a cutlass and a staff beside bows, and the
+ * icon followed the class, so they all drew a bow). The base name's last words say it: bow, staff, dagger and so on; null
+ * when no word is known (the class's own kind is used then).
+ */
+export function weaponKindOf(name) {
+  const n = String(name || '').toLowerCase();
+  if (/bow\b|\brecurve\b|\bsling\b/.test(n)) return 'bow';
+  if (/\b(staff|wand|rod|switch|stave)\b/.test(n)) return 'staff';
+  if (/\b(hatchet|axe|cleaver)\b/.test(n)) return 'axe';
+  if (/\bhook\b/.test(n)) return 'hook';
+  if (/\b(cutlass|scimitar|khopesh|sabre|saber|blade)\b/.test(n)) return 'blade';
+  if (/\b(knife|dagger|dirk|stiletto)\b/.test(n)) return 'dagger';
+  return null;
+}
+/** An off-hand's kind from its name (the same rule: a Hunter's list also holds bucklers and tomes), or null. */
+export function offhandKindOf(name) {
+  const n = String(name || '').toLowerCase();
+  if (/quiver/.test(n)) return 'quiver';
+  if (/\b(orb|tome|codex|grimoire|psalter|hymnal|tablets|almanac)\b/.test(n)) return 'tome';
+  if (/\b(buckler|shield|targe|bulwark)\b/.test(n)) return 'shield';
+  if (/\b(knife|dagger|dirk|shiv|sickle|shortsword)\b/.test(n)) return 'dagger';
+  return null;
+}
 export function itemIcon(item) {
   if (!item) return '';
   if (item.kind === 'consumable') { const m = CONS[item.id] || ['potion', 'steel']; return icon(m[0], m[1]); }
   if (item.kind === 'junk') return icon('junk', 'junk');
   let g = SLOT_GLYPH[item.slot] || 'gem';
-  if (item.slot === 'weapon') g = item.gearKind === 'staff' ? 'staff' : item.gearKind === 'bow' ? 'bow' : 'dagger';
-  if (item.slot === 'offhand') g = item.gearKind === 'tome' ? 'tome' : item.gearKind === 'quiver' ? 'quiver' : item.gearKind === 'dagger' ? 'dagger' : 'shield';
+  if (item.slot === 'weapon') g = weaponKindOf(item.name) || (item.gearKind === 'staff' ? 'staff' : item.gearKind === 'bow' ? 'bow' : 'dagger');
+  if (item.slot === 'offhand') g = offhandKindOf(item.name) || (item.gearKind === 'tome' ? 'tome' : item.gearKind === 'quiver' ? 'quiver' : item.gearKind === 'dagger' ? 'dagger' : 'shield');
   return icon(g, item.rarity === 'common' ? 'common' : item.rarity || 'steel');
 }
 export function consumableIcon(id) { const m = CONS[id] || ['potion', 'steel']; return icon(m[0], m[1]); }

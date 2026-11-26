@@ -469,7 +469,7 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .qtext .turnin { font-style: italic; }
 .foes { display: flex; flex-wrap: wrap; gap: var(--sp-60); }
 .foe { display: flex; align-items: center; gap: var(--sp-60); padding: var(--sp-35) var(--sp-80) var(--sp-35) var(--sp-35); border-radius: var(--radius-sm-3); background: var(--shade-35); box-shadow: inset 0 0 0 1px var(--glint-06); font-weight: var(--fw-semibold); }
-.foe .con { font: var(--fw-heavy) var(--fs-small-7) var(--font-num); padding: var(--sp-5) var(--sp-40); border-radius: var(--radius-xs-3); background: var(--shade-50); }
+.foe .con { font: var(--fw-heavy) var(--fs-small-7) var(--font-num); padding: var(--sp-5) var(--sp-40); border-radius: var(--radius-xs-3); background: var(--shade-50); white-space: nowrap; } /* R2-6: after the name, "(level 2)" */
 .kv { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-40) var(--sp-140); font-size: var(--fs-body-5); }
 .kv dt { color: var(--ink-mute); } .kv dd { margin: 0; color: var(--ink); }
 .choice-cards { display: flex; gap: var(--sp-100); flex-wrap: wrap; }
@@ -1617,6 +1617,7 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 #create .bottom .toggle.guide.hidden { display: none; }
 /* Gorrak's barred node (D138): closed for now, the gate line on hover */
 .mnode.barred { filter: grayscale(.7) brightness(.8); }
+.mnode.idle:not(.here) .ring { filter: grayscale(.8) brightness(.75); } /* R2-6: a Trainer with nothing to teach, as the hub row greys out */
 .mnode.barred::after { content: ''; position: absolute; inset: -.3rem; border-radius: 50%; border: 2px dashed var(--ink-mute); pointer-events: none; }
 .em.barred { padding: var(--sp-30) var(--sp-40); font-size: var(--fs-small-4); line-height: var(--lh-normal-4, 1.3); }
 /* D143: a Road of the guided zone closed until Gorrak's fight is over (mapView `closed`): a bar across the node, a Closed tag
@@ -1729,3 +1730,5 @@ body.coach-up #skiphint { visibility: hidden; }
 #meta .mcard.wing .mc-req { color: var(--ink-dim); }
 #meta .mcard.wing .mc-req .eamt { color: var(--ink-mute); }
 .mtag.wing { color: var(--ink-dim); background: var(--shade-50); box-shadow: inset 0 0 0 1px var(--edge-hi-25); }
+/* R2-6 (draft): the one line that says a zone's levels follow the hero's level */
+.zmatch { margin-top: var(--sp-20); font-size: var(--fs-small-7); color: var(--ink-mute); font-weight: var(--fw-semibold); }

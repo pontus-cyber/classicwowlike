@@ -32,13 +32,13 @@
 // Staggered badge (the off-balance marks give way that round); the minimap, the tracker and the boss frame say no par, line
 // or Ascendancy; a bar spell's tooltip has no "Right-click to clear · drag to reorder" (the spellbook keeps it); the revive
 // is named by its source ("Ember of Return"), never "Resurrect charges".
-import { h, add, clear, fmtNum, moneyEl, clamp, rgba, lv as shownLv } from './util.js'; // shownLv: Legacy's hero scale (identity off)
+import { h, add, clear, fmtNum, moneyEl, clamp, rgba, lv as shownLv, legacyShown } from './util.js'; // shownLv: Legacy's hero scale (identity off)
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, heroLook, petLook, foeLook, foeBeastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip, refreshTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { linkedText, resurrectText, dangerRule, freeActionText } from './ui-text.js';
+import { linkedText, resurrectText, dangerRule, freeActionText, ZONE_MATCH_LINE } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt } from './tracks.js';
 import { createHeatMeter, bossText } from './heat.js';
 import { trackerContracts } from './prep.js';
@@ -367,7 +367,7 @@ export function createHud(root, ctx) {
     // Oruvath and his Shards do not take: no line in his fight)
     const danger = v.zone.danger > 0 && !(v.zone.tierDmg != null && v.combat && v.combat.isBoss) ? dangerRule(R, v.zone) : null;
     // D150 item 10: the tolls are the Furnace's (one number); no par, line or Ascendancy here
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${shownLv(v.zone.band[0])}–${shownLv(v.zone.band[1])}`),
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${shownLv(v.zone.band[0])}–${shownLv(v.zone.band[1])}`), legacyShown() ? h('div.tt-sub', ZONE_MATCH_LINE) : null,
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
