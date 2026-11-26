@@ -122,9 +122,9 @@ const { upgradeInfo } = await import('../../src/ui/engine-bridge.js');
 const { trackNewItems } = await import('../../src/ui/hud.js');
 const { BAGS_FULL } = await import('../../src/ui/ui-text.js');
 const nodeOf = (b) => R.deserialize(b.backend.serialized(), CONTENT);
-const junk = (k) => ({ uid: `t-junk-${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', qty: 1, level: 1, value: 1 });
-/** The state with its bags filled with junk up to `free` free slots. */
-const fill = (s, free = 0) => { const cap = R.bagCapacity(s); for (let k = 0; s.player.bag.length < cap - free; k++) s.player.bag.push(junk(k)); return s; };
+/** The state with its bags filled up to `free` free slots. */
+// demo blind round 2 R2-3: junk is sold after every step (CASH_JUNK), so the bags are filled with gear (copies of the worn chest)
+const fill = (s, free = 0) => { const cap = R.bagCapacity(s); const g = s.player.equipped.chest; for (let k = 0; s.player.bag.length < cap - free; k++) s.player.bag.push({ ...g, uid: `t-fill-${k}` }); return s; };
 /** A Legacy Rogue run (seed) on autoplay up to a quest's item choice; null if none comes. */
 function toQuestReward(seed) {
   store('rogue', ['satchel'], 0);
@@ -235,7 +235,7 @@ test('bag badge: "+N items" counts only new items still in the bags, never more 
   assert.equal(trackNewItems(set, 0), 0, 'opening the bags clears it');
 });
 
-test('Leave asks for exactly the items it leaves: the count in the spoils window = the items LOOT_CLOSE drops (s0478)', () => {
+test('Leave leaves exactly the items waiting: the count in the spoils window = the items LOOT_CLOSE drops (s0478)', () => {
   clear();
   try {
     store('rogue', ['satchel'], 0);
@@ -245,7 +245,7 @@ test('Leave asks for exactly the items it leaves: the count in the spoils window
     let met = 0;
     for (let i = 0; i < 4000 && b.view.phase !== 'SUMMARY' && met < 3; i++) {
       // one free slot on the map: the next spoils fill the bags and the rest waits in the loot window
-      if (b.view.phase === 'MAP' && !b.view.loot) { const s = nodeOf(b); if (R.bagCapacity(s) - s.player.bag.length !== 1) { s.player.bag = s.player.bag.filter((x) => x.kind !== 'junk' || !String(x.uid).startsWith('t-junk')); b.testLoad(R.serialize(fill(s, 1))); } }
+      if (b.view.phase === 'MAP' && !b.view.loot) { const s = nodeOf(b); if (R.bagCapacity(s) - s.player.bag.length !== 1) { s.player.bag = s.player.bag.filter((x) => !String(x.uid).startsWith('t-fill')); b.testLoad(R.serialize(fill(s, 1))); } }
       const L = b.view.loot;
       if (L && L.kind === 'loot' && L.items.some((x) => x.pending) && L.items.some((x) => x.inBag)) {
         const waiting = L.items.filter((x) => x.pending).reduce((a, x) => a + (x.uids ? x.uids.length : 1), 0);

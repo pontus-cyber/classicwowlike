@@ -234,7 +234,7 @@ export function createAudio(settings) {
   let G = null; let stepNo = 0; let step = null; let lightBeat = null;
   const log = []; const live = []; const last = new Map(); const memo = newMemo();
   const now = () => performance.now() / 1000;
-  const speed = () => (settings.instant ? 0 : settings.get('speed') || 1);
+  const speed = () => (settings.instant ? 0 : settings.speedNow || 1);
   const vol = (k) => Math.max(0, Math.min(1, Number(settings.get(k)) || 0));
   const busOf = (name) => (UI_CUES.has(name) ? 'ui' : name === 'playerDeath' ? 'over' : 'sfx');
   const audible = (name) => !!G && !settings.get('soundMuted') && vol('soundMaster') > 0 && vol(busOf(name) === 'ui' ? 'soundUi' : 'soundSfx') > 0;

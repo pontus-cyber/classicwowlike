@@ -26,8 +26,8 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblo
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL, reachCount, ZONE_MATCH_LINE } from './ui-text.js';
-import { EXIT_WORDS, bellLabel, bellLine, bellCharges, roadLine, roadSignWord, leaveFightLine } from './ui-text.js';
+import { numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL, reachCount, ZONE_MATCH_LINE, junkRowText } from './ui-text.js';
+import { EXIT_WORDS, bellLabel, bellLine, bellCharges, roadLine, roadSignWord, leaveFightLine, bellFightInfo, BELL_FIGHT_PAUSE } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -665,8 +665,12 @@ function buildExpMap(v, ctx, readOnly) {
     const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `${demoExit ? '' : `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. `}${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`}${demoExit ? '' : ` No way back to ${z.name}.`}`) : null;
     // demo.md 1.2a (R2-1, draft): in the demo's last zone the question names what the leave does
     const ask = demoExit ? DEMO_TEXT[demoEarly(v, ctx) ? 'askEarly' : 'askDone'] : road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?';
+    // demo blind round 2 R2-4 (draft): the fight the Bell starts first, its enemies and threat (the engine's own step on a
+    // copy, the bridge's bellFight), and that autoplay and fast speed pause for it
+    const bf = !road ? bellFightInfo(ctx.bridge.bellFight ? ctx.bridge.bellFight() : null, lv) : null;
+    const foes = bf ? h('div.lw-l.lw-foes', { dataset: { threat: bf.threat } }, bf.text, ' ', h('b.lw-threat', `Threat: ${bf.word}.`), ' ', h('span.lw-pause', BELL_FIGHT_PAUSE)) : null;
     win.appendChild(h('div.leavewarn' + (demoExit ? '.demoexit' : '') + (demoEarly(v, ctx) ? '.early' : ''), { role: 'alertdialog', 'aria-label': ask },
-      h('div.lw-t', ask), fight ? h('div.lw-l.lw-fight', fight) : null, bell,
+      h('div.lw-t', ask), foes || (fight ? h('div.lw-l.lw-fight', fight) : null), bell,
       demoExit ? h('div.lw-l.lw-demo', demoLeaveLine(ctx, v)) : null,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
       h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
@@ -1244,6 +1248,8 @@ function dialog(title, sub, content, actions, opts = {}) {
   return el;
 }
 function btn(label, onClick, cls = '') { const b = h('button.btn' + cls, label); b.addEventListener('click', onClick); return b; }
+/** The Space key hint on a dialog's primary button (demo blind round 2 R2-5, returning player item 15: Accept and Engage showed none while Continue did). */
+function keyed(b) { b.appendChild(h('span.k', 'Space')); return b; }
 
 function foeList(v, list, ctx) {
   const p = v.player;
@@ -1266,7 +1272,7 @@ function buildNode(v, ctx) {
       h('div.qtext.parchment', h('div.giver', `${n.giver} says:`), h('div', `“${n.text}”`)),
       h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), callsLine(n.calls),
       h('div.dim', { style: { fontSize: '1.2rem' } }, 'Reward: experience, gold and a choice of two items.'),
-    ], [btn('Accept', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
+    ], [keyed(btn('Accept', () => ctx.act({ type: 'ACCEPT' }), '.primary'))], { left, badge: hb });
   }
   if (n.type === 'grind' && n.step === 'intro') {
     const R = ctx.data.rules;
@@ -1292,7 +1298,7 @@ function buildNode(v, ctx) {
       h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add && !(n.mobs && n.mobs.length) ? h('dt', 'Escort') : null, n.add && !(n.mobs && n.mobs.length) ? h('dd', n.add.name) : null),
       // blind demo round 1 (A): every enemy of the fight at its level, and the one it calls in later
       n.mobs && n.mobs.length ? h('div.subtitle', 'Enemies') : null, n.mobs && n.mobs.length ? foeList(v, n.mobs, ctx) : null, callsLine(n.calls),
-    ], [btn('Engage', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: h('span.row', { style: { gap: '.5rem' } }, hb, h('span.rank-tag' + (n.rare ? '.rare' : ''), n.rare ? 'Rare' : 'Elite')) });
+    ], [keyed(btn('Engage', () => ctx.act({ type: 'ACCEPT' }), '.primary'))], { left, badge: h('span.row', { style: { gap: '.5rem' } }, hb, h('span.rank-tag' + (n.rare ? '.rare' : ''), n.rare ? 'Rare' : 'Elite')) });
   }
   if (n.type === 'dungeon' && n.step === 'intro') {
     return dialog(n.dungeon, `Dungeon · level ${lv(n.cl)}`, [
@@ -1306,7 +1312,7 @@ function buildNode(v, ctx) {
     return dialog('Treasure', `Level ${lv(n.cl)}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || ''), h('div.warn', `A guardian watches the chest: ${n.guard ? n.guard.name : 'an enemy'}.`)], [btn('Fight the guardian', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'chest') {
-    return dialog('Treasure', `Level ${lv(n.cl)}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || 'The chest is yours.')], [btn('Open the chest', () => ctx.act({ type: 'OPEN_CHEST' }), '.primary')], { left, badge: hb });
+    return dialog('Treasure', `Level ${lv(n.cl)}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || 'The chest is yours.')], [keyed(btn('Open the chest', () => ctx.act({ type: 'OPEN_CHEST' }), '.primary'))], { left, badge: hb });
   }
   if (n.step === 'between') {
     const hpTxt = `Health ${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}${p.res.kind === 'mana' ? ` · Mana ${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}` : ''}`;
@@ -1322,7 +1328,7 @@ function buildNode(v, ctx) {
   if (n.type === 'rest') {
     return dialog('Rest', 'Campfire', [h('div', { style: { font: 'italic 1.5rem var(--font-title)', color: 'var(--ink-dim)' } }, 'You rest by the fire until the ache leaves your bones.'),
       h('dl.kv', h('dt', 'Health'), h('dd.good', 'Full'), h('dt', RES_WORD[p.res.kind] || 'Resource'), h('dd.good', 'Full'), p.pet ? h('dt', 'Pet') : null, p.pet ? h('dd.good', 'Restored') : null, h('dt', 'Rested'), h('dd', { style: { color: '#9fb8ff' } }, `${fmtNum(p.rested)} XP: kills give double experience`))],
-    [btn('Continue', () => ctx.act({ type: 'LEAVE' }), '.primary')], { left });
+    [keyed(btn('Continue', () => ctx.act({ type: 'LEAVE' }), '.primary'))], { left });
   }
   if (n.type === 'shrine') {
     const cards = h('div.choice-cards', (n.boons || []).map((b, i) => {
@@ -1341,29 +1347,24 @@ function buildLoot(v, ctx) {
   const L = v.loot; const p = v.player;
   const win = h('div.loot.panel.rightside');
   // spoils of a node entered Hot or Scorched (its heat state, rules 1.7.3): a badge by the title
-  // blind round 2 (skipper s0161-s0166: loot lost with full bags): items still in the loot window are not left behind on one
-  // click; Leave and × ask first ("Leave 2 items behind?"), a second click leaves them
+  // Demo blind round 2 R2-3 (returning player item 5: "Leave then Leave again"; draft): Leave is one click. Its label says
+  // what it leaves ("Leave 2 behind"), so the click is informed; × does the same
   const waiting = (L.items || []).filter((it) => it.pending).reduce((a, it) => a + (it.uids ? it.uids.length : 1), 0); // pieces, not rows: a junk stack is several
-  const lk = (L.items || []).map((it) => (it.uids || [it.uid]).join('+')).join(',');
-  if (lootLeave.key !== lk) lootLeave.armed = false;
-  const leaveFn = () => {
-    if (waiting && !lootLeave.armed) { lootLeave.armed = true; lootLeave.key = lk; ctx.ui.refreshScreens(); return; }
-    lootLeave.armed = false; ctx.act({ type: 'LOOT_CLOSE' });
-  };
+  const leaveFn = () => ctx.act({ type: 'LOOT_CLOSE' });
   win.appendChild(h('div.wtitle', h('div.row', { style: { gap: '.8rem', alignItems: 'center' } }, h('div.title', L.title || 'Loot'), heatBadge(v.node && v.node.heat, ctx)), closeLootBtn(leaveFn)));
   const rows = h('div.rows');
   // D150 item 19: no notes under the coins and the experience (Continue already says they are yours)
   if (L.gold) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('coin', 'gold'), alt: '' }), h('div', h('div.nm', moneyEl(L.gold)))));
   if (L.xp) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('stars3', 'epic'), alt: '' }), h('div', h('div.nm', { style: { color: '#d0a8ff' } }, `${fmtNum(L.xp)} experience`))));
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
+  // R2-3 (draft): the junk of these spoils was sold as it was picked up (the bridge's CASH_JUNK): one row with its price
+  if (L.junk && L.junk.count) rows.appendChild(h('div.lrow.junksold', { style: { cursor: 'default' } }, h('img', { src: icon('junk', 'earth'), alt: '' }), h('div', h('div.nm.r-junk', junkRowText(L.junk.count)), h('div.meta', moneyEl(L.junk.gold), ' · at the vendor\'s price'))));
   (L.items || []).forEach((it, i) => {
     const worn = it.kind === 'gear' && !!p.equip[it.slot] && p.equip[it.slot].uid === it.uid; // put on from this window
     const up = ctx.bridge.upgrade(it).up; // blind Legacy v2 (s0502): never for another class's main stat
     const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
-    // blind Legacy v2 (s0478): once Leave has asked, the rows it would leave say so, the ones in the bags stay as they are
-    const leaving = lootLeave.armed && lootLeave.key === lk && it.pending;
-    const tag = leaving ? h('span.warn', ' · left behind') : worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
-    const r = h('div.lrow.' + (it.rarity || 'common') + (leaving ? '.leaving' : ''), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    const tag = worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
+    const r = h('div.lrow.' + (it.rarity || 'common'), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
     // blind round 2 (casual re-run s0071-s0079): every gear row of the spoils and of a chest offers "Equip now", and a click
     // on the row does the same: from the bags (EQUIP), or from the loot window when the bags were full (LOOT_EQUIP)
     const inBags = () => { const b = ctx.bridge.view.player; return !!(b && b.bag.some((x) => x && x.uid === it.uid)); };
@@ -1387,13 +1388,19 @@ function buildLoot(v, ctx) {
   if (!(L.items || []).length && !L.gold && !L.xp) rows.appendChild(h('div.muted', { style: { padding: '1rem' } }, 'Nothing of value.'));
   win.appendChild(rows);
   const pending = (L.items || []).filter((it) => it.pending || (!it.inBag && L.items && !('inBag' in it))).length;
-  const full = p.bag.every(Boolean) && (L.items || []).some((it) => it.kind === 'gear' && !it.inBag);
-  const take = btn(pending ? 'Take all' : 'Continue', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
+  // R2-3 (skipper re-test: "Space stops working with full bags"; draft): Space always moves on. Take all takes what fits
+  // (the bridge's dry run, L.fit) and leaves the rest; the foot says so before the press, once (the one bags-full line)
+  const fit = L.fit || { take: waiting, left: 0 };
+  const label = !pending ? 'Continue' : fit.left === 0 ? 'Take all' : fit.take > 0 ? 'Take what fits' : 'Continue';
+  const take = btn(label, () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
   take.appendChild(h('span.k', 'Space'));
+  if (fit.left) tip(take, () => h('div', h('div.tt-name', label), h('div.tt-line', fit.take ? `Takes ${fit.take} ${plural(fit.take, 'item')}; ${fit.left} ${plural(fit.left, 'item')} stay behind.` : `Your bags are full: ${fit.left} ${plural(fit.left, 'item')} stay behind.`), h('div.tt-hint', 'Equip now keeps an upgrade.')));
   const nx = nextStrip(L); if (nx) win.appendChild(nx);
-  const note = lootLeave.armed && waiting ? h('span.warn.lleave', `Leave ${waiting} ${waiting > 1 ? 'items' : 'item'} behind? Click Leave again.`)
-    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn.bfull', BAGS_FULL) : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
-  win.appendChild(h('div.foot', note, h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', leaveFn, lootLeave.armed && waiting ? '.danger' : '') : null, take)));
+  const note = fit.left ? h('span.warn.bfull', BAGS_FULL) : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
+  // Leave only when it does something Take all does not (it leaves items that would fit)
+  const leave = pending && fit.take > 0 ? btn(`Leave ${waiting} behind`, leaveFn) : null;
+  if (leave) leave.dataset.leave = String(waiting);
+  win.appendChild(h('div.foot', note, h('div.row', { style: { gap: '.6rem' } }, leave, take)));
   return win;
 }
 /**
@@ -1407,11 +1414,30 @@ function nextStrip(L) {
 }
 function miniBtn(label, fn, cls = '') { const b = h('button.btn.small' + cls, { type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
 function closeLootBtn(fn) { const b = h('button.xbtn', '×'); b.addEventListener('click', fn); return b; }
-const lootLeave = { armed: false, key: null }; // the loot window's "Leave N items behind?" ask (buildLoot)
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/**
+ * The reward a press of Space takes (demo blind round 2 R2-3, skipper re-test s0205, s0207: two "Not an upgrade" items, no
+ * button, Space ignored; draft): the biggest upgrade, put on (Equip now); with none, the item closest to what is worn for
+ * the class's main stat (another class's main stat last). up(it) is the bridge's upgrade info. Returns { i, equip }.
+ */
+export function defaultPick(choices, up) {
+  let best = null;
+  (choices || []).forEach((it, i) => {
+    const U = up(it); const rank = U.up ? 2 : U.off ? 0 : 1;
+    const d = U.up && U.empty ? Infinity : U.diff || 0;
+    if (!best || rank > best.rank || (rank === best.rank && d > best.d)) best = { i, rank, d, equip: !!(U.up && it.kind === 'gear') };
+  });
+  return best ? { i: best.i, equip: best.equip } : null;
+}
 
 function buildReward(v, ctx) {
   const L = v.loot; const p = v.player;
+  const pick = defaultPick(L.choices, (it) => ctx.bridge.upgrade(it));
+  const equipNow = (it, i) => {
+    ctx.act({ type: 'CHOOSE_REWARD', i, equip: true });
+    ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
+  };
   const cards = h('div.choice-cards', (L.choices || []).map((it, i) => {
     const U = ctx.bridge.upgrade(it); const up = U.diff; // blind Legacy v2 (s0502): another class's main stat is never an upgrade
     const stats = Object.entries(it.stats || {}).filter(([k, val]) => ['sta', 'agi', 'int', 'spi', 'power'].includes(k) && val > 0).map(([k, val]) => `+${val} ${STAT_NAMES[k] || k}`).join('  '); // D150: full stat names
@@ -1419,21 +1445,26 @@ function buildReward(v, ctx) {
     // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
     const offer = it.kind === 'gear' && U.up;
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
-    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (U.up ? 'good' : 'muted'), !U.up ? 'Not an upgrade' : up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10} score)` : '▲ Empty slot'), eq));
+    const c = h('div.icard' + (pick && pick.i === i ? '.dflt' : ''), h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (U.up ? 'good' : 'muted'), !U.up ? 'Not an upgrade' : up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10} score)` : '▲ Empty slot'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
     // Legacy bugs 2026-11-19 (blind returning player s0044, s0160): the engine puts it on in the choice's own step
     // (CHOOSE_REWARD `equip`), before a Dimmed encounter that starts at once, and from the loot window when the bags are
     // full; the EQUIP after it is for an engine without the option (the mock), and sends nothing once the item is worn
-    if (eq) eq.addEventListener('click', (e) => {
-      e.stopPropagation();
-      ctx.act({ type: 'CHOOSE_REWARD', i, equip: true });
-      ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
-    });
+    if (eq) eq.addEventListener('click', (e) => { e.stopPropagation(); equipNow(it, i); });
     // blind Legacy v2 (s0318): with full bags Equip now leaves the replaced piece behind (the bridge's CHOOSE_REWARD), and says so first (draft)
     const leaves = () => !!p.equip[it.slot] && p.bag.every(Boolean);
     tip(c, () => itemTip(it, ctx, { hint: eq ? `Click to choose this reward · Equip now: choose it and put it on${leaves() ? `; your bags are full, so your ${p.equip[it.slot].name} is left behind` : ''}` : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
     return c;
   }));
+  // the default pick's button (R2-3, draft): Space presses it (the dialog's primary)
+  const dIt = pick ? L.choices[pick.i] : null;
+  const dBtn = dIt ? btn(`${pick.equip ? 'Equip' : 'Take'} ${dIt.name}`, () => (pick.equip ? equipNow(dIt, pick.i) : ctx.act({ type: 'CHOOSE_REWARD', i: pick.i })), '.primary.dpick') : null;
+  if (dBtn) {
+    dBtn.appendChild(h('span.k', 'Space'));
+    dBtn.dataset.pick = String(pick.i);
+    tip(dBtn, () => h('div', h('div.tt-name', dIt.name), h('div.tt-line', pick.equip ? 'The biggest upgrade here: chosen and put on.' : 'None of these is an upgrade; this one is the closest to what you wear.'), h('div.tt-hint', 'Or click the reward you want.')));
+  }
+  const btns = dBtn ? [dBtn] : [];
   if (L.kind === 'bounty') {
     // D152 (changes-m3-v2.md 1.4): Gorrak's bounty on a first run: its line (content guide.bountyLine, draft), what it paid
     // (the bridge's sums of its `why: 'bounty'` XP and gold) and its item choice
@@ -1442,7 +1473,7 @@ function buildReward(v, ctx) {
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
       p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
-    ], [], { style: { width: '60rem' }, cls: 'bounty-reward' });
+    ], btns, { style: { width: '60rem' }, cls: 'bounty-reward' });
   }
   if (L.kind === 'contract') {
     // a completed contract (expedition.md 3.1, 9.3): paid at once on its last site; its item choice as the story's
@@ -1453,7 +1484,7 @@ function buildReward(v, ctx) {
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
       p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
-    ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
+    ], btns, { style: { width: '60rem' }, cls: 'contract-reward' });
   }
   const story = L.kind === 'story';
   return dialog(story ? 'Zone story complete' : 'Quest complete', L.title, [
@@ -1461,7 +1492,7 @@ function buildReward(v, ctx) {
     h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
     h('div.subtitle', story ? 'Choose one rare reward' : 'Choose your reward'), cards,
     p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
-  ], [], { style: { width: '60rem' } });
+  ], btns, { style: { width: '60rem' } });
 }
 
 // ------------------------------------------------------------------ vendor & trainer
@@ -1478,16 +1509,24 @@ function buildVendor(v, ctx) {
   // blind round 2 (tactician s0028: "sells only consumables"): the gear rows came last and sat below the list's fold at
   // 1366x768. Gear now comes first; data-i keeps the engine's stock index (BUY), the list shows a cue when more is below.
   const rowsOf = (n.stock || []).map((it, i) => [it, i]).sort((a, b) => (a[0].kind === 'gear' ? 0 : 1) - (b[0].kind === 'gear' ? 0 : 1) || a[1] - b[1]);
+  // Demo blind round 2 R2-3 (newcomer s0226-s0241, skipper s0193-s0308: bought gear sat in the bags and was left behind;
+  // draft): an upgrade is put on as it is bought ("Buy and equip": BUY, then EQUIP of the same item; the worn piece goes to
+  // the bags, where it can be sold), and an upgrade already in the bags has Equip beside Sell
+  const equipAfter = (uid) => ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === uid) ? { type: 'EQUIP', uid } : null; });
   const stock = scrollCue(h('div.list', rowsOf.map(([it, i]) => {
-    const r = h('div.trow' + (it.sold ? '.locked' : ''), { dataset: { i: String(i) } }, h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : 'Consumable')),
-      h('div.right', it.sold ? h('span.muted', 'Sold') : moneyEl(it.price), it.sold ? null : h('button.btn.small' + (p.gold < it.price ? '.disabled' : ''), 'Buy')));
-    if (!it.sold) r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'BUY', i }));
-    tip(r, () => itemTip(it, ctx, { price: it.price }));
+    const up = !it.sold && it.kind === 'gear' && ctx.bridge.upgrade(it).up;
+    const r = h('div.trow' + (it.sold ? '.locked' : ''), { dataset: { i: String(i) } }, h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : 'Consumable', up ? h('span.good', ' · ▲ upgrade') : null)),
+      h('div.right', it.sold ? h('span.muted', 'Sold') : moneyEl(it.price), it.sold ? null : h('button.btn.small' + (p.gold < it.price ? '.disabled' : '') + (up ? '.eqnow' : ''), up ? 'Buy and equip' : 'Buy')));
+    if (!it.sold) r.querySelector('button').addEventListener('click', () => { ctx.act({ type: 'BUY', i }); if (up) equipAfter(it.uid); });
+    tip(r, () => itemTip(it, ctx, { price: it.price, hint: up ? 'Buy and equip: bought and put on; what you wear now goes to your bags' : undefined }));
     return r;
   })));
   const bag = h('div.list', p.bag.filter(Boolean).map((it) => {
-    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
-    r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'SELL', uid: it.uid }));
+    const up = it.kind === 'gear' && ctx.bridge.upgrade(it).up;
+    const eq = up ? h('button.btn.small.eqnow', 'Equip') : null;
+    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable', up ? h('span.good', ' · ▲ upgrade') : null)), h('div.right', eq, h('button.btn.small.sell', 'Sell')));
+    r.querySelector('button.sell').addEventListener('click', () => ctx.act({ type: 'SELL', uid: it.uid }));
+    if (eq) eq.addEventListener('click', () => ctx.act({ type: 'EQUIP', uid: it.uid }));
     tip(r, () => itemTip(it, ctx, {}));
     return r;
   }));
@@ -1606,25 +1645,39 @@ function buildSummary(v, ctx) {
       : 'Echoes buy lasting unlocks between runs.'));
   // heat (H.4, engine-api.md 11.3): the tolls-against-the-line track per zone, tolls by state, the end against the line or the par
   win.appendChild(h('div.sbody', card1, card2, card3, s.heat ? buildHeatSummary(s, ctx) : null));
-  // the demo-end screen (demo.md 1.4): "Next run" (primary, to hero select) and "Legacy hall"
-  const again = demoEnd ? btn(DEMO_TEXT.nextRun, () => ctx.act({ type: 'END_RUN' }), '.primary.big') : btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
+  // Demo blind round 2 R2-5 (returning player item 14: the buttons differed between the death and the demo-end screens, and
+  // "Same hero" against "Next run" was unclear; draft): every run end has the same three buttons in the same order. Spend
+  // Echoes (the hall, Legacy points in a Legacy run), "Choose a hero" (class select) and "Same hero" (primary: the next run
+  // at once). data-end names each; the demo end keeps data-demo on the first two.
+  const legacyRun = !!s.hero;
+  const pick = legacyRun ? 'hero select' : 'class select';
+  const again = btn('Choose a hero', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
+  again.dataset.end = 'hero';
   if (demoEnd) again.dataset.demo = 'next';
   // Spend Echoes: END_RUN stores the profile, then the Hall of Echoes opens over class select
-  const spend = v.meta ? btn(demoEnd ? DEMO_TEXT.hallButton : 'Spend Echoes', () => { ctx.ui.openMeta(); ctx.act({ type: 'END_RUN' }); }, demoEnd ? '.big' : '.primary.big') : null;
+  const spend = v.meta ? btn('Spend Echoes', () => { ctx.ui.openMeta(); ctx.act({ type: 'END_RUN' }); }, '.big') : null;
+  if (spend) spend.dataset.end = 'hall';
   if (spend && demoEnd) spend.dataset.demo = 'hall';
   if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
   if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
     after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
   // demo blind round 1 D (skipper: four screens before the first fight): "Same hero" ends the run and starts the next one at once
-  // with the same hero (class, pet and the hero's level are kept by END_RUN), so the next screen is the start camp. Hero
-  // select stays on the other button, for changing class. Draft wording.
+  // with the same hero (class, pet and the hero's level are kept by END_RUN), so the next screen is the start camp
   const same = v.meta ? btn('Same hero', async () => {
     same.disabled = true;
     const r = await ctx.act({ type: 'END_RUN' });
     if (r && r.ok) await ctx.act({ type: 'START_RUN' }); else same.disabled = false;
-  }, '.big') : null;
-  if (same) { same.dataset.same = '1'; tip(same, () => h('div', h('div.tt-name', 'Same hero'), h('div.tt-line.desc', 'Start the next run with this hero, at the start camp. Your Echoes are kept.'), h('div.tt-hint', `${demoEnd ? DEMO_TEXT.nextRun : 'Begin a new run'} lets you choose another hero.`))); }
-  if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select, where the Hall of Echoes is too. Your Echoes are kept.')));
+  }, '.primary.big') : null;
+  const petName = s.petId && ctx.data.pets[s.petId] ? ctx.data.pets[s.petId].name : null;
+  if (same) {
+    same.dataset.same = '1'; same.dataset.end = 'same';
+    tip(same, () => h('div', h('div.tt-name', 'Same hero'),
+      h('div.tt-line.desc', legacyRun
+        ? `The next run starts at once with ${named || `your ${s.className}`}${petName ? ` and ${petName}` : ''}: the hero's level, spells and talents are kept; gear and gold start over. You go straight to the start camp.`
+        : `The next run starts at once as a ${s.className}${petName ? ` with ${petName}` : ''}. You go straight to the start camp.`),
+      h('div.tt-hint', `Choose a hero goes to ${pick} first, to change ${legacyRun ? 'hero' : 'class'} or visit the hall.`)));
+  }
+  tip(again, () => h('div', h('div.tt-name', 'Choose a hero'), h('div.tt-line.desc', `Back to ${pick}: the same ${legacyRun ? 'hero' : 'class'} or another, and the hall. Your Echoes are kept.`)));
   // M3 nudge (m3-onboarding.md 4.3 step 1): the first summary (and once more while Packed Satchel is not bought): Spend Echoes
   // glows, with one line under it; the Hall then highlights the Satchel (onboarding.js). Nothing is disabled.
   const coach = ctx.coach;
@@ -1635,6 +1688,6 @@ function buildSummary(v, ctx) {
     spend.addEventListener('click', () => coach.armHall(), true);
     nudge = h('div.nudgeline', ctx.data.tutorial.table.nudge.summaryLine);
   }
-  win.appendChild(demoEnd ? h('div.sfoot', again, same, nudge ? h('div.spendcol', spend, nudge) : spend) : h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, same, again));
+  win.appendChild(h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, again, same));
   return win;
 }

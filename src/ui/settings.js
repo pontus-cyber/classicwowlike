@@ -16,6 +16,7 @@ const DEFAULTS = {
   showLog: true,       // combat log panel
   shake: true,         // screen shake on heavy hits
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
+  autoplay: false,     // demo blind round 2 R2-5: the player's last Autoplay choice, sent again at the next run's start
   reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
   devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
   classicMap: false,   // Dev menu: new runs on the classic map (old, rules 1.4); off: the expedition map with the start camp (D116)
@@ -37,6 +38,7 @@ function load() {
 
 const ev = emitter();
 const state = load();
+let held = false; // holdSpeed (R2-4): 1x for one fight, the setting kept
 // demo.md 2.1, 2.3: the demo build reads no URL switch (?speed, ?theme, ?art) and plays today's look (the colour theme and
 // the art style stay 'current' until the owner decides on Lantern, D121)
 const urlParam = (k) => { if (DEMO_BUILD) return null; try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
@@ -77,8 +79,12 @@ export const settings = {
       if (v) Object.assign(state, { speed: 0, skipTravel: true, autoDelay: 60 });
       else Object.assign(state, { speed: 1, skipTravel: false, autoDelay: DEFAULTS.autoDelay });
     }
+    // demo blind round 2 R2-5: a speed other than Instant chosen while Speedrun mode is on ends the mode (its preset kept the speed at Instant)
+    let runOff = false;
+    if (k === 'speed' && v !== 0 && state.speedrun) { Object.assign(state, { speedrun: false, skipTravel: false, autoDelay: DEFAULTS.autoDelay }); runOff = true; }
     try { store.set(KEY, JSON.stringify(state)); } catch { /* ignore */ }
     ev.emit('change', k, v);
+    if (runOff) ev.emit('change', 'speedrun', false);
   },
   /** Every setting back to its default for this page, nothing stored (the demo's Start over, demo.md 2.4: its keys are cleared). */
   resetAll() {
@@ -93,8 +99,16 @@ export const settings = {
   /** The art style on screen: 'lantern' (the proof slice) or 'current'. */
   get art() { return DEMO_BUILD ? 'current' : urlArt || (state.lanternArt ? 'lantern' : 'current'); },
   /** Scale a duration in ms by the animation speed (0 = instant). */
-  dur(ms) { return state.speed === 0 ? 0 : ms / state.speed; },
-  get instant() { return state.speed === 0; },
+  dur(ms) { const sp = this.speedNow; return sp === 0 ? 0 : ms / sp; },
+  get instant() { return this.speedNow === 0; },
+  /**
+   * The speed the game plays at now: the setting, or 1x while a hold is on (demo blind round 2 R2-4: the Bell's fight in
+   * the Dimming plays at normal speed). The setting itself (get('speed'), the Speed button, Settings) is not changed.
+   */
+  get speedNow() { return held ? 1 : state.speed; },
+  /** Hold the speed at 1x (on) or release it; emits 'hold'. */
+  holdSpeed(on) { if (held === !!on) return; held = !!on; ev.emit('change', 'hold', held); },
+  get held() { return held; },
   /** Reduce motion: the player's choice, or the system's prefers-reduced-motion until the player chooses. */
   get reduceMotion() {
     if (state.reduceMotion != null) return !!state.reduceMotion;

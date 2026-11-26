@@ -21,7 +21,7 @@
 // key refused for lack of resource while the guide's G15 is open shows G15's coach line in place of the refusal toast.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
-import { createHud } from './hud.js';
+import { createHud, nextSpeed } from './hud.js';
 import { createScreens, disarmSpyglass } from './screens.js';
 import { prepKey } from './prep.js';
 import { createWindows } from './windows.js';
@@ -36,7 +36,7 @@ import { enemyLook } from './art-actors.js';
 // telegraph colours (tokens.css --fx-tele-*): a heavy blow in orange (the target ring is red), a cast in its school's colour
 // (an unknown school: magic's), a wind-up in ember red
 import { TELE, TELE_CAST } from './theme.js';
-import { HEAT_WORDS, tolls, BAGS_FULL, AUTO_DIM_LINE } from './ui-text.js';
+import { HEAT_WORDS, tolls, BAGS_FULL, AUTO_DIM_LINE, BELL_FIGHT_LOG } from './ui-text.js';
 
 export class App {
   constructor() {
@@ -86,7 +86,9 @@ export class App {
         } else { app.hud.flashSlot(7 + i); const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); }
       },
       // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
-      toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
+      // demo blind round 2 R2-5 (skipper re-test: autoplay reset every run; draft): the player's own choice is kept between
+      // runs (settings.js autoplay) and sent again when the next run starts (keepAutoplay)
+      toggleAuto: () => app.act(() => { const on = !app.bridge.view.autoplay; settings.set('autoplay', on); return { type: 'SET_AUTOPLAY', on }; }),
       pass: () => { ui.fleeArmed = false; app.combatAct(() => ({ type: 'PASS' }), 'pass', 'Pass'); },
       // Flee asks first (key F or the button: the same path). Blind panel 2026-11-13: F seemed to do nothing (its "press again"
       // toast waited behind others, faded, and the arming lapsed after 2.2 s). Now the ask is a box over the button (hud.js
@@ -218,6 +220,7 @@ export class App {
         this.noteBagLoot(res.events, action);
         this.noteBagsFull(prev, res.view);
         this.noteAutoStop(prev, res.view, res.events, action);
+        this.keepAutoplay(action, res.view);
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
         this.pending--;
@@ -396,8 +399,10 @@ export class App {
     const free = (v) => (v && v.player ? v.player.bag.filter((x) => !x).length : null);
     const a = free(prev); const b = free(next);
     if (a == null || b == null || a === 0 || b !== 0 || next.phase === 'SUMMARY') return;
-    this.toast(BAGS_FULL, 'warn'); // blind Legacy v2 (2026-11-20): one sentence for full bags (ui-text.js BAGS_FULL, draft)
-    this.hud.log(BAGS_FULL, 'lg-sys');
+    // Demo blind round 2 R2-3 (returning player item 6: toast, loot panel and log at once): said once. A loot or reward
+    // window says it in its foot; otherwise one toast (blind Legacy v2: one sentence for full bags, ui-text.js BAGS_FULL, draft)
+    if (next.loot) return;
+    this.toast(BAGS_FULL, 'warn');
   }
 
   /**
@@ -411,10 +416,11 @@ export class App {
    */
   noteAutoStop(prev, next, events, action) {
     if (next.phase === 'PREP' || next.phase === 'CREATE') this.dimAutoSaid = false; // a new run: say it again once
+    this.noteBellFight(prev, next, action);
     if (!next.autoplay) return;
     const t = (x) => events.some((e) => e.t === x);
     const dimStart = next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over);
-    if (dimStart && !this.dimAutoSaid) { this.dimAutoSaid = true; this.hud.log(AUTO_DIM_LINE, 'lg-sys'); }
+    if (dimStart && !this.dimAutoSaid && !this.bellHold) { this.dimAutoSaid = true; this.hud.log(AUTO_DIM_LINE, 'lg-sys'); }
     if (!t('rescue') || (action && action.type === 'SET_AUTOPLAY')) return;
     const why = 'Autoplay off after your death.';
     clearTimeout(this.autoTimer);
@@ -423,14 +429,57 @@ export class App {
     this.act(a).then((r) => { if (r && r.ok) { this.toast(why, 'warn'); this.hud.log(why, 'lg-sys'); } });
   }
 
+  /**
+   * Demo blind round 2 R2-5 (draft): autoplay is kept between runs. A new run starts with it off (the engine's newRun); when
+   * the player last left it on, the UI turns it on again at the run's start (an own action, mirrored by the Node twins).
+   */
+  keepAutoplay(action, next) {
+    if (!action || action.type !== 'START_RUN' || !settings.get('autoplay') || next.autoplay || next.phase === 'CREATE') return;
+    const a = { type: 'SET_AUTOPLAY', on: true };
+    this.ownActions.push(a);
+    this.act(a);
+  }
+
+  /**
+   * Demo blind round 2 R2-4 (returning player item 1: with Autoplay and Speedrun one click went from the map to "has fallen"):
+   * the fight the Homeward Bell starts first in the Dimming is seen. While it lasts the game plays at 1x (settings.holdSpeed;
+   * the Speed setting is kept) and autoplay is paused (SET_AUTOPLAY off, an own action the Node twins mirror); when it ends
+   * with the hero standing, autoplay comes back on if it was on. One log line says so (draft).
+   */
+  noteBellFight(prev, next, action) {
+    const fighting = (v) => !!(v && v.node && v.node.type === 'dim' && v.combat && !v.combat.over && !v.loot);
+    const t = action && (action.type === 'ENGINE' ? action.action && action.action.type : action.type);
+    if (!this.bellHold && t === 'RING_BELL' && fighting(next)) {
+      this.bellHold = { auto: !!next.autoplay };
+      settings.holdSpeed(true);
+      this.hud.log(BELL_FIGHT_LOG, 'lg-sys');
+      if (next.autoplay) {
+        clearTimeout(this.autoTimer);
+        const a = { type: 'SET_AUTOPLAY', on: false };
+        this.ownActions.push(a);
+        this.act(a);
+      }
+      return;
+    }
+    if (this.bellHold && !fighting(next)) {
+      const h0 = this.bellHold; this.bellHold = null;
+      settings.holdSpeed(false);
+      if (h0.auto && !next.autoplay && next.phase !== 'SUMMARY' && next.phase !== 'CREATE') {
+        const a = { type: 'SET_AUTOPLAY', on: true };
+        this.ownActions.push(a);
+        this.act(a);
+      }
+    }
+  }
+
   /** While autoplay is on in a fight, play the engine's autoplay choice after the autoplay pause. */
   scheduleAuto() {
     clearTimeout(this.autoTimer);
     const v = this.bridge.view;
     if (!v.autoplay || !v.combat || v.combat.over || this.pending > 0) return;
-    let delay = settings.instant ? 30 : settings.get('autoDelay') / Math.max(1, settings.get('speed') || 1);
+    let delay = settings.instant ? 30 : settings.get('autoDelay') / Math.max(1, settings.speedNow || 1);
     // M2b v13 (UI needs 8): in an engage round where autoplay answers a wind-up (rule E2), its hint stays readable a moment
-    if (!settings.instant && v.combat.engage && v.combat.autoEngage) delay = Math.max(delay, AUTO_HINT_MS / Math.max(1, settings.get('speed') || 1));
+    if (!settings.instant && v.combat.engage && v.combat.autoEngage) delay = Math.max(delay, AUTO_HINT_MS / Math.max(1, settings.speedNow || 1));
     this.autoTimer = setTimeout(() => {
       const vv = this.bridge.view;
       if (!vv.autoplay || !vv.combat || vv.combat.over || this.pending > 0) return;
@@ -548,7 +597,7 @@ export class App {
     b.querySelector('.b2').textContent = sub || '';
     this.placeBanner(); this.placeToasts();
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.flushToasts(); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
+    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.flushToasts(); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.speedNow)));
   }
   hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.flushToasts(); this.placeToasts(); }
   /**
@@ -806,7 +855,7 @@ export class App {
     // D150 item 9 (the keyboard path of "Pass through"): on the zone map, X passes through the node whose offer is shown
     // (the node hovered or focused; screens.js passButton), as X passes a round in a fight
     if (code === 'KeyX' && !inFight) { const pb = this.root.querySelector('#screens .expmap .xpass.on, #screens .expmap .xpass.coach-also'); /* newcomer check 2026-11-15: U02 shows one */ if (pb) { e.preventDefault(); pb.click(); return; } }
-    const map = { KeyA: () => this.ui.attack(), KeyZ: () => this.ui.toggleAuto(), KeyX: () => this.ui.pass(), KeyF: () => this.ui.flee(),
+    const map = { KeyA: () => this.ui.attack(), KeyZ: () => this.ui.toggleAuto(), KeyX: () => this.ui.pass(), KeyF: () => this.ui.flee(), KeyV: () => nextSpeed(),
       KeyC: () => this.windows.toggle('character'), KeyB: () => this.windows.toggle('bags'), KeyP: () => this.windows.toggle('spellbook'),
       KeyN: () => this.windows.toggle('talents'), KeyL: () => this.windows.toggle('questlog'), KeyM: () => this.windows.toggle('map') };
     if (map[code]) { e.preventDefault(); map[code](); }

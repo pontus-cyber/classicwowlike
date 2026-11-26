@@ -40,6 +40,8 @@ const M = { levelUp: 1200, victory: 500, playerDeath: 900, resurrect: 1200, boss
 // DEADLINE_SHARE of it has passed since the input, the rest of the round plays at once.
 const PLAN_SHARE = 0.9;
 const DEADLINE_SHARE = 0.96;
+/** Demo blind round 2 R2-4: ms the fight's last moment stays on screen before the fallen screen, at any speed (skippable). */
+const LAST_MOMENT_MS = 1200;
 
 /** Sum of the round's waits in ms at 1x, as play() spends them (moments excluded). */
 export function planMs(events, prev, spells, scale = 1) { return timeline(events, prev, spells, scale).total; }
@@ -126,7 +128,7 @@ export class Director {
     const round = isRound(prev, events);
     const pace = roundPace(ctx.data.rules);
     const budget = round ? pace.capMs : 0; // ms at 1x
-    const speed = settings.instant ? 0 : settings.get('speed') || 1;
+    const speed = settings.instant ? 0 : settings.speedNow || 1;
     const tl = timeline(events, prev, ctx.data.spells, pace.scale);
     const plan = budget ? tl.total : 0;
     const tempo = budget ? Math.max(1, plan / (budget * PLAN_SHARE)) : 1;
@@ -483,7 +485,15 @@ export class Director {
         if (all.length && !on && next.phase !== 'SUMMARY' && next.phase !== 'CREATE') await this.heroLevelUp(all, next, fast(), WM);
       } else this.lvHold = [];
       // Legacy bugs 2026-11-19: a run abandoned from the menu ends as a death, but no "You have died" over it
-      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death' && !(next.summary.death && next.summary.death.abandoned)) await this.deathScreen(token, deathLine(next));
+      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death' && !(next.summary.death && next.summary.death.abandoned)) {
+        // demo blind round 2 R2-4 (returning player item 1: Autoplay and Speedrun went from the map to "has fallen" with no
+        // fight seen): the fight's last moment stays on screen LAST_MOMENT_MS at any speed, then the fallen screen its own
+        // time. A fresh token: a click skips them, a skip made earlier in the step does not
+        const last = new SkipToken();
+        this.token = last; this.beat = last; this.round = null;
+        await wait(LAST_MOMENT_MS, last);
+        await this.deathScreen(last, deathLine(next));
+      }
       if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath is no more.', 'boss', 3000); await WM(2200); }
     } finally {
       ctx.ui.overlay = false;

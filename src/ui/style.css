@@ -366,9 +366,15 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 #actionbar { position: absolute; left: 50%; bottom: 3.1rem; transform: translateX(-50%); display: flex; align-items: flex-end; gap: var(--sp-90); padding: var(--sp-70) var(--sp-100) var(--sp-80); }
 /* the Autoplay controls over the action bar's left half; the Heat meter (#heat, heat.js) over its right half */
 #actionbar .ctrl.panel { position: absolute; left: 0; bottom: calc(100% + .7rem); flex-direction: row; align-items: center; gap: var(--sp-50); padding: var(--sp-40) var(--sp-60); }
+/* demo blind round 2 R2-5: Autoplay and Speed side by side on the first row, Pass and Flee under them (one row of four ran
+   under the turn prompt at 1366x768) */
+#actionbar .ctrl.panel { display: grid; grid-template-columns: auto auto; justify-items: stretch; }
+#actionbar .ctrl .btn { justify-content: center; }
+/* Pass and Flee act only in a fight: out of one the row holds Autoplay and Speed (the map's word budget, D150) */
+body:not(.in-fight) #actionbar .ctrl .btn { display: none; }
 #actionbar .ctrl.panel::before, #actionbar .ctrl.panel::after { display: none; }
 /* the flee ask (blind panel 2026-11-13): over the control row until answered; the armed Flee button glows red */
-#fleeask { position: absolute; left: 0; bottom: calc(100% + 4.6rem); z-index: var(--z-hud-callout); display: flex; flex-direction: column; gap: var(--sp-20); padding: var(--sp-50) var(--sp-90); border-radius: var(--radius-md-2); pointer-events: none;
+#fleeask { position: absolute; left: 0; bottom: calc(100% + 8.4rem); z-index: var(--z-hud-callout); display: flex; flex-direction: column; gap: var(--sp-20); padding: var(--sp-50) var(--sp-90); border-radius: var(--radius-md-2); pointer-events: none;
   background: linear-gradient(180deg, rgba(92, 18, 12, .97), rgba(46, 8, 6, .97)); box-shadow: inset 0 0 0 1px rgba(255, 150, 120, .8), 0 0 1.4rem rgba(255, 70, 40, .5); color: #ffe8de; white-space: nowrap; }
 #fleeask .fa-t { font: var(--fw-heavy) var(--fs-body-3) var(--font-ui); letter-spacing: .02em; }
 #fleeask .fa-l { font: var(--fw-semibold) var(--fs-small-6) var(--font-ui); color: #ffd2c4; }
@@ -404,10 +410,12 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .ctrl .btn { padding: var(--sp-35) var(--sp-80); font-size: var(--fs-small-8); }
 .ctrl .toggle { padding: var(--sp-30) var(--sp-70); }
 /* demo blind round 1 D: the fight speed button (hud.js els.speed) in the combat log's header; its number is lit when faster than 1x */
-#combatlog .lh .speedbtn { margin-left: auto; margin-right: var(--sp-60); padding: var(--sp-10) var(--sp-60); border-radius: var(--radius-sm-1); cursor: pointer; font: var(--fw-bold) var(--fs-small-5) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); }
-#combatlog .lh .speedbtn:hover { color: var(--ink-bright); box-shadow: inset 0 0 0 1px var(--accent-hi); }
-#combatlog .lh .speedbtn b { font-weight: var(--fw-heavy); color: var(--ink-bright); margin-left: var(--sp-20); }
-#combatlog .lh .speedbtn.fast b { color: var(--accent-hi); }
+/* demo blind round 2 R2-5: the Speed button beside Autoplay in the control row (was in the combat log's header) */
+.ctrl .speedbtn { display: flex; align-items: center; gap: var(--sp-40); white-space: nowrap; padding: var(--sp-30) var(--sp-60); border-radius: var(--radius-sm-3); cursor: pointer; font: var(--fw-bold) var(--fs-small-5) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); }
+.ctrl .speedbtn:hover { color: var(--ink-bright); box-shadow: inset 0 0 0 1px var(--accent-hi); }
+.ctrl .speedbtn b { font-weight: var(--fw-heavy); color: var(--ink-bright); }
+.ctrl .speedbtn.fast b { color: var(--accent-hi); }
+.ctrl .speedbtn.held b { color: #ffd0a0; }
 .toggle { display: flex; align-items: center; gap: var(--sp-60); padding: var(--sp-35) var(--sp-80); border-radius: var(--radius-sm-3); cursor: pointer; background: linear-gradient(180deg, #2c2318, #17120c); border: 1px solid var(--shade); box-shadow: inset 0 0 0 1px var(--edge-hi-35); font: var(--fw-bold) var(--fs-body-1) var(--font-ui); color: var(--ink-dim); }
 .toggle .sw { position: relative; width: 3.2rem; height: 1.7rem; border-radius: var(--radius-xl-1); background: var(--surface-well); box-shadow: inset 0 0 0 1px var(--glint-10); transition: background var(--dur-base-1); }
 .toggle .sw::after { content: ''; position: absolute; top: .2rem; left: .2rem; width: 1.3rem; height: 1.3rem; border-radius: var(--radius-round); background: #8a7a60; transition: transform var(--dur-base-1), background var(--dur-base-1); }
@@ -474,6 +482,7 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .kv dt { color: var(--ink-mute); } .kv dd { margin: 0; color: var(--ink); }
 .choice-cards { display: flex; gap: var(--sp-100); flex-wrap: wrap; }
 .icard { flex: 1; min-width: 15rem; display: flex; gap: var(--sp-90); padding: var(--sp-90); border-radius: var(--radius-md-2); background: var(--shade-35); box-shadow: inset 0 0 0 1px var(--glint-08); cursor: pointer; transition: box-shadow var(--dur-fast-4), transform var(--dur-fast-4), background var(--dur-fast-4); }
+.icard.dflt { box-shadow: inset 0 0 0 1px var(--gold-90); } /* demo blind round 2 R2-3: the reward Space takes */
 .icard:hover { box-shadow: inset 0 0 0 1px var(--gold-90), 0 0 1.4rem var(--gold-25); background: rgba(40, 30, 18, .55); transform: translateY(-1px); }
 .icard img { width: 4.4rem; height: 4.4rem; border-radius: var(--radius-sm-3); border: 1px solid var(--shade); flex: none; }
 .icard .nm { font: var(--fw-bold) var(--fs-body-6) var(--font-ui); }
@@ -511,7 +520,6 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .lrow .meta { font-size: var(--fs-small-7); color: var(--ink-mute); }
 .lrow .btn.small { padding: var(--sp-30) var(--sp-60); font-size: var(--fs-small-5); }
 /* blind Legacy v2 (s0478): the rows Leave would leave, once it has asked (screens.js buildLoot) */
-.lrow.leaving { box-shadow: inset 0 0 0 1px rgba(255, 130, 110, .6); }
 .lrow.rare img { box-shadow: 0 0 1rem rgba(90, 160, 255, .8); } .lrow.epic img { box-shadow: 0 0 1.6rem rgba(200, 140, 255, 1); }
 
 /* windows */
@@ -1382,6 +1390,10 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .leavewarn .lw-l { margin: var(--sp-35) 0 var(--sp-80); font-size: var(--fs-body-3); line-height: var(--lh-normal-4); color: #f2dcc4; }
 .leavewarn .lw-b { gap: var(--sp-80); align-items: center; }
 /* demo blind round 1 C: a Dimming fight that comes before the Bell takes you, said first */
+.leavewarn .lw-l.lw-foes { margin-bottom: var(--sp-30); color: #ffb0a0; } /* demo blind round 2 R2-4: the Bell's fight first */
+.leavewarn .lw-foes .lw-threat { color: #ffd0a0; }
+.leavewarn .lw-foes[data-threat="deadly"] .lw-threat, .leavewarn .lw-foes[data-threat="high"] .lw-threat { color: #ff7a6a; }
+.leavewarn .lw-foes .lw-pause { color: var(--ink-dim); }
 .leavewarn .lw-l.lw-fight { margin-bottom: var(--sp-30); color: #ffb0a0; font-weight: var(--fw-bold); }
 .btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem var(--shade-50); }
 /* the chart: the Lantern paper chart for every theme (D129; tokens.css, the .expmap block): flat paper with an ink edge */
@@ -1754,3 +1766,6 @@ body.coach-up #skiphint { visibility: hidden; }
   .summary .sbody { padding-bottom: var(--sp-80); gap: var(--sp-100); }
   .summary .sfoot { padding-top: var(--sp-70); padding-bottom: var(--sp-100); }
 }
+
+/* demo blind round 2 R2-3: the default reward's button (Space) keeps to one line */
+.dialog .actions .btn.dpick { max-width: 40rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

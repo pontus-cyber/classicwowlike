@@ -1,6 +1,7 @@
 // Junk out of the loot loop (2026-11-20, tester s0426; BACKLOG "junk auto-sell and duplicate junk in one window"):
 // the same junk is one row with a count in a loot window, and the bags' junk is sold the moment a vendor opens, in one
-// log line with the total. UI only: no engine file changed. Runs with Legacy off and on.
+// log line with the total. UI only: no engine file changed. Runs with Legacy off and on. Demo blind round 2 R2-3: after any
+// step out of a fight the junk is sold at once (CASH_JUNK), so a loot window with junk only comes from a loaded state.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -83,13 +84,16 @@ for (const legacy of [false, true]) {
       const pelt = L.items.find((x) => x.name === 'Torn Pelt');
       assert.equal(pelt.count, 3);
       assert.equal(pelt.uids.length, 3);
-      // two free slots: the three pelts stack into one bag slot, the buckle waits
+      // two free slots: the three pelts stack into one bag slot; demo blind round 2 R2-3: then every piece of junk, in the
+      // bags and the loot window, is sold at once (CASH_JUNK), in one sale line
       const i = L.items.indexOf(pelt);
-      assert.ok(b.dispatch({ type: 'LOOT_TAKE', i }).ok);
-      assert.deepEqual(nodeOf(b).loot.map((x) => x.name), ['Bent Buckle']);
-      const bag = nodeOf(b).player.bag.filter((x) => x.name === 'Torn Pelt');
-      assert.equal(bag.length, 1);
-      assert.equal(bag[0].qty, 3);
+      const r = b.dispatch({ type: 'LOOT_TAKE', i });
+      assert.ok(r.ok);
+      assert.equal(nodeOf(b).loot.length, 0);
+      assert.equal(nodeOf(b).player.bag.filter((x) => x.kind === 'junk').length, 0);
+      const sells = r.events.filter((e) => e.t === 'sell');
+      assert.equal(sells.length, 1);
+      assert.equal(sells[0].name, junkSoldName(cap - 2 + 4));
     } finally { gates(false); clear(); }
   });
 

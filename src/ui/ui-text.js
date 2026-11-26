@@ -37,6 +37,13 @@ export const AUTO_DIM_LINE = 'Autoplay stays on in the Dimming. Press Z to take 
 export const goldLogLine = (amount, heat) => `You receive ${moneyText(amount)}${heat ? ` (+${moneyText(heat)} from the Furnace)` : ''}.`;
 export const sellLogLine = (name, gold) => `You sell ${name} for ${moneyText(gold)}.`;
 export const junkSoldName = (n) => `${n} junk ${n === 1 ? 'item' : 'items'}`;
+/**
+ * Demo blind round 2 R2-3 (draft): Take all with full bags takes what fits and moves on; the one log line for what stayed:
+ * "Left behind (bags full): Millroad Shoes, Bent Staff."
+ */
+export const leftBehindLine = (names) => `Left behind (bags full): ${names.join(', ')}.`;
+/** The loot window's junk row (R2-3, draft): junk is sold as it is picked up, at the vendor's price. */
+export const junkRowText = (n) => `${n} junk ${n === 1 ? 'item' : 'items'} sold`;
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 export const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
 
@@ -838,3 +845,23 @@ export function leaveFightLine(p, inDim = false) {
   const fight = !!(p && (p.dimFight || (p.parts || []).some((x) => x.why === 'dimFight')));
   return fight ? (inDim ? EXIT_WORDS.fightIn : EXIT_WORDS.fightNear) : '';
 }
+
+/**
+ * Demo blind round 2 R2-4 (returning player item 1: the Bell rung in the Dimming went from the map to "has fallen" with no
+ * enemy, fight or threat shown; draft wording): the Bell's confirm names the fight that comes first and its threat. f: the
+ * bridge's bellFight() ({ level, hero, enemies: [{ name, level }] }), lv: the level as shown. Threat by the level gap and
+ * the count: Deadly (3 or more levels above you), High (above you, or three or more enemies), Even, Low (2 or more below).
+ * Returns { threat ('deadly' | 'high' | 'even' | 'low'), word, text } or null.
+ */
+export function bellFightInfo(f, lv = (x) => x) {
+  if (!f || !f.enemies || !f.enemies.length) return null;
+  const n = f.enemies.length; const gap = lv(f.level) - lv(f.hero);
+  const threat = gap >= 3 ? 'deadly' : gap >= 1 || n >= 3 ? 'high' : gap >= -1 ? 'even' : 'low';
+  const word = { deadly: 'Deadly', high: 'High', even: 'Even', low: 'Low' }[threat];
+  const names = [...new Set(f.enemies.map((e) => e.name))].join(', ');
+  const rel = gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level';
+  return { threat, word, text: `First a fight in the Dimming: ${n} ${plural(n, 'enemy', 'enemies')} at level ${lv(f.level)}, ${rel} (${names}).` };
+}
+/** R2-4 (draft): the Bell's fight in the Dimming plays at normal speed and without autoplay; said in its confirm and log. */
+export const BELL_FIGHT_PAUSE = 'Autoplay and fast speed pause for this fight.';
+export const BELL_FIGHT_LOG = 'A fight in the Dimming before the Bell takes you: autoplay and fast speed pause for it.';

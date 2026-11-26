@@ -1305,9 +1305,13 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (local.spoils) {
       const sp = local.spoils;
       v.phase = sp.phase || 'NODE'; v.node = sp.node; v.combat = sp.combat;
-      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: stackJunk([...win, ...sp.items.filter((it) => it.inBag)]), next: nextOf(pend) };
+      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, junk: sp.junk || null, items: stackJunk([...win, ...sp.items.filter((it) => it.inBag)]), next: nextOf(pend), fit: fitOf(s) };
+    } else if (local.hold && local.hold.node.step === 'chest') {
+      // Demo blind round 2 R2-3 (returning player item 2, skipper s0239; bug): with full bags the closed chest's item waits in
+      // the engine's loot window. It showed as "Items waiting" before the chest was opened; leaving that window kept the chest
+      // closed, so it was opened (and its gold shown) a second time. The chest's own window (OPEN_CHEST) lists the item.
     } else if (win.length) {
-      v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: stackJunk(win), windowOnly: true };
+      v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: stackJunk(win), windowOnly: true, fit: fitOf(s) };
     } else if (s.node && s.node.stage === 'reward' && s.node.rewards[0].kind === 'items') {
       const r0 = s.node.rewards[0]; const q = CONTENT.quests[s.node.quest] || {};
       const rw = local.reward || {};
@@ -1606,6 +1610,20 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
   }
 
+  /**
+   * What Take all (LOOT_TAKE_ALL) does with the loot window now (demo blind round 2 R2-3): { take, left } pieces, by a dry
+   * run of its LOOT_TAKE steps on a copy (stacks and free slots as the engine counts them).
+   */
+  function fitOf(s) {
+    const list = s.loot || []; if (!list.length) return { take: 0, left: 0 };
+    let c = s; let take = 0; let left = 0;
+    for (const it of list) {
+      const a = { type: 'LOOT_TAKE', itemId: it.uid };
+      if (R.isLegal(c, a)) { c = R.step(c, a).state; take += it.qty || 1; } else left += it.qty || 1;
+    }
+    return { take, left };
+  }
+
   function step(action) {
     const prev = view();
     const events = [];
@@ -1642,11 +1660,12 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'OPEN_CHEST': {
           if (!local.hold || local.hold.node.step !== 'chest') return { ok: false, error: 'No chest here' };
           const h = local.hold; local.hold = null;
-          local.spoils = { title: 'Treasure chest', node: { ...h.node, step: 'opened' }, combat: null, gold: h.gold, xp: 0, trap: h.trap > 0, items: h.items };
+          local.spoils = { title: 'Treasure chest', node: { ...h.node, step: 'opened' }, combat: null, gold: h.gold, xp: 0, trap: h.trap > 0, items: h.items, junk: h.junk || null };
           const evs = [{ t: 'chest', gold: h.gold }];
           if (h.trap > 0) evs.push({ t: 'damage', src: { side: 'env', idx: 0 }, dst: { side: 'player', idx: 0 }, amount: h.trap, name: 'Needle trap', school: 'phys', hpAfter: st.player.hp, maxHp: st.player.d.maxHp });
           // the chest's gold and loot as the log says them, now that it is open (held back on entry, above)
           evs.push(...convEvents(view(), (h.held || []).filter((e) => e.t !== 'trap'), st));
+          if (h.sellLine) evs.push(h.sellLine);
           return { ok: true, events: evs };
         }
         case 'LEAVE':
@@ -1667,9 +1686,12 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'LOOT_EQUIP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it) return { ok: false, error: 'No such item' }; apply({ type: 'EQUIP', itemId: it.uid }, events); break; }
         case 'LOOT_DROP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it || !it.pending) return { ok: false, error: 'No such item' }; for (const u of it.uids || [it.uid]) apply({ type: 'LOOT_DROP', itemId: u }, events); break; }
         case 'LOOT_TAKE_ALL': {
-          let left = 0;
-          for (const it of [...(st.loot || [])]) { if (R.isLegal(st, { type: 'LOOT_TAKE', itemId: it.uid })) apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); else left++; }
-          if (left) { const ce = convEvents(prev, events, st); ce.push({ t: 'msg', text: TXT.BAGS_FULL, kind: 'warn' }); return { ok: true, events: ce }; }
+          // Demo blind round 2 R2-3 (skipper re-test: "Space stops working with full bags"; draft): Space always moves on. It
+          // takes what fits and leaves the rest (the window's foot said so before the press); one log line names what stayed
+          const left = [];
+          for (const it of [...(st.loot || [])]) { if (R.isLegal(st, { type: 'LOOT_TAKE', itemId: it.uid })) apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); else left.push(it); }
+          for (const it of left) apply({ type: 'LOOT_DROP', itemId: it.uid }, events);
+          if (left.length) tail.push({ t: 'msg', text: TXT.leftBehindLine(left.map((x) => x.name || (C.CONSUMABLE[x.id] || {}).name || 'an item')), kind: 'info', quiet: true });
           local.spoils = null;
           break;
         }
@@ -1783,14 +1805,41 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
     const hold0 = local.hold;
     afterStep(prev, events);
+    // Demo blind round 2 R2-3 (returning player item 5, skipper item 23; draft): junk never stays in the bags. Out of a fight,
+    // the step's junk (bags and loot window) is sold at once at its vendor price (the engine's CASH_JUNK), in one log line;
+    // its "You receive loot" lines are not said and its rows leave the spoils, which show one "junk sold" row instead
+    const cash = cashJunk();
+    let evs = events;
+    if (cash) {
+      // every junk piece of the step is sold (CASH_JUNK sells all of it; a piece that stacked onto another has its own uid)
+      const sold = new Set([...cash.uids, ...events.filter((e) => e.t === 'loot' && e.item && e.item.kind === 'junk').map((e) => e.item.uid)]);
+      evs = events.filter((e) => !(e.t === 'loot' && e.item && sold.has(e.item.uid)));
+      const strip = (o) => { if (o && o.items) { o.items = o.items.filter((it) => !sold.has(it.uid) && it.kind !== 'junk'); o.junk = { count: ((o.junk && o.junk.count) || 0) + cash.count, gold: ((o.junk && o.junk.gold) || 0) + cash.gold }; } };
+      if (local.hold && local.hold.node.step === 'chest') strip(local.hold); else if (local.spoils) strip(local.spoils);
+    }
+    const sellLine = cash ? { t: 'sell', name: TXT.junkSoldName(cash.count), gold: cash.gold } : null;
     // D144 (engine-2026-11-13d UI need 6): an unguarded chest is opened by the engine on entry, but the screen holds it
     // until "Open the chest": its gold, loot and trap wait for OPEN_CHEST (they were in the log before it was opened)
     if (local.hold && local.hold !== hold0 && local.hold.node.step === 'chest') {
       const inChest = (e) => e.t === 'loot' || e.t === 'trap' || (e.t === 'gold' && e.why === 'treasure');
-      local.hold.held = events.filter(inChest);
-      return { ok: true, events: [...convEvents(prev, events.filter((e) => !inChest(e)), st), ...tail] };
+      local.hold.held = evs.filter(inChest);
+      if (sellLine) local.hold.sellLine = sellLine; // said when the chest is opened
+      return { ok: true, events: [...convEvents(prev, evs.filter((e) => !inChest(e)), st), ...tail] };
     }
-    return { ok: true, events: [...convEvents(prev, events, st), ...tail] };
+    return { ok: true, events: [...convEvents(prev, evs, st), ...tail, ...(sellLine ? [sellLine] : [])] };
+  }
+
+  /**
+   * The junk auto-sale (demo blind round 2 R2-3): CASH_JUNK when the bags or the loot window hold junk and the engine allows
+   * it (out of a fight). Returns { count, gold, uids } or null. Its events are not the step's: the sale is one log line.
+   */
+  function cashJunk() {
+    if (!st.player || !st.player.bag || !(st.player.bag.some((x) => x.kind === 'junk') || (st.loot || []).some((x) => x.kind === 'junk'))) return null;
+    if (!R.isLegal(st, { type: 'CASH_JUNK' })) return null;
+    const out = [];
+    apply({ type: 'CASH_JUNK' }, out);
+    const e = out.find((x) => x.t === 'junkSold');
+    return e ? { count: e.count, gold: e.value, uids: e.items } : null;
   }
 
   /** Presentation holds after a step: spoils window, rest screen, unopened chest. */
@@ -1982,6 +2031,21 @@ function engineBackend(seedOpt, runOpts = {}) {
     },
     itemScore(it) { if (!it || it.kind !== 'gear' || !st.player) return 0; try { return R.itemScore(it._raw || it, st.player.classId); } catch { return 0; } },
     /**
+     * The fight a RING_BELL starts first (demo blind round 2 R2-4, returning player item 1: the Bell in the Dimming killed
+     * the run with nothing shown): the engine's own step on a copy (R.step is pure; the run is not changed), read back.
+     * { level, enemies: [{ name, level, kind }], hero (the hero's level) } or null when the Bell starts no fight.
+     */
+    bellFight() {
+      try {
+        if (!st.exp || !R.isLegal(st, { type: 'RING_BELL' })) return null;
+        if (local.bellFight && local.bellFight.of === st) return local.bellFight.v;
+        const n = R.step(st, { type: 'RING_BELL' }).state; const f = n.fight;
+        const v = f && n.node && n.node.type === 'dim' ? { level: n.node.cl, hero: st.player.level, enemies: f.enemies.filter((e) => e.alive).map((e) => ({ name: e.name, level: e.level, kind: e.kind })) } : null;
+        local.bellFight = { of: st, v };
+        return v;
+      } catch { return null; }
+    },
+    /**
      * What an engage option would do to the tracks (R.engagePreview, rules 7.10; no draw): { enemies: [{ u, cancelled,
      * offBalance, window, pet }] } with turn numbers, or null when the action is not legal.
      */
@@ -2088,6 +2152,8 @@ export class Bridge {
   autoAction() { return this.backend.autoAction(); }
   describeSpell(id, target = null) { return this.backend.describeSpell(id, target); }
   itemScore(item) { return this.backend.itemScore(item); }
+  /** The fight ringing the Bell starts first, or null (engine mode; R2-4). */
+  bellFight() { return this.backend.bellFight ? this.backend.bellFight() : null; }
   /** The upgrade arrow of a gear item against the piece worn in its slot now (upgradeInfo). */
   upgrade(item) {
     const p = this._view && this._view.player;
