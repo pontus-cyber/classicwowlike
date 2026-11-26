@@ -7076,7 +7076,7 @@ async function partZ(browser, W, H) {
  * Part BC: demo blind round 1, B and C (BACKLOG 2026-11-26; docs/feedback/2026-11-26-blind-demo-skipper.md, -newcomer.md;
  * docs/handoffs/ui-2026-11-26b.md; every line a draft). BC1, a fresh profile with hints off: at the first map the Furnace's
  * one sentence (heat.js FURNACE_LINE) in the note at the coach line's place, the meter ringed; the note takes no clicks but
- * its button's; it goes with the first step off the map and never comes back (tbwcr.furnaceNote.v1, H16 marked seen); the
+ * its button's; it goes with the first step (a toll spent or off the map) and never comes back (tbwcr.furnaceNote.v1, H16 marked seen); the
  * Road signs read "Next zone"; the Key's icons carry their names. BC2, zone 2 (Dev build): the Bell's button says where it
  * takes you and its number ("(1 left)"), its tip the destination and what the number means; the confirm dialog highlights
  * the Bell, not Stay; no tooltip covers the dialog (the Bell's own, a map node's). BC3: walking towards the Dimming until
@@ -7115,7 +7115,7 @@ async function partBC(browser, W, H) {
         stored: Object.keys(localStorage).filter((k) => k.endsWith(nk.slice('tbwcr.'.length))).map((k) => localStorage.getItem(k)), h16: window.__ui.coach().store.seen.H16 || false }), [NOTE_KEY]);
       let back = null;
       for (let i = 0; i < 80 && !back; i++) { await auto(page); const v = await page.evaluate(() => ({ phase: window.__ui.view().phase, node: !!window.__ui.view().node, shown: !document.querySelector('#heat-intro').classList.contains('hidden') })); if (v.phase === 'MAP' && !v.node) back = v; }
-      check('BC-1', 'the note goes with the first step off the map, is stored as shown and marks H16 seen; back on the map it does not come again',
+      check('BC-1', 'the note goes with the first step, is stored as shown and marks H16 seen; back on the map it does not come again',
         off.phase !== 'MAP' && !off.shown && !off.noted && off.stored.includes('1') && off.h16 === true && !!back && !back.shown, JSON.stringify({ off, back }));
     } catch (e) { await shot(page, 'BC1-error'); check('BC-1', 'part BC1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('BC-1', 'part BC1: no console errors', errors.length === 0, errors.join(' | '));

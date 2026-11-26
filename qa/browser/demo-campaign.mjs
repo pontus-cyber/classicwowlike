@@ -99,7 +99,7 @@ check(!devOp || devOp.ok === false, 'a dev op ran in the demo');
 check(!(await page.evaluate(() => /\bSeed\b/.test(document.body.innerText))), 'hero select shows the word Seed');
 
 const CLASSES = ['rogue', 'mage', 'hunter'];
-let shotEnd = false; let shotHall = false; let hubTip = null;
+let shotEnd = false; let shotHall = false; let hubTip = null; const signs = {};
 /** L1: the Furnace meter's tooltip text (hover #heat), or '' when it could not be hovered. */
 async function heatTipText() {
   try {
@@ -119,6 +119,11 @@ async function oneRun(n, cls) {
     if (v.phase === 'SUMMARY') break;
     if (v.bossTxt) { check(false, `run ${n}: the Furnace meter shows "${v.bossTxt}" in the demo`); }
     if (v.phase === 'ZONE_HUB' && !hubTip) hubTip = await heatTipText();
+    // demo blind round 1 C (draft): the Roads' signs name the goal: "Next zone" in zone 1, "End of the demo" in zone 2
+    if (v.phase === 'MAP' && !signs[v.z]) {
+      const ws = await page.evaluate(() => [...document.querySelectorAll('#screens .expmap .xroad .xsign b')].map((b) => b.textContent.replace(/[«»]/g, '').trim()));
+      if (ws.length) signs[v.z] = ws;
+    }
     maxZone = Math.max(maxZone, v.z);
     if (v.z > 2 || v.camp || v.boss || v.phase === 'CAMP' || v.phase === 'BOSS') { check(false, `run ${n}: zone ${v.z}, camp ${v.camp}, boss ${v.boss}`); break; }
     const r = await page.evaluate(() => window.__ui.act({ type: 'AUTO' }));
@@ -192,6 +197,9 @@ const c1 = await campaign('A');
 // L1: the meter's tooltip at the first hub
 log(`hub tooltip: ${hubTip && hubTip.replace(/\n/g, ' | ').slice(0, 160)}`);
 check(!!hubTip && hubTip.includes('Every move costs tolls. Overspend and fights pay more, but the Dimming spreads with every toll.') && !/final boss|\bboss\b/i.test(hubTip), `the Furnace tooltip at the hub: "${hubTip}"`);
+log(`road signs: ${JSON.stringify(signs)}`);
+check(!!signs[1] && signs[1].every((x) => x === 'Next zone'), `zone 1's Road signs read "Next zone": ${JSON.stringify(signs[1])}`);
+check(!!signs[2] && signs[2].every((x) => x === 'End of the demo'), `zone 2's Road signs read "End of the demo": ${JSON.stringify(signs[2])}`);
 const before = await page.evaluate(() => window.__ui.view().meta);
 // Start over (demo.md 2.4): Settings, two clicks
 await page.evaluate(() => window.__ui.openWin('settings')); await idle();

@@ -275,13 +275,13 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   tip(els.el, () => heatTip(ctx));
   // demo blind round 1 B (2026-11-26, draft): the first-time note, revived as the Furnace's one sentence (furnaceLine) under
   // the meter at the first map, once per browser profile, when no coach line carries it (onboarding.js furnaceNoteWanted:
-  // hints off, and H16 or G5 never shown); "Got it" or the first step off the map closes it for good. It takes no clicks
+  // hints off, and H16 or G5 never shown); "Got it" or the first step (a toll spent, or off the map) closes it for good. It takes no clicks
   // but its button's (style.css), so it never blocks a node under it.
   els.introBtn = h('button.btn.small', { type: 'button' }, 'Got it');
   els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': `About ${HW.name}` }, h('div.hi-t', HW.Name), h('div.hi-b'), h('div.hi-f', els.introBtn));
   noteRoot.appendChild(els.intro);
   let introSeen = (() => { try { return !!store.get(NOTE_KEY); } catch { return false; } })();
-  let introUp = false;
+  let introUp = false; let introAt = null; // the run's tolls when it showed
   const closeIntro = () => {
     introSeen = true; introUp = false; els.intro.classList.add('hidden'); els.el.classList.remove('noted');
     try { store.set(NOTE_KEY, '1'); } catch { /* storage blocked */ }
@@ -374,13 +374,13 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     }
     drawGhost(hv);
     els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}${m.clock ? `, ${m.clock.text}` : ''}${m.counts ? `. ${m.counts}` : ''}`);
-    // the first-time note (demo blind round 1 B): at the first map view, until "Got it" or the first step off the map
+    // the first-time note (demo blind round 1 B): at the first map view, until "Got it" or the first step
     if (!introSeen) {
       const onMap = v.phase === 'MAP' && !v.node && !v.loot;
-      if (introUp && !onMap) closeIntro();
+      if (introUp && (!onMap || hv.time !== introAt)) closeIntro(); // the first step (a toll spent, or off the map) closes it
       else if (!introUp && onMap && (!ctx.coach || !ctx.coach.furnaceNoteWanted || ctx.coach.furnaceNoteWanted(v))) {
         add(clear(els.intro.querySelector('.hi-b')), h('p', furnaceLine(ctx)));
-        els.intro.classList.remove('hidden'); els.el.classList.add('noted'); introUp = true;
+        els.intro.classList.remove('hidden'); els.el.classList.add('noted'); introUp = true; introAt = hv.time;
       }
     }
   }
