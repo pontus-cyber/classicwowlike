@@ -153,8 +153,11 @@ async function oneRun(n, cls) {
     check(out.block && out.next && out.hall, `run ${n}: the demo-end screen lacks its block or buttons`);
     check(words <= R.C.DEMO_END_MAX_WORDS, `run ${n}: the demo block has ${words} words (at most ${R.C.DEMO_END_MAX_WORDS})`);
     if (!shotEnd) { await page.screenshot({ path: path.join(SHOTS, `demo-end-${W}x${H}.png`) }); shotEnd = true; log(`  demo block: ${out.text.replace(/\n/g, ' | ')}`); }
+    // demo blind round 1 D: "Same hero" is on the demo-end screen too; used once, it starts the next run at the start camp
+    check(await page.locator('.summary [data-same]').count() === 1, `run ${n}: no Same hero button on the demo-end screen`);
     await page.locator('.summary [data-demo="next"]').click();
   } else {
+    check(await page.locator('.summary [data-same]').count() === 1, `run ${n}: no Same hero button on the summary`);
     check(!out.block, `run ${n}: a death shows the demo block`);
     await page.getByRole('button', { name: 'Begin a new run' }).click();
   }
