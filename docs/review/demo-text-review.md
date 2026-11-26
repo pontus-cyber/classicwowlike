@@ -668,7 +668,7 @@ Lines added or changed for the second blind demo round, item R2-6 (docs/handoffs
 | R2-3 | Enemy list of a place: {name} (level {n}) · 2 × {name} (level {n}) | draft | **fixed** (R2-6): was "2 Name", which read as a count | ui/screens.js foeList |
 | R2-4 | Item comparison: ▲ Upgrade (+{n} score) · ▼ Weaker than {item} ({n} score) · Score adds up the item's stats, weighted for your class. Higher is better. · reward card: ▲ Upgrade (+{n} score) | draft | **fixed** (R2-6): the number has a unit and a tooltip line that says what it is | ui/tooltip.js, ui/screens.js |
 | R2-5 | Run summary, Legacy points card: 1 hero level gained · 2 hero levels gained (the figure beside it is Legacy points) | draft | **fixed** (R2-6): was "Hero levels gained +20", read as twenty levels | ui/ui-text.js heroLevelsLine |
-| R2-6 | Zone map, Regions panel: Your Region Charts show every region and the dungeon. · A region fills in where you have walked. | draft | **fixed** (R2-6): says what the Region Charts do on the map | ui/screens.js |
+| R2-6 | Zone map, Regions panel: Your Region Charts show every region and the dungeon. (only when the Charts are owned) | draft | **fixed** (R2-6): says what the Region Charts do on the map; without them the panel has no line (the first map's word budget, ui-regress part T) | ui/screens.js |
 | R2-7 | Contracts heading at the start camp: You can hold up to {four} at a time. Each gives its reward when its task is done. (see SC6) | draft | **fixed** (R2-6): the number is the tracker's slot count | ui/prep.js |
 | R2-8 | Legacy hall badge and button tooltip: {n} unlocks within reach | draft | **fixed** (R2-6): the count is what the balance buys together, cheapest first, not each entry on its own | ui/ui-text.js reachCount |
 

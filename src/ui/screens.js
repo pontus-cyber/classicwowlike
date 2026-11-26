@@ -873,8 +873,8 @@ function buildExpMap(v, ctx, readOnly) {
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
   const right = h('div.xside.xright');
-  // R2-6 (draft): Region Charts shows plainly what they do: every region painted and the dungeon marked from the start
-  const regBox = h('div.xpanel.xregp', h('div.xph', 'Regions'), h('div.xnote', mv.vision.regions ? 'Your Region Charts show every region and the dungeon.' : 'A region fills in where you have walked.'));
+  // R2-6 (draft): Region Charts show plainly what they do: every region painted and the dungeon marked from the start
+  const regBox = h('div.xpanel.xregp', h('div.xph', 'Regions'), mv.vision.regions ? h('div.xnote', 'Your Region Charts show every region and the dungeon.') : null); // the line shows only when the Charts are owned: without them the map is as before (part T's word budget)
   mv.regions.forEach((r, i) => {
     const seen = mv.nodes.some((n) => n.region === i);
     const row = h('div.xreg' + (seen ? '' : '.unseen'), { dataset: { region: i } }, h('i', { style: { background: REGION_TINT[r.kind] || '#a08a60' } }), h('span', r.name || REGION_FEEL[r.kind] || r.kind));

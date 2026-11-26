@@ -3011,13 +3011,13 @@ const M_SEED = 7;
 // CONTRACT_BOARD_SIZE offers and the Bell in zone 1 come from the third run (runs >= 2)
 const M_PROFILE = () => ({ ...R.newProfile(), runs: 2, welcome: true, guide: 'done' });
 /**
- * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 fights on Quest or Grind nodes that carry its mark,
+ * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 fights at marked Quest or Grind places,
  * most of them in <region>. Other fights do not count." (Legacy bugs 2026-11-19, s0133; a Bounty: "Hunt down <elite> in <region>.", a Delve: "Clear <dungeon>, its boss included."), "Reward: about
  * N levels of XP", "1 of N items." and "Cost: N points." (the gold is a coins element between them).
  */
 const boardTipWant = (o) => {
   const lv = o.reward.xpFrac; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
-  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} fights on Quest or Grind nodes that carry its mark, most of them in ${o.regionName}. Other fights do not count.`;
+  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} fights at marked Quest or Grind places, most of them in ${o.regionName}. Other fights do not count.`;
   return [what, `Reward: about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, ...(o.reward.choices ? [`1 of ${o.reward.choices} items.`] : []), `Cost: ${o.price} ${o.price === 1 ? 'point' : 'points'}.`];
 };
 function mTwin(seed) {
@@ -3061,8 +3061,8 @@ async function partM(browser, W, H) {
       opts: [...document.querySelectorAll('#prep .pp-opt')].map((b) => ({ id: b.dataset.id, price: (b.querySelector('.pc-price') || {}).textContent || null, bought: b.classList.contains('bought'), owned: b.classList.contains('owned') })),
       held: document.querySelectorAll('#prep .pp-card.taken').length,
     }));
-    // D128: what to do in one line: "Win 2 marked sites in <region>" (Legacy bugs 2026-11-19: "marked"), "Hunt it down in <region>", the dungeon cleared
-    const doWant = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included' : o.kind === 'bounty' ? `Hunt it down in ${o.regionName}` : `Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`);
+    // D128: what to do in one line: "Win 2 marked places in <region>" (Legacy bugs 2026-11-19: "marked"), "Hunt it down in <region>", the dungeon cleared
+    const doWant = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included' : o.kind === 'bounty' ? `Hunt it down in ${o.regionName}` : `Win ${o.need} marked ${o.need === 1 ? 'place' : 'places'} in ${o.regionName}`);
     const domDiff = (d, x) => {
       const out = [];
       if (d.left !== String(x.left)) out.push(`points left ${d.left} (engine ${x.left})`);
@@ -3134,12 +3134,12 @@ async function partM(browser, W, H) {
     const lBad = pv.board.map((o, i) => { const c = lab[i] || {}; const bad = [];
       if (c.zone !== `Zone ${o.z}`) bad.push(`zone "${c.zone}"`);
       if (c.price !== String(o.price) || c.pl !== (o.price === 1 ? 'pt' : 'pts')) bad.push(`price "${c.price} ${c.pl}"`);
-      if (o.kind === 'cull' && !(c.do || '').startsWith(`Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in `)) bad.push(`sites "${c.do}"`);
+      if (o.kind === 'cull' && !(c.do || '').startsWith(`Win ${o.need} marked ${o.need === 1 ? 'place' : 'places'} in `)) bad.push(`sites "${c.do}"`);
       if (!/^Reward /.test(c.pay || '') || !(c.pay || '').includes(`${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`) || !/ gold /.test(c.pay || '')) bad.push(`pay "${c.pay}"`); // D150: no "Pays"
       if (!(c.it || '').startsWith(`choose 1 of ${o.reward.choices}`)) bad.push(`items "${c.it}"`);
       if (!c.one) bad.push('the pay line is cut or wraps');
       return bad.length ? `card ${i + 1}: ${bad.join(', ')}` : null; }).filter(Boolean);
-    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 marked sites in ...", "Reward 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128; D150: no "Pays")', !lBad.length, lBad.slice(0, 3).join(' | '));
+    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 marked places in ...", "Reward 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128; D150: no "Pays")', !lBad.length, lBad.slice(0, 3).join(' | '));
     // QA playtest 2026-11-11 finding 4 (an engine fix, contracts.js drawBoard): no two cards are the same contract
     const keys = pv.board.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'));
     const shown = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => [b.querySelector('.pc-zone').textContent, b.querySelector('.pc-kind').textContent, b.querySelector('.pc-target').textContent, b.querySelector('.pc-do').textContent].join(' / ')));
@@ -3190,7 +3190,7 @@ async function partM(browser, W, H) {
     const mv = R.mapView(s); const cv2 = R.contractView(s);
     const here = cv2.contracts.filter((c) => c.z === 1 && c.status !== 'abandoned');
     const tr = await page.evaluate(() => ({ dimmed: document.querySelector('#tracker').classList.contains('dimmed'), rows: [...document.querySelectorAll('#tracker .tk-c')].map((e) => ({ id: e.dataset.contract, t: e.querySelector('.t').textContent, pr: e.querySelector('.pr').textContent })) }));
-    const trBad = here.filter((c) => { const r = tr.rows.find((x) => x.id === c.id); return !r || r.t !== T.contractTitle(c, CONTENT) || r.pr !== `${c.progress} / ${c.need} ${c.need === 1 ? 'site' : 'sites'}`; });
+    const trBad = here.filter((c) => { const r = tr.rows.find((x) => x.id === c.id); return !r || r.t !== T.contractTitle(c, CONTENT) || r.pr !== `${c.progress} / ${c.need} ${c.need === 1 ? 'place' : 'places'}`; });
     check('M-track', `on the map the tracker shows this zone's ${here.length} ${here.length === 1 ? 'contract' : 'contracts'} with title and progress (= R.contractView), not dimmed`, s.phase === 'MAP' && !tr.dimmed && tr.rows.length === here.length && !trBad.length, JSON.stringify(tr));
     // QA playtest 2026-11-11 finding 3: the tracker says this zone's contracts expire on leaving; the Bell asks first
     const act1 = here.filter((c) => c.status === 'active');
@@ -3198,7 +3198,7 @@ async function partM(browser, W, H) {
     check('M-track', `the tracker says this zone's ${act1.length} held ${act1.length === 1 ? 'contract expires' : 'contracts expire'} on leaving ("${expL}")`, act1.length > 0 && expL === (act1.length === 1 ? 'Expires when you leave this zone' : `${act1.length === 2 ? 'Both' : `All ${act1.length}`} expire when you leave this zone`), expL);
     const nLog = () => page.evaluate(() => window.__ui.engineLog().length);
     const n0 = await nLog();
-    const wantWarn = `${act1.length === 1 ? '1 contract' : `${act1.length} contracts`} here will expire: ${act1.map((c) => `${T.contractTitle(c, CONTENT)} (${c.progress} / ${c.need} ${c.need === 1 ? 'site' : 'sites'})`).join('; ')}`;
+    const wantWarn = `${act1.length === 1 ? '1 contract' : `${act1.length} contracts`} here will expire: ${act1.map((c) => `${T.contractTitle(c, CONTENT)} (${c.progress} / ${c.need} ${c.need === 1 ? 'place' : 'places'})`).join('; ')}`;
     await page.locator('.expmap [data-leave="RING_BELL"]').hover(); await page.waitForTimeout(80);
     const bellTip = await page.evaluate(() => ((document.querySelector('.tooltip.on') || {}).innerText || '').replace(/\s+/g, ' '));
     await page.locator('.expmap [data-leave="RING_BELL"]').click(); await idle(page);
@@ -6161,7 +6161,7 @@ async function partW(browser, W, H) {
       check('D152-held', `the held corridor: a lamp on each held node but the hub (${m.held.join(', ')}), no "dims in" chip on a held node`, m.held.length > 0 && JSON.stringify(m.lamps) === JSON.stringify(m.held) && m.heldClock === 0, JSON.stringify({ held: m.held, lamps: m.lamps, heldClock: m.heldClock }));
       const pw = (dm) => [dm.count ? `Spreads in ${tolls(dm.nextIn)}: ${dm.nextCount} ${dm.nextCount === 1 ? 'place' : 'places'}` : `Starts to spread in ${tolls(dm.nextIn)}`, `${dm.count} of ${dm.total} places Dimmed`];
       const want = pw(m.dim);
-      check('D152-dim', `the Dimming panel (steady): "${want.join('" / "')}" (mapView.dim); no "dims in" line for a held node`, m.dim.steady && m.panel[0] === want[0] && m.panel[m.panel.length - 1] === want[1] && !m.panel.some((x) => /Your node dims in 0/.test(x)), JSON.stringify(m.panel));
+      check('D152-dim', `the Dimming panel (steady): "${want.join('" / "')}" (mapView.dim); no "dims in" line for a held node`, m.dim.steady && m.panel[0] === want[0] && m.panel[m.panel.length - 1] === want[1] && !m.panel.some((x) => /Your place dims in 0/.test(x)), JSON.stringify(m.panel));
       const lamp = m.held.find((id) => id != null);
       await page.locator(`#screens .mnode[data-node="${lamp}"]`).hover({ force: true }); await page.waitForTimeout(150);
       const ltip = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText : null; });
@@ -6357,7 +6357,7 @@ async function partX(browser, W, H) {
       }
       check('X-roads', `every Road on ${maps} map screens: a post line from its sign to its own rim node (open, closed or Dimmed colour), the node ringed (.xrd)`, maps > 3 && badRoads.length === 0, JSON.stringify(badRoads.slice(0, 3)));
       check('X-clocks', `${clocksSeen} Dimming clocks: each pinned to its node (no declutter shift, touching its ring), the number alone; the player's own at 2 or less "Dims in N!"`, clocksSeen > 10 && badClocks.length === 0, JSON.stringify(badClocks.slice(0, 4)));
-      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and no clock tag (demo blind round 1 B, draft; was "◆ Set by this place"), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS}`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
+      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and no clock tag (demo blind round 1 B, draft; was "◆ Set by this place"), its tip "Your place dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS}`.toLowerCase() && !!dimFurnace.tip && /Your place dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
       check('X-nearest', 'the Roads open (Gorrak\'s fight over): the "Take a Road" line (G12.road) ends with the nearest Road\'s hops and tolls (nearestRoad on mapView), rings that Road\'s sign, and counts for U01', roadsOpenAt != null && !!roadLine && !!roadLine.want && roadLine.text.endsWith(roadLine.want) && !!roadLine.ring && roadLine.ring.endsWith(` ${roadLine.nr.id}`) && roadLine.u01 === true, JSON.stringify({ roadsOpenAt, roadLine }));
       check('X-key', 'the map Key\'s tip lies beside the Key, not over it; the Key names the clock badge ("Dims in 3 tolls")', !!keyTip && !keyTip.overlap && keyTip.row, JSON.stringify(keyTip));
       check('X-bags', 'the first loot window with items: the Bags (B) open beside it, not over it; Continue and every button of the window on top; a "+N items" note on the Bags button before, gone once they open',
@@ -6973,10 +6973,10 @@ async function partZ(browser, W, H) {
         !pv.board.some((o) => o.z === 1) && head.includes(`the road to ${z1}.`), `${head} board zones ${pv.board.map((o) => o.z).join(',')}`);
       const dos = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card .pc-do')].map((e) => e.textContent));
       const culls = pv.board.map((o, i) => [o, dos[i]]).filter(([o]) => o.kind === 'cull');
-      check('Z-1', 'a Cull card says "Win N marked sites in <region>" (s0133: which nodes count)', culls.length > 0 && culls.every(([o, d]) => d === `Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`), JSON.stringify(dos));
+      check('Z-1', 'a Cull card says "Win N marked places in <region>" (s0133: which nodes count)', culls.length > 0 && culls.every(([o, d]) => d === `Win ${o.need} marked ${o.need === 1 ? 'place' : 'places'} in ${o.regionName}`), JSON.stringify(dos));
       const ci = pv.board.findIndex((o) => o.kind === 'cull');
       const bt = await tipText(page, page.locator('#prep .pp-card').nth(ci));
-      check('Z-1', 'the Cull offer\'s tooltip says that only the marked Quest or Grind nodes count and other fights do not', /Win \d fights on Quest or Grind nodes that carry its mark, most of them in .+\. Other fights do not count\./.test(bt), bt.replace(/\n/g, ' / '));
+      check('Z-1', 'the Cull offer\'s tooltip says that only the marked Quest or Grind places count and other fights do not', /Win \d fights at marked Quest or Grind places, most of them in .+\. Other fights do not count\./.test(bt), bt.replace(/\n/g, ' / '));
       await page.keyboard.press('Enter'); await idle(page);
       await auto(page, () => window.__ui.view().phase !== 'PREP', 10);
       const zn = await page.evaluate(() => window.__ui.view().zone.name);
@@ -7028,7 +7028,7 @@ async function partZ(browser, W, H) {
       check('Z-1', 'Abandon run: no "You have died" screen, no toast over the summary ("You abandon the run." in the log only; s0236, s0247)',
         !sv.death && tt.length === 0 && lines.join(' ').includes('You abandon the run.'), JSON.stringify({ death: sv.death, tt, last: lines.slice(-3) }));
       check('Z-1', 'a run without a fight shows no time estimate (s0247); the Furnace names no "0 Infernal" (s0059)',
-        sm.fights === 0 && !sv.kv.includes('Play time') && sv.kv.includes('Fights') && !/\b0 (Calm|Smouldering|Burning|Infernal)\b/.test(sv.foot) && /^No node entered\./.test(sv.foot), JSON.stringify(sv));
+        sm.fights === 0 && !sv.kv.includes('Play time') && sv.kv.includes('Fights') && !/\b0 (Calm|Smouldering|Burning|Infernal)\b/.test(sv.foot) && /^No place entered\./.test(sv.foot), JSON.stringify(sv));
     } catch (e) { await shot(page, 'Z1b-error'); check('Z-1', 'part Z1b ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Z-1', 'part Z1b: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -7052,8 +7052,8 @@ async function partZ(browser, W, H) {
       const dim = sm.expedition.dimFights;
       check('Z-2', 'the summary of a death: the Furnace\'s last line is in view without a scroll and not under the buttons (s0059), the body ends above them',
         s.outcome === 'death' && fullyShown(p0) && geo.bodyBottom <= geo.footTop + 0.5 && geo.scroll <= 1, `${placeText(p0)} ${JSON.stringify(geo)}`);
-      check('Z-2', `the Furnace line names only the states nodes were entered in (${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}) and the Dimmed encounters (${dim})`,
-        geo.text.startsWith(`Nodes entered, by the state you entered them in: ${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}.`) && (dim ? geo.text.includes(`The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (Infernal where it stands).`) : !/Dimming/.test(geo.text)) && geo.kv.includes('Play time'),
+      check('Z-2', `the Furnace line names only the states places were entered in (${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}) and the Dimmed encounters (${dim})`,
+        geo.text.startsWith(`Places entered, by the state you entered them in: ${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}.`) && (dim ? geo.text.includes(`The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (Infernal where it stands).`) : !/Dimming/.test(geo.text)) && geo.kv.includes('Play time'),
         geo.text);
     } catch (e) { await shot(page, 'Z2-error'); check('Z-2', 'part Z2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Z-2', 'part Z2: no console errors', errors.length === 0, errors.join(' | '));
