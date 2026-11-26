@@ -178,7 +178,7 @@ export function createPrepScreen(v, ctx) {
     cards.appendChild(b);
     return b;
   });
-  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', `You can hold up to ${numWord(pv.slots)} at a time. Each gives its reward when its task is done.`), reroll), cards);
+  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', `You can hold up to ${numWord(pv0.slots)} at a time. Each gives its reward when its task is done.`), reroll), cards);
   // the options: small cards in one row
   const optEls = new Map();
   const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {

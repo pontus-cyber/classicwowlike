@@ -37,7 +37,7 @@ import { rnd } from './util.js';
 import { xpToNext } from './progress.js';
 import { zoneContent } from './content.js';
 import { deathblowOf, deathblowType, signalPlan } from './track.js';
-import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
+import { composeEncounter, validEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
 import { isLegacy, bandNow, zoneBand, clMax } from './legacy.js';
 
 /**
@@ -233,6 +233,7 @@ export function generateExpZone(s, z) {
   // blind demo round 1 (A; demo.md 4.4, draft): in a demo run every quest of a zone is offered once (the guided zone keeps its own)
   const used = demoQuests(s, z) ? new Set() : null;
   for (const n of nodes) setupExpNode(s, z, n, regs, used);
+  if (GATES.eliteSpread) spreadElites(c, zoneContent(c, z), nodes);
   const zone = {
     z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall), siteRng: rng,
     pos: 0, start: s.time, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
@@ -244,6 +245,37 @@ export function generateExpZone(s, z) {
   // shift starts at 0 (3.4). Without the switch the zone keeps the hop rule and has neither field.
   if (GATES.steadyDim && !zone.dimOff) Object.assign(zone, { dimBase: dimSchedule(zone), dimShift: 0 });
   return zone;
+}
+
+/**
+ * R2-6 (draft; blind demo round 2: Sisel Mistweaver twice in one zone of one run): no elite template stands on two Elite
+ * places of a zone while its pool holds another. Every node keeps its own draw (a template comes from the node's own stream);
+ * the first place of a template keeps it, and each later place that repeats it takes a template of its pool (the rare pool for a
+ * rare) that no place keeps or has been given. Its escort stays when it still makes a valid encounter (rules 7.14), else the
+ * first template of the zone's normals that does takes its place. No draw is made, so no other draw moves, and a zone without a
+ * repeat is as before. `taken`: templates already on the map (a guided zone's scripted elite). Pure; mutates nodes.
+ */
+export function spreadElites(c, zn, nodes, taken = []) {
+  const used = new Set(taken);
+  const firsts = new Set(taken);
+  const kept = [];
+  for (const n of nodes) {
+    if (n.type !== 'elite' || !n.elite) continue;
+    if (firsts.has(n.elite)) kept.push(n); // a repeat: handled below
+    else { firsts.add(n.elite); used.add(n.elite); }
+  }
+  for (const n of kept) {
+    const pool = n.rare ? zn.rares : zn.elites;
+    const normals = zn.normals || [];
+    const alts = pool.filter((t) => !used.has(t));
+    for (const alt of alts) {
+      let add = n.add;
+      if (add && !validEncounter(c, [alt, add])) add = normals.find((t) => validEncounter(c, [alt, t])) || null;
+      if (n.add && !add) continue; // no escort fits this template: try the next one
+      n.elite = alt; n.add = add; used.add(alt);
+      break;
+    }
+  }
 }
 
 /**

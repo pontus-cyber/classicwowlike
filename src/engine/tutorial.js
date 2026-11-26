@@ -27,12 +27,13 @@ import {
   SPELL, GATES, ONB_ELITE_FIGHTS, ONB_GATE_SCRIPTS, ONB_HOLD_RELEASE,
 } from '../constants.js';
 import {
-  zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, dimSchedule, dimAtHops, dimClock, bellHidden, leanFirst,
+  zoneRegions, spreadElites, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, dimSchedule, dimAtHops, dimClock, bellHidden, leanFirst,
 } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 import { windupView } from './answers.js';
 import { castError } from './spells.js';
 import { onbEliteMin, ilvlMax } from './legacy.js';
+import { zoneContent } from './content.js';
 
 // ---------------- Run and zone state ----------------
 /**
@@ -109,6 +110,8 @@ export function setupGuidedZone(s) {
     el.elite = T.elite.enemy;
     el.rare = !!T.elite.rare;
     if (!T.elite.add) el.add = null;
+    // R2-6 (draft): no other Elite place of the zone repeats the scripted elite (a draw, no stream moved)
+    if (GATES.eliteSpread) spreadElites(s.content, zoneContent(s.content, zone.z), zone.nodes.filter((n) => n !== el), [el.elite]);
   }
   for (const n of zone.nodes) {
     if (n.type === 'quest') n.gen = { cl: n.cl, mobs: n.mobs.slice(), quest: n.quest };

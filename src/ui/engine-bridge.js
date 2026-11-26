@@ -2161,7 +2161,7 @@ export function createBridge(opts = {}) {
   const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
   // Legacy (D154 phase 1): ?legacy=1 turns C.GATES.legacy on for this page (a test switch; the game follows the switch)
   // D159 (engine-2026-11-19c UI need 1): Economy v2 (legacy.md 4.7) is part of the same set
-  if (!DEMO_BUILD && !useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; } // D158: Legacy numbers need both
+  if (!DEMO_BUILD && !useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; R.C.GATES.eliteSpread = true; } // D158: Legacy number; R2-6: no elite twice in a zones need both
   // demo.md 2.1: ?demo=1 (or opts.demo) gives a team build the demo's rules for the team's own checks (the demo build has them already)
   if (!DEMO_BUILD && !useMock && (opts.demo ?? params.get('demo') === '1')) R.applyDemo();
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));

@@ -503,8 +503,11 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * (E1); every XP award is counted against the level of the place it is earned (legacy.js xpRef; XP_ZONE_STEP, no xpCurve
  * ratio, no diffMod; contracts at CONTRACT_CL_OFFSET_HERO) (E2); zone 1 trails the hero by ZONE_LAG (E3); HERO_XP_ECON2
  * (E4); a version 3 profile is sold the hall of 4.2 at the E5 prices (META_HERO) and a Legacy run reads its effects (E5).
+ * R2-6 (blind demo round 2, draft): eliteSpread. **Off** by default (the level-60 runs and every golden hash stay as they were); the
+ * UI's ?legacy=1 set and DEMO_GATES turn it on. On, no elite template stands on two Elite places of one expedition zone while
+ * its pool holds another (expedition.js spreadElites: a repeat takes the pool's next template, no draw is made).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false, economyV2: false, demo: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false, economyV2: false, eliteSpread: false, demo: false };
 // ---------------- The demo build (docs/specs/demo.md 1-4, 10; D170-D171, draft for the owner) ----------------
 /**
  * demo.md 2.2: the switches R.applyDemo() sets (src/rules.js): every switch at its main default, plus legacy, oruvathLegacy
@@ -513,7 +516,7 @@ export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true,
  * hero stops at HERO_MAX_DEMO, the hall sells DEMO_HALL at rank DEMO_HALL_MAX_RANK and the board draws from
  * CONTRACT_BOARD_BANDS_DEMO. Off (the default), nothing of it is read.
  */
-export const DEMO_GATES = Object.freeze({ ...GATES, legacy: true, oruvathLegacy: true, economyV2: true, demo: true });
+export const DEMO_GATES = Object.freeze({ ...GATES, legacy: true, oruvathLegacy: true, economyV2: true, eliteSpread: true, demo: true });
 /** demo.md 1.2: leaving this zone (a Road or the Bell) ends a demo run (event demoEnd, outcome 'demo'); zone 3 is never made. */
 export const DEMO_LAST_ZONE = 2;
 /** demo.md 3.1 [inference; DM1]: the hero level cap in a demo run (in place of HERO_MAX_LEVEL). */
