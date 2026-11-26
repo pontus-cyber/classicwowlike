@@ -43,7 +43,7 @@ import { summary as sum } from './engine/summary.js';
 import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide, noDeathblowMet } from './engine/meta.js';
 import { tutorialView as guidedView } from './engine/tutorial.js';
 import { zoneDanger, defaultTarget as defaultTgt, pendingTicks as previewTicks } from './engine/combat.js';
-import { availablePets, metaFromProfile, travelLevel as travelAt, trainerOffer } from './engine/nodes.js';
+import { availablePets, metaFromProfile, travelLevel as travelAt, trainerOffer, demoExitView } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
@@ -659,7 +659,17 @@ export function mapView(state) {
 }
 /** mapView's `tierDmg` (legacy.md 2.2: × every template enemy's damage in this zone) in a Legacy run; outside one the view as before. */
 function withTierDmg(s, v) {
-  return s.legacy ? { ...v, tierDmg: tierDmgOf(s, s.zone.z) } : v;
+  const de = demoExitView(s); // demo.md 1.2a (R2-1, draft): the demo's last zone: { wins, need, done }
+  return s.legacy ? { ...v, tierDmg: tierDmgOf(s, s.zone.z), ...(de ? { demoExit: de } : {}) } : v;
+}
+
+/**
+ * demo.md 1.2a (R2-1, draft; engine-api.md 16): in a demo run in its last zone, the fights won there towards the demo's
+ * end: { wins (at most need), need (C.DEMO_END_WINS), done }; null elsewhere and in the full game. The map view carries it
+ * as `demoExit`.
+ */
+export function demoExit(state) {
+  return demoExitView(state);
 }
 
 /**

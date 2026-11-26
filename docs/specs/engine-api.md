@@ -1308,6 +1308,14 @@ Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` 
 - Outcome `demo` is an ending like any other (15.3): END_RUN pays the lines, writes the hero (`runs` + 1, `wins` unchanged),
   `profile.runs` + 1, the welcome and the guide as before. `summary(state)` carries `demoRun: true` in every demo run and
   `demo: { lastZone: 2 }` when the outcome is `demo`.
+- The demo end's gate (demo.md 1.2a, R2-1, draft): a fight won in zone `C.DEMO_LAST_ZONE` of a demo run adds 1 to
+  `state.demoWins` (made at the first such win; every fight kind but the boss, the Camp and a dev tool's fight). Leaving the
+  zone with `demoWins` >= `C.DEMO_END_WINS` (3) is the demo's end as above (`demoEnd` adds `wins`, `need`; summary `demo`
+  { lastZone, wins }). With fewer it ends early: `demoEnd` { zone, by, wins, need, early: true }, `runEnd` { outcome:
+  'left' }, zone 2 not counted in `stats.zonesLeft` (no zone line for it), the welcome line not paid and END_RUN leaving
+  `profile.welcome` false; summary `demoLeft` { zone, wins, need, welcome (the welcome waits) }. `R.demoExit(state)` and the
+  map view's `demoExit` in the demo's last zone: { wins (at most need), need, done }; null / absent elsewhere and in the
+  full game.
 - The cap (demo.md 3.1): in a demo run the hero stops at `C.HERO_MAX_DEMO` (7). The `levelUp` event to it carries
   `cap: 'demo'`; then the hero XP is 0 and stays 0: every later award is an `xp` event `{ amount: 0, rested: 0, why,
   capped: true }` (no rested XP spent, `stats.xpGained` unchanged); no `heroMax` and no level line past 7. `heroView` gives

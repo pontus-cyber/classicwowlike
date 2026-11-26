@@ -104,7 +104,8 @@ describe('demo.md 1.2: the cut at the zone 2 exit', () => {
     assert.ok(!r.events.some((e) => e.t === 'zone' && e.z > 2), 'no zone 3 entered');
     assert.equal(s.zone.z, 2);
     const sm = R.summary(s);
-    assert.deepEqual(sm.demo, { lastZone: 2 });
+    assert.ok(s.demoWins >= C.DEMO_END_WINS, 'autoplay wins the zone 2 fights the demo end needs (1.2a)');
+    assert.deepEqual(sm.demo, { lastZone: 2, wins: s.demoWins });
     assert.equal(sm.demoRun, true);
     assert.equal(sm.outcome, 'demo');
     assert.equal(s.stats.zonesLeft, 2);
@@ -115,6 +116,7 @@ describe('demo.md 1.2: the cut at the zone 2 exit', () => {
     let s = inZone2('rogue', 43);
     assert.equal(s.phase, 'ZONE_HUB');
     if (s.exp.bell < 1) s.exp.bell = 1;
+    s = { ...s, demoWins: C.DEMO_END_WINS }; // demo.md 1.2a: the zone 2 fights the demo end needs (the early leave: s32 1.2a below)
     // out of the hub onto the map, then ring the Bell where the hero stands
     if (R.isLegal(s, { type: 'LEAVE_HUB' })) s = R.step(s, { type: 'LEAVE_HUB' }).state;
     assert.ok(R.isLegal(s, { type: 'RING_BELL' }), R.whyIllegal(s, { type: 'RING_BELL' }));
@@ -178,15 +180,100 @@ describe('demo.md 1.2: a death in the Bell\'s Dimmed fight is a death', () => {
       s.zone.start -= 500;
       assert.ok(dimmedNow(s), 'the hero\'s node is Dimmed');
       if (hp) s.player.hp = hp;
+      s.demoWins = C.DEMO_END_WINS - 1; // demo.md 1.2a: the Bell's Dimmed fight, won, is the last zone 2 win the demo end needs
       const r = R.step(s, { type: 'RING_BELL' });
       assert.ok(r.state.fight, 'the Dimmed encounter starts before the Bell completes');
       assert.ok(!r.events.some((e) => e.t === 'demoEnd'));
       const out = autoRun(r.state);
       outcomes.add(out.s.outcome);
       if (out.s.outcome === 'death') assert.ok(!out.events.some((e) => e.t === 'demoEnd'));
-      else { assert.equal(out.s.outcome, 'demo'); assert.equal(out.events.find((e) => e.t === 'demoEnd').by, 'bell'); }
+      else { assert.equal(out.s.outcome, 'demo'); assert.equal(out.events.find((e) => e.t === 'demoEnd').by, 'bell'); assert.equal(out.s.demoWins, C.DEMO_END_WINS); }
     }
     assert.ok(outcomes.has('death'), 'the 1-HP hero died in the Dimmed fight');
+  });
+});
+
+describe('demo.md 1.2a (R2-1, draft): the demo end needs DEMO_END_WINS fights won in zone 2', () => {
+  demoGates();
+  /** Zone 2's hub of a run on the given profile, then onto the map (where the Bell rings). */
+  const z2map = (classId, seed, prof) => {
+    let s = steps(R.newRun({ classId, petId: PET(classId), seed, content: CONTENT, profile: prof }), [{ type: 'START_RUN' }]);
+    s = autoRun(s, (x) => !!(x.zone && x.zone.z === 2)).s;
+    if (R.isLegal(s, { type: 'LEAVE_HUB' })) s = R.step(s, { type: 'LEAVE_HUB' }).state;
+    s.exp.bell = Math.max(1, s.exp.bell);
+    return s;
+  };
+  test('the constant; zone 1 wins are not counted; the map view carries demoExit only in zone 2', () => {
+    assert.equal(C.DEMO_END_WINS, 3);
+    const s = z2map('rogue', 61, later('rogue', 3));
+    assert.equal(s.zone.z, 2);
+    assert.ok(s.stats.fights > 0, 'zone 1 had fights');
+    assert.equal(s.demoWins, undefined, 'no zone 2 win yet');
+    assert.deepEqual(R.mapView(s).demoExit, { wins: 0, need: 3, done: false });
+    assert.deepEqual(R.demoExit(s), { wins: 0, need: 3, done: false });
+    const s1 = steps(R.newRun({ classId: 'rogue', seed: 61, content: CONTENT, profile: later('rogue', 3) }), [{ type: 'START_RUN' }]);
+    const z1 = autoRun(s1, (x) => x.phase === 'MAP' && !!x.zone && x.zone.z === 1).s;
+    assert.equal(R.mapView(z1).demoExit, undefined);
+    assert.equal(R.demoExit(z1), null);
+  });
+  test('won fights in zone 2 count (one per victory event there); the view caps wins at need and says done', () => {
+    let s = z2map('mage', 63, later('mage', 4));
+    let wins = 0;
+    const r = autoRun(s, (x) => (x.demoWins || 0) >= 4);
+    for (const e of r.events) if (e.t === 'victory') wins += 1;
+    s = r.s;
+    if (s.outcome === 'death') return;
+    assert.equal(s.demoWins, wins);
+    if (s.phase !== 'SUMMARY') assert.deepEqual(R.demoExit(s), { wins: 3, need: 3, done: true });
+  });
+  test('leaving zone 2 early (Bell from the map at 0 wins): demoEnd early, outcome left, no zone line for zone 2, no demo block', () => {
+    const s = z2map('rogue', 65, later('rogue', 3));
+    const r = R.step(s, { type: 'RING_BELL' });
+    const de = r.events.find((e) => e.t === 'demoEnd');
+    assert.deepEqual(de, { t: 'demoEnd', zone: 2, by: 'bell', wins: 0, need: 3, early: true });
+    assert.equal(r.events.find((e) => e.t === 'runEnd').outcome, 'left');
+    const e = r.state;
+    assert.equal(e.phase, 'SUMMARY');
+    assert.equal(e.stats.zonesLeft, 1, 'zone 1 only');
+    const sm = R.summary(e);
+    assert.equal(sm.outcome, 'left');
+    assert.equal(sm.demo, undefined);
+    assert.deepEqual(sm.demoLeft, { zone: 2, wins: 0, need: 3, welcome: false });
+    assert.equal(sm.demoRun, true);
+    const zl = sm.legacy.lines.find((l) => l.id === 'zones');
+    assert.equal(zl.count, 1);
+    // END_RUN: an ending like any other (hero written, runs + 1)
+    const p = R.step(e, { type: 'END_RUN' }).state.result.profile;
+    assert.equal(p.runs, s.profile.runs + 1);
+    assert.equal(p.heroes.rogue.runs, (s.profile.heroes.rogue.runs || 0) + 1);
+    assert.equal(p.legacy, s.profile.legacy + sm.legacy.total);
+  });
+  test('the Road out of zone 2 at 2 wins ends early too; at DEMO_END_WINS it is the demo end', () => {
+    for (const [w, out] of [[C.DEMO_END_WINS - 1, 'left'], [C.DEMO_END_WINS, 'demo']]) {
+      const s = { ...z2map('hunter', 67, later('hunter', 3)), demoWins: w };
+      const r = R.step(s, { type: 'RING_BELL' });
+      assert.equal(r.state.outcome, out, `${w} wins`);
+      assert.equal(R.summary(r.state).legacy.lines.find((l) => l.id === 'zones').count, out === 'demo' ? 2 : 1);
+    }
+  });
+  test('the welcome waits: an early leave does not pay it and leaves it due; the next run that is not left early pays it', () => {
+    let s = steps(R.newRun({ classId: 'rogue', seed: 9, content: CONTENT, tutorial: true }), [{ type: 'START_RUN' }]);
+    s = autoRun(s, (x) => !!(x.zone && x.zone.z === 2)).s;
+    if (R.isLegal(s, { type: 'LEAVE_HUB' })) s = R.step(s, { type: 'LEAVE_HUB' }).state;
+    s.exp.bell = Math.max(1, s.exp.bell);
+    s = R.step(s, { type: 'RING_BELL' }).state;
+    assert.equal(s.outcome, 'left');
+    const sm = R.summary(s);
+    assert.ok(!sm.legacy.lines.some((l) => l.id === 'welcome'), 'no welcome on an early leave');
+    assert.equal(sm.demoLeft.welcome, true, 'the summary says the welcome waits');
+    const p = R.step(s, { type: 'END_RUN' }).state.result.profile;
+    assert.equal(p.welcome, false, 'still due');
+    assert.equal(p.guide, 'done', 'the guided run is over');
+    let s2 = steps(R.newRun({ classId: 'rogue', seed: 10, content: CONTENT, profile: p }), [{ type: 'START_RUN' }]);
+    s2 = autoRun(s2).s;
+    if (s2.outcome === 'left') return;
+    assert.ok(R.summary(s2).legacy.lines.some((l) => l.id === 'welcome'), `paid on the next run (${s2.outcome})`);
+    assert.equal(R.step(s2, { type: 'END_RUN' }).state.result.profile.welcome, true);
   });
 });
 
@@ -309,7 +396,7 @@ describe('demo.md 5.1 A1: a demo campaign per class from a fresh profile (autopl
         }
         assert.ok(['demo', 'death'].includes(s.outcome), `run ${run + 1}: ${s.outcome}`);
         const sm = R.summary(s);
-        if (s.outcome === 'demo') { cut += 1; assert.deepEqual(sm.demo, { lastZone: 2 }); } else assert.equal(sm.demo, undefined);
+        if (s.outcome === 'demo') { cut += 1; assert.deepEqual(sm.demo, { lastZone: 2, wins: s.demoWins }); assert.ok(s.demoWins >= C.DEMO_END_WINS); } else assert.equal(sm.demo, undefined);
         const before = prof.legacy;
         prof = R.step(s, { type: 'END_RUN' }).state.result.profile;
         assert.equal(prof.legacy, before + sm.legacy.total);
@@ -342,7 +429,9 @@ describe('demo.md 5.1 A2: cut fuzz (random legal actions, autoplay mixed in)', (
           if (s.fight) assert.notEqual(s.fight.kind, 'boss');
         }
         assert.ok(ended(s));
-        assert.ok(['demo', 'death'].includes(s.outcome), s.outcome);
+        assert.ok(['demo', 'death', 'left'].includes(s.outcome), s.outcome); // 'left': zone 2 left early (1.2a)
+        if (s.outcome === 'left') assert.ok((s.demoWins || 0) < C.DEMO_END_WINS);
+        if (s.outcome === 'demo') assert.ok(s.demoWins >= C.DEMO_END_WINS);
       }
     });
   }
@@ -362,6 +451,11 @@ describe('the switch off: nothing of the demo is read', () => {
       assert.equal(R.heroView(s3).atMax, false);
       assert.equal(R.heroView(s3).cap, undefined);
       assert.equal(R.heroesView(later('mage', 7))[1].atMax, undefined);
+      // demo.md 1.2a: no zone 2 win counter, no demoExit view, zone 2 left as before (zone 3 entered)
+      const s4 = autoRun(steps(R.newRun({ classId: 'mage', seed: 3, content: CONTENT, profile: later('mage', 3) }), [{ type: 'START_RUN' }]), (x) => !!(x.zone && x.zone.z === 3)).s;
+      assert.equal(s4.demoWins, undefined);
+      if (s4.zone && s4.zone.z === 3) assert.equal(s4.stats.zonesLeft, 2);
+      assert.equal(R.demoExit(s4), null);
     } finally { R.setGates(saved); }
   });
 });

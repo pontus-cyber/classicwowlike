@@ -531,6 +531,12 @@ export const CONTRACT_BOARD_BANDS_DEMO = [[1, 1], [1, 2], [2, 2]];
 export const DEMO_STORAGE_PREFIX = 'tbwcr.demo.';
 /** demo.md 1.4: words of the demo block on the demo-end screen, at most. */
 export const DEMO_END_MAX_WORDS = 80;
+/**
+ * demo.md 1.2a (R2-1, draft; report demo-carryover-2026-11-26): fights won in zone DEMO_LAST_ZONE (any kind, a Dimmed
+ * encounter included) that a demo run needs before leaving the zone ends it as the demo's end (outcome 'demo'); with
+ * fewer, leaving ends it early (outcome 'left': no zone line for the zone, no demo-end screen, the welcome waits).
+ */
+export const DEMO_END_WINS = 3;
 /** demo.md 3.1 [inference]: hero XP of a later demo run, planner (a sim reference, not read by the engine). */
 export const DEMO_RUN_XP = 2000;
 /** demo.md 5.1 A2 and A5: random-action runs per class of the cut fuzz; seeds of the board check. */

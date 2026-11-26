@@ -30,7 +30,7 @@ import {
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
   ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY, META_HERO, KEEN_RICOCHET,
-  DEMO_LAST_ZONE,
+  DEMO_LAST_ZONE, DEMO_END_WINS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -378,7 +378,7 @@ export function canTravel(s) {
 
 export function travelOn(s, ev) {
   addTime(s, ev, TIME_TRAVEL, 'travel'); // every profile (M2 v4: Wayfinder removed)
-  s.stats.zonesLeft += 1;
+  if (!demoEarly(s, s.zone.z)) s.stats.zonesLeft += 1; // demo.md 1.2a
   ev.push({ t: 'travel', from: s.zone.z });
   if (demoCut(s, ev, s.zone.z, 'travel')) return;
   enterZone(s, ev, s.zone.z + 1);
@@ -732,7 +732,7 @@ function leaveZone(s, ev, by) {
   const from = s.zone.z;
   const node = s.zone.pos;
   if (s.exp.prep) expireContracts(s, ev, from); // prep (expedition.md 3.1): this zone's held contracts expire
-  s.stats.zonesLeft += 1;
+  if (!demoEarly(s, from)) s.stats.zonesLeft += 1; // demo.md 1.2a: a demo zone 2 left early is not counted (no zone line)
   ev.push({ t: 'travel', from, by, node, road: by === 'road' ? roadNameOf(s, node) : null });
   if (demoCut(s, ev, from, by)) return;
   enterZone(s, ev, from + 1);
@@ -745,9 +745,32 @@ function leaveZone(s, ev, by) {
  */
 function demoCut(s, ev, from, by) {
   if (!s.demo || from < DEMO_LAST_ZONE) return false;
-  ev.push({ t: 'demoEnd', zone: from, by });
-  endRun(s, ev, 'demo');
+  // demo.md 1.2a (R2-1, draft): with fewer than DEMO_END_WINS fights won in the zone the run ends early, outcome 'left'
+  const early = demoEarly(s, from);
+  ev.push({ t: 'demoEnd', zone: from, by, wins: s.demoWins || 0, need: DEMO_END_WINS, ...(early ? { early: true } : {}) });
+  endRun(s, ev, early ? 'left' : 'demo');
   return true;
+}
+
+/** demo.md 1.2a: leaving zone `from` now would end a demo run early (its last zone, fewer than DEMO_END_WINS fights won there). */
+const demoEarly = (s, from) => !!s.demo && from >= DEMO_LAST_ZONE && (s.demoWins || 0) < DEMO_END_WINS;
+
+/**
+ * demo.md 1.2a: a fight won in a demo run's last zone counts towards its demo end (state.demoWins, made at the first such
+ * win; never in the full game). Every kind counts (quest, grind wave, elite, rare, dungeon, a Dimmed encounter, a
+ * contract's fight); a dev tool's fight does not.
+ */
+function demoWin(s, kind) {
+  if (!s.demo || !s.zone || s.zone.camp || s.zone.z < DEMO_LAST_ZONE || kind === 'boss' || kind === 'camp') return;
+  if (s.node && s.node.type === 'dev') return;
+  s.demoWins = (s.demoWins || 0) + 1;
+}
+
+/** demo.md 1.2a: the view of the demo's end from the demo's last zone ({ wins, need, done }), null elsewhere and in the full game. */
+export function demoExitView(s) {
+  if (!s.demo || !s.zone || s.zone.camp || s.zone.z < DEMO_LAST_ZONE) return null;
+  const wins = s.demoWins || 0;
+  return { wins: Math.min(wins, DEMO_END_WINS), need: DEMO_END_WINS, done: wins >= DEMO_END_WINS };
 }
 
 /**
@@ -857,6 +880,7 @@ export function finishFight(s, ev) {
   if (outcome === 'rescue') { rescueEnd(s, ev, f); return; }
   const drops = f.tut ? overlayFightEnd(s, f, outcome, lost) : lost; // M3: a script ended; S1's fixed loot
   if (outcome === 'victory') heatFightWon(s, f.heat); // rules 1.7.4, 11.1: fights won by the node's entry state
+  if (outcome === 'victory') demoWin(s, kind);
   receiveItems(s, ev, drops);
   if (kind === 'boss') { endRun(s, ev, 'victory'); return; }
   if (kind === 'camp') {

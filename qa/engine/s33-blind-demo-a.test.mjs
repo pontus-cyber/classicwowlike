@@ -128,3 +128,30 @@ describe('demo off: quests drawn as before', () => {
     assert.ok(rep > 0);
   });
 });
+
+// Blind demo round 2, R2-1 (feedback 2026-11-26-blind-demo-skipper-retest run 1; demo.md 1.2a, draft): the zone 2 Bell rung
+// from Greywater Fens' hub straight after arriving paid 80 (welcome 60 + two zones) and showed "You made it through".
+describe('blind demo round 2 R2-1: the two-minute exit is an early run end that pays less than a real clear', () => {
+  demoGates();
+  test('the guided first run, the Bell rung at zone 2 at once: outcome left, no welcome, one zone line; the same seed played out pays more', () => {
+    const start = () => R.step(R.newRun({ classId: 'rogue', seed: 33, content: CONTENT, tutorial: true }), { type: 'START_RUN' }).state;
+    let s = start();
+    for (let n = 0; n < 20000 && !ended(s) && !(s.zone && s.zone.z === 2); n++) s = R.step(s, R.autoAction(s)).state;
+    if (ended(s)) return; // the policy died in zone 1
+    if (R.isLegal(s, { type: 'LEAVE_HUB' })) s = R.step(s, { type: 'LEAVE_HUB' }).state;
+    s.exp.bell = Math.max(1, s.exp.bell);
+    const early = R.step(s, { type: 'RING_BELL' }).state;
+    assert.equal(early.outcome, 'left');
+    const se = R.summary(early);
+    assert.equal(se.demo, undefined, 'no demo-end block');
+    assert.ok(!se.legacy.lines.some((l) => l.id === 'welcome'));
+    assert.equal(se.legacy.lines.find((l) => l.id === 'zones').count, 1);
+    // the same run played on by autoplay to its exit
+    let f = s;
+    for (let n = 0; n < 20000 && !ended(f); n++) f = R.step(f, R.autoAction(f)).state;
+    if (f.outcome !== 'demo') return;
+    const sf = R.summary(f);
+    assert.ok(sf.legacy.total > se.legacy.total + C.LEGACY_WELCOME - 1, `a real clear ${sf.legacy.total} against the early exit ${se.legacy.total}`);
+    assert.ok(f.demoWins >= C.DEMO_END_WINS);
+  });
+});

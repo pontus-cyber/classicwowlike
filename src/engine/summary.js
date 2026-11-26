@@ -14,7 +14,7 @@ import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
   PACE_TREASURE_S, PACE_VENDOR_S, PACE_VENDOR_TX_S, PACE_TRAINER_S, PACE_TRAINER_TX_S, PACE_BOSS_INTRO_S,
-  PACE_ENGAGE_S, PACE_BELL_S, PACE_PREP_S, PACE_HUB_CONTRACT_S, SLOT_IDS, TALENT, CLASS, ONB_BEATS, DEMO_LAST_ZONE,
+  PACE_ENGAGE_S, PACE_BELL_S, PACE_PREP_S, PACE_HUB_CONTRACT_S, SLOT_IDS, TALENT, CLASS, ONB_BEATS, DEMO_LAST_ZONE, DEMO_END_WINS,
 } from '../constants.js';
 import { contractSummary } from './contracts.js';
 import { leanFirst } from './expedition.js';
@@ -66,7 +66,8 @@ export function summary(s) {
     // prep (expedition.md 2.6, 8.1, 11.1): contracts completed and Reserve left
     ...(s.exp && s.exp.prep ? { contracts: contractSummary(s).completed, reserve: s.exp.reserve || 0 } : {}),
     // M3 (m3-onboarding.md 4.2): the welcome line until the profile has had it
-    ...(welcomeDue(s.profile) ? { welcome: true } : {}),
+    // demo.md 1.2a (R2-1, draft): a demo run left early (outcome 'left') does not pay it; it waits for the next run
+    ...(welcomeDue(s.profile) && s.outcome !== 'left' ? { welcome: true } : {}),
     // Legacy (legacy.md 4.1): hero levels gained in the run, each HERO_XP_AT_MAX at level 25 one more
     ...(isLegacy(s) ? { heroLevels: (s.hero.gained || 0) + (s.hero.over || 0) } : {}),
     // Economy v2 (legacy.md 4.7 E1): no reserve line, the zone line at LEGACY_PER_ZONE_HERO
@@ -106,7 +107,9 @@ export function summary(s) {
     ...(isLegacy(s) ? { legacy: ech, hero: { ...heroView(s), record: heroRecord(s) } } : {}),
     // the demo (demo.md 1.2, 1.4; engine-api.md 16): `demoRun` in every demo run; `demo` on a run that ended at the cut
     ...(s.demo ? { demoRun: true } : {}),
-    ...(s.demo && s.outcome === 'demo' ? { demo: { lastZone: DEMO_LAST_ZONE } } : {}),
+    ...(s.demo && s.outcome === 'demo' ? { demo: { lastZone: DEMO_LAST_ZONE, wins: s.demoWins || 0 } } : {}),
+    // demo.md 1.2a (R2-1, draft): a demo run that left its last zone before DEMO_END_WINS fights won there
+    ...(s.demo && s.outcome === 'left' ? { demoLeft: { zone: DEMO_LAST_ZONE, wins: s.demoWins || 0, need: DEMO_END_WINS, welcome: welcomeDue(s.profile) } } : {}),
   });
 }
 

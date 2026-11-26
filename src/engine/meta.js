@@ -184,7 +184,8 @@ export function applyRunToProfile(profile, sum) {
   if (sum.dev) return deepClone(profile);
   const p = migrateProfile(profile);
   // M3 (m3-onboarding.md 4.2, E6): every non-dev run sets the welcome (paid or not); a guided run sets the guide.
-  p.welcome = true;
+  // demo.md 1.2a (R2-1, draft): a demo run left early (outcome 'left') leaves the welcome due for the next run
+  if (sum.outcome !== 'left') p.welcome = true;
   if (sum.tutorial) p.guide = sum.tutorial.skipped ? 'skipped' : 'done';
   p[balanceKey(p)] += sum.echoes.total;
   p.earned += sum.echoes.total;
