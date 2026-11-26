@@ -6626,8 +6626,8 @@ async function partY0(browser, W, H) {
         !!sv.hero && Number(sv.hero.from) === sm.hero.start.level && Number(sv.hero.to) === sm.hero.level && Number(sv.hero.xp) === xpG && sv.hero.text === `Level ${sm.hero.start.level}${sm.hero.level !== sm.hero.start.level ? ` → ${sm.hero.level}` : ''} · +${fmtN(xpG)} XP` && sv.who.startsWith(`Level ${sm.hero.level} Rogue`),
         `${JSON.stringify(sv.hero)} ${sv.who} want ${sm.hero.start.level} -> ${sm.hero.level}, ${xpG}`);
       const lvLine = sv.lines.find((l) => l[0] === 'levels');
-      check('Y-4', 'Legacy points earned: the engine\'s lines ("Hero levels gained" at 20 a level), the total, and no Echo word on the summary',
-        sv.h3 === 'Legacy points earned' && (gained === 0 ? !lvLine : !!lvLine && lvLine[1] === `Hero levels gained${gained > 1 ? ` (${gained})` : ''} +${gained * R.C.LEGACY_PER_LEVEL}`) && sv.total === `Total ${sm.legacy.total} Legacy points` && ews.length === 0 && sv.btns.some((b) => b.startsWith('Spend Legacy points')),
+      check('Y-4', 'Legacy points earned: the engine\'s lines ("2 hero levels gained" at 20 a level), the total, and no Echo word on the summary',
+        sv.h3 === 'Legacy points earned' && (gained === 0 ? !lvLine : !!lvLine && lvLine[1] === `${gained} hero ${gained === 1 ? 'level' : 'levels'} gained +${gained * R.C.LEGACY_PER_LEVEL}`) && sv.total === `Total ${sm.legacy.total} Legacy points` && ews.length === 0 && sv.btns.some((b) => b.startsWith('Spend Legacy points')),
         `${JSON.stringify(sv)} ${JSON.stringify(ews)} total ${sm.legacy.total}`);
       await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
       const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));

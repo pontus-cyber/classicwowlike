@@ -1744,3 +1744,13 @@ body.coach-up #skiphint { visibility: hidden; }
 .mtag.wing { color: var(--ink-dim); background: var(--shade-50); box-shadow: inset 0 0 0 1px var(--edge-hi-25); }
 /* R2-6 (draft): the one line that says a zone's levels follow the hero's level */
 .zmatch { margin-top: var(--sp-20); font-size: var(--fs-small-7); color: var(--ink-mute); font-weight: var(--fw-semibold); }
+/* R2-6 (draft): one plain line under the Regions heading */
+.xregp .xnote { font-size: var(--fs-small-7); color: var(--ink-mute); margin-bottom: var(--sp-40); }
+/* R2-6 (draft): the class-select title sits on a soft plate, so a drifting mote behind the gap in "from run to run" cannot read as a stray full stop */
+#create .ctitle::before { content: ''; position: absolute; inset: -.6rem -2.4rem -.4rem; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at center, var(--shade-60) 0%, var(--shade-35) 55%, transparent 100%); }
+/* R2-6 (draft): at 768 px high the summary's three cards and the Furnace chart fit above the buttons (the chart's axis was cut off) */
+@media (max-height: 800px) {
+  .summary .shead { padding-top: var(--sp-80); padding-bottom: var(--sp-50); }
+  .summary .sbody { padding-bottom: var(--sp-80); gap: var(--sp-100); }
+  .summary .sfoot { padding-top: var(--sp-70); padding-bottom: var(--sp-100); }
+}

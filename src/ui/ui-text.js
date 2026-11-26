@@ -291,6 +291,11 @@ export function reachCount(offers, balance) {
 }
 /** R2-6 (draft): in a Legacy run the zones follow the hero's level, so the same zone shows other levels in another run. */
 export const ZONE_MATCH_LINE = "The zone matches your level, so its levels change from run to run.";
+/**
+ * R2-6 (draft): the run summary's line for hero levels: the number of levels in words, because the figure beside it is
+ * Legacy points ("Hero levels gained +20" read as twenty levels): "1 hero level gained", "2 hero levels gained".
+ */
+export const heroLevelsLine = (n) => `${n} hero ${n === 1 ? 'level' : 'levels'} gained`;
 export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ------------------------------------------------------------------ start camp and contracts (expedition.md 2, 3, 9; prep)

@@ -22,7 +22,7 @@ const C = R.C;
 const { CONTENT } = await import('../../src/content/index.js');
 const { createBridge } = await import('../../src/ui/engine-bridge.js');
 const { lv, lvLearn, legacyShown, legacyWords, setDisplay } = await import('../../src/ui/util.js');
-const { bandText, xpPayText } = await import('../../src/ui/ui-text.js');
+const { bandText, xpPayText, heroLevelsLine } = await import('../../src/ui/ui-text.js');
 
 const gateOff = () => { C.GATES.legacy = false; C.GATES.oruvathLegacy = false; C.GATES.economyV2 = false; }; // ?legacy=1 sets all three (D159)
 
@@ -101,7 +101,7 @@ test('switch on: hero select, the hero XP bar, banners on the hero scale, the zo
     assert.equal(s.hero.level, ups.length ? ups[ups.length - 1].heroLevel : 1);
     assert.ok(s.hero.xpGained > 0);
     const lvl = s.echoes.find((x) => x[2] === 'levels');
-    if (s.hero.gained) { assert.ok(lvl && lvl[0].startsWith('Hero levels gained')); assert.equal(lvl[1], s.hero.gained * C.LEGACY_PER_LEVEL); }
+    if (s.hero.gained) { assert.ok(lvl && lvl[0] === heroLevelsLine(s.hero.gained)); assert.equal(lvl[1], s.hero.gained * C.LEGACY_PER_LEVEL); }
     const after = b.view.meta.after;
     b.dispatch({ type: 'END_RUN' });
     const m2 = b.view.meta;

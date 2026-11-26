@@ -873,7 +873,8 @@ function buildExpMap(v, ctx, readOnly) {
     { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
   const right = h('div.xside.xright');
-  const regBox = h('div.xpanel.xregp', h('div.xph', 'Regions'));
+  // R2-6 (draft): Region Charts shows plainly what they do: every region painted and the dungeon marked from the start
+  const regBox = h('div.xpanel.xregp', h('div.xph', 'Regions'), h('div.xnote', mv.vision.regions ? 'Your Region Charts show every region and the dungeon.' : 'A region fills in where you have walked.'));
   mv.regions.forEach((r, i) => {
     const seen = mv.nodes.some((n) => n.region === i);
     const row = h('div.xreg' + (seen ? '' : '.unseen'), { dataset: { region: i } }, h('i', { style: { background: REGION_TINT[r.kind] || '#a08a60' } }), h('span', r.name || REGION_FEEL[r.kind] || r.kind));
@@ -1552,8 +1553,10 @@ function buildSummary(v, ctx) {
   const demoEnd = !!(s.demo && demoOn(ctx));
   const demoBuild = !!(ctx.data.demo && ctx.data.demo.build);
   if (demoEnd) win.classList.add('demo-end');
+  // R2-6 (draft): the block's "so far" line already names the hero and its level, so the second hero line goes (blind demo round 2)
+  const soFar = !!(v.meta && v.meta.after && v.meta.after.demo);
   if (demoEnd) win.appendChild(h('div.shead', buildDemoBlock(s, v.meta && v.meta.after, ctx),
-    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
+    soFar ? null : h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
   // demo.md 1.2a (R2-1, draft): a demo run that left its last zone early: a plain run end that says so (no demo block)
   else if (s.demoLeft && demoOn(ctx)) win.appendChild(h('div.shead', buildLeftHead(s, ctx),
     h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));

@@ -1093,7 +1093,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       equipped: (sm.equipped || []).map((e) => ({ uid: `sum-${e.slot}`, kind: 'gear', slot: e.slot, name: e.name, rarity: e.rarity, ilvl: e.ilvl, stats: {} })),
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       // the welcome (M3, m3-onboarding.md 4.2): its label from content (nudge.welcomeLabel); [label, Echoes, line id]
-      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : l.id === 'reserve' && sm.firstRun && CONTENT.tutorial && CONTENT.tutorial.prep ? CONTENT.tutorial.prep.unspentLabel : (l.id === 'levels' && sm.hero ? 'Hero levels gained' : TXT.ECHO_LINE[l.id]) || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes, l.id]),
+      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : l.id === 'reserve' && sm.firstRun && CONTENT.tutorial && CONTENT.tutorial.prep ? CONTENT.tutorial.prep.unspentLabel : (l.id === 'levels' && sm.hero ? TXT.heroLevelsLine(l.count) : TXT.ECHO_LINE[l.id]) || TXT.humanize(l.id)}${l.count > 1 && !(l.id === 'levels' && sm.hero) ? ` (${l.count})` : ''}`, l.echoes, l.id]),
       // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
       // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
       heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
