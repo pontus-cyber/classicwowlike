@@ -441,6 +441,8 @@ export function createOnboarding(root, ctx) {
     // D150 item 1: the Furnace's line brings the meter on screen with it (its anchor), before the line is placed
     if (FURNACE_LINES.has(x.id) && ctx.hud && ctx.hud.heat && ctx.view) ctx.hud.heat.update(ctx.view);
     place();
+    // placed again once the line has laid out and its entrance animation is over (it sat a few pixels low at first)
+    requestAnimationFrame(() => place()); setTimeout(() => place(), 400);
   }
   function renderButtons() {
     const guided = cur && cur.kind === 'beat' && guiding(lastV);
