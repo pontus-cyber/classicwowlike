@@ -116,7 +116,7 @@ function slimView() {
     zone: v.zone && (v.zone.exp ? { idx: v.zone.idx, node: v.zone.exp.pos } : { idx: v.zone.idx, row: v.zone.pos.row, lane: v.zone.pos.lane, questsDone: v.zone.questsDone }),
     node: v.node && { type: v.node.type, step: v.node.step, origin: v.node.origin || null, fightNo: v.node.fightNo },
     combat: v.combat && { round: v.combat.round, over: v.combat.over || null, enemies: v.combat.enemies.map((e) => `${e.idx}:${e.hp}:${e.alive ? 1 : 0}`) },
-    loot: v.loot && { kind: v.loot.kind, gold: v.loot.gold || 0, xp: v.loot.xp || 0, trap: !!v.loot.trap, items: (v.loot.items || []).map((it) => ({ uid: it.uid, pending: !!it.pending })), choices: (v.loot.choices || []).length },
+    loot: v.loot && { kind: v.loot.kind, gold: v.loot.gold || 0, xp: v.loot.xp || 0, trap: !!v.loot.trap, junk: !!(v.loot.junk && v.loot.junk.count), items: (v.loot.items || []).map((it) => ({ uid: it.uid, pending: !!it.pending })), choices: (v.loot.choices || []).length },
     summary: v.summary && { outcome: v.summary.outcome, level: v.summary.level, time: v.summary.time, fights: v.summary.fights, rounds: v.summary.rounds, quests: v.summary.quests, dungeons: v.summary.dungeons, kills: v.summary.kills, echoTotal: v.summary.echoTotal, seed: v.summary.seed },
     legal: v.legal && { lanes: v.legal.lanes, travelOn: v.legal.travelOn, flee: v.legal.flee },
   };
@@ -127,10 +127,20 @@ function slimView() {
  * ui-2026-11-20b): when a vendor is open and the bags hold junk, SELL_JUNK is sent in the same step. The twin sends the same
  * action at the same point (after the action, before the next comparison), so the policy's own junk sale is not needed in a run.
  */
+/** Engine actions a click sent after the policy's own (Buy and equip: the EQUIP), for the twin (demo blind round 2 R2-3). */
+const followUps = [];
 function twinStep(s, a) {
   s = R.step(s, a).state;
   if (s.service && s.service.kind === 'vendor' && s.player.bag.some((x) => x.kind === 'junk') && R.isLegal(s, { type: 'SELL_JUNK' })) s = R.step(s, { type: 'SELL_JUNK' }).state;
-  return s;
+  return cashTwin(s);
+}
+/**
+ * Demo blind round 2 R2-3 (ui-2026-11-26d): after every step out of a fight the bridge sells the junk of the bags and the loot
+ * window (CASH_JUNK, after the vendor's SELL_JUNK); the twin does the same at the same point.
+ */
+function cashTwin(s) {
+  const has = s.player && ((s.player.bag || []).some((x) => x.kind === 'junk') || (s.loot || []).some((x) => x.kind === 'junk'));
+  return has && R.isLegal(s, { type: 'CASH_JUNK' }) ? R.step(s, { type: 'CASH_JUNK' }).state : s;
 }
 
 /** The same fields from the twin's engine state. */
@@ -363,7 +373,13 @@ async function playOne(browser, W, H, cls) {
       case 'TRAIN': return click(page.locator('.svc .trow', { has: page.locator('.nm', { hasText: new RegExp(`^${C.SPELL[a.spellId].name}$`) }) }).getByRole('button', { name: /^Train to/ }), `Train ${a.spellId}`);
       case 'TRAIN_ALL': return click(button(/^Train all/), 'Train all'); // D150 item 21: "Train all · <cost>"
       // the rows show gear first (blind round 2); data-i is the engine's stock index
-      case 'BUY': return click(page.locator(`.vendor-cols > div:nth-child(1) .trow[data-i="${a.index}"]`).getByRole('button', { name: 'Buy' }), `Buy ${a.index}`);
+      case 'BUY': {
+        // demo blind round 2 R2-3: an upgrade's button is "Buy and equip" (BUY, then EQUIP of it); the twin applies the EQUIP too
+        const n0 = await page.evaluate(() => window.__ui.engineLog().length);
+        await click(page.locator(`.vendor-cols > div:nth-child(1) .trow[data-i="${a.index}"]`).getByRole('button', { name: /^Buy/ }), `Buy ${a.index}`);
+        followUps.push(...(await page.evaluate((n) => window.__ui.engineLog().slice(n), n0)).filter((x) => x.type === 'EQUIP'));
+        return undefined;
+      }
       case 'SELL': {
         const idx = p.bag.findIndex((b) => b.uid === a.itemId);
         return click(page.locator('.vendor-cols > div').nth(1).locator('.trow').nth(idx).getByRole('button', { name: 'Sell' }), `Sell ${a.itemId}`);
@@ -406,7 +422,7 @@ async function playOne(browser, W, H, cls) {
       case 'LOOT_TAKE': case 'LOOT_DROP': case 'EQUIP': {
         const li = s.loot.findIndex((it) => it.uid === a.itemId);
         if (li >= 0) {
-          const off = (v.loot.gold ? 1 : 0) + (v.loot.xp ? 1 : 0) + (v.loot.trap ? 1 : 0);
+          const off = (v.loot.gold ? 1 : 0) + (v.loot.xp ? 1 : 0) + (v.loot.trap ? 1 : 0) + (v.loot.junk ? 1 : 0); // R2-3: the junk-sold row
           const row = page.locator('.loot .rows .lrow').nth(off + li);
           return click(row.getByRole('button', { name: { LOOT_TAKE: 'Take', LOOT_DROP: 'Drop', EQUIP: 'Equip now' }[a.type], exact: true }), `loot ${a.type} ${li}`);
         }
@@ -525,6 +541,7 @@ async function playOne(browser, W, H, cls) {
     // BUG-QA-04): it sends SET_ITEM_BAR without input. The twin applies the same actions (window.__ui.ownActions) before
     // every comparison, after the action that brought the item.
     let ownSeen = 0;
+    followUps.length = 0;
     const mirrorOwn = async () => {
       const own = await page.evaluate(() => (window.__ui.ownActions ? window.__ui.ownActions() : []));
       for (const a of own.slice(ownSeen)) {
@@ -539,7 +556,7 @@ async function playOne(browser, W, H, cls) {
       v = await view();
       // a fight on autoplay that ended the run before the loop came round (it can be quick after autoplay is switched on
       // again, blind round 2): the twin plays it on the same choices first
-      if (v.phase === 'SUMMARY' && s.fight && autoplay && !autoplayBroken) { let n = 0; while (s.fight && n++ < 2000) s = R.step(s, R.autoAction(s)).state; }
+      if (v.phase === 'SUMMARY' && s.fight && autoplay && !autoplayBroken) { let n = 0; while (s.fight && n++ < 2000) s = R.step(s, R.autoAction(s)).state; s = cashTwin(s); }
       if (v.phase === 'SUMMARY' || s.phase === 'SUMMARY') break;
       await checkLayout(screenKind(v));
       // While the game plays a fight on autoplay the twin lags behind until the fight ends; compare after it.
@@ -557,13 +574,13 @@ async function playOne(browser, W, H, cls) {
       if (v.node && v.node.step === 'intro' && s.fight) {
         const label = { quest: 'Accept', elite: 'Engage', dungeon: 'Enter the dungeon', treasure: 'Fight the guardian' }[v.node.type];
         await shotFirst(`intro-${v.node.type}`);
-        await click(button(label), `intro ${label}`);
+        await click(button(new RegExp(`^${label}`)), `intro ${label}`); // R2-5: Accept and Engage show their key (Space)
         continue;
       }
-      if (v.node && v.node.step === 'rest' && !s.service) { await click(button('Continue'), 'rest Continue'); continue; }
+      if (v.node && v.node.step === 'rest' && !s.service) { await click(button(/^Continue/), 'rest Continue'); continue; } // R2-5: "Continue Space"
       // the chest's dialog comes after the guardian's loot: with full bags its items wait in the loot window (the twin's
-      // s.loot), which the policy clears first (qa-2026-11-19b, hunter seed 1: "cannot click Open the chest")
-      if (v.node && v.node.step === 'chest' && !(s.loot && s.loot.length)) { await click(button('Open the chest'), 'Open the chest'); continue; }
+      // s.loot); since R2-3 (ui-2026-11-26d) the chest shows first and its own window lists them, so it is opened first
+      if (v.node && v.node.step === 'chest' && !v.loot) { await click(button(/^Open the chest/), 'Open the chest'); continue; }
       if ((v.loot && (v.loot.kind === 'reward' || v.loot.kind === 'story'))) await shotFirst(`reward-${v.loot.kind}`);
       // Autoplay fights: the game acts on its own; wait, then step the twin with the same policy.
       if (s.fight && autoplay && !autoplayBroken) {
@@ -592,6 +609,7 @@ async function playOne(browser, W, H, cls) {
         if (await page.evaluate(() => { const x = window.__ui.view(); return x.phase !== 'SUMMARY' && !!(x.combat && !x.combat.over) && !x.autoplay; })) continue; // stopped mid-fight (a revive): on again above
         let n = 0;
         while (s.fight && n++ < 2000) s = R.step(s, R.autoAction(s)).state;
+        s = cashTwin(s);
         continue;
       }
       // Turn autoplay on after the manual zones (out of combat, with the action bar toggle).
@@ -619,6 +637,7 @@ async function playOne(browser, W, H, cls) {
       if (s.phase === 'CAMP') await shotFirst('camp');
       await perform(a, s, v, { keys: s.fight && autoplay });
       s = twinStep(s, a);
+      for (const x of followUps.splice(0)) s = twinStep(s, x); // the page's own follow-up of the click (Buy and equip)
     }
     v = await view();
     if (v.phase !== 'SUMMARY') {
@@ -641,9 +660,9 @@ async function playOne(browser, W, H, cls) {
       const text = await page.locator('#screens .summary').innerText();
       if (!/Victory|The run has ended/i.test(text)) res.problems.push('summary screen lacks its heading');
       // A new run starts from the summary, and the profile (Echoes) is kept.
-      await click(button('Begin a new run'), 'Begin a new run');
+      await click(page.locator('#screens .summary .sfoot [data-end="hero"]'), 'Choose a hero'); // demo blind round 2 R2-5 (was "Begin a new run")
       const after = await view();
-      if (after.phase !== 'CREATE') res.problems.push(`Begin a new run led to ${after.phase}`);
+      if (after.phase !== 'CREATE') res.problems.push(`Choose a hero led to ${after.phase}`);
       const prof = await page.evaluate((key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }, PROFILE_KEY);
       if (!prof || !prof.runs) res.problems.push('profile not saved after the run');
       else if (LEGACY) {

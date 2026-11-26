@@ -192,6 +192,9 @@
  *   BC demo blind round 1, B and C (docs/handoffs/ui-2026-11-26b.md): the Furnace's first-map note, "Next zone" signs, the
  *      Key's names, the Bell's button, tip and confirm dialog (the chosen action highlighted, no tooltip over it), and a
  *      Dimming fight before the Bell named before the click: see partBC.
+ *   AE demo blind round 2, R2-3 to R2-5 (docs/handoffs/ui-2026-11-26d.md): the Bell's fight in the Dimming (enemies and threat in
+ *      the confirm, autoplay and speed paused, the last moment before the fallen screen), Leave in one click, Space with full
+ *      bags, Buy and equip, the reward's default pick, Accept's key, the run end's buttons, Autoplay kept: see partAE.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -5798,28 +5801,30 @@ async function partU(browser, W, H) {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       for (let i = 0; i < 40 && (await sv(page)).phase !== 'MAP'; i++) await auto(page);
       const base = await page.evaluate(() => window.__ui.state());
-      const junk = (k) => ({ uid: `u-junk-${k}`, kind: 'junk', name: 'Cracked Hoof', qty: 1, value: 1 });
+      // demo blind round 2 R2-3: junk is sold after every step (CASH_JUNK), so the bags are filled with gear (copies of a worn piece)
+      const spare = (s, k) => ({ ...JSON.parse(JSON.stringify(Object.values(s.player.equipped).find(Boolean))), uid: `u-fill-${k}` });
       // one slot free, then the chest piece taken off: the bags fill and say so
-      const s1 = R.deserialize(base, CONTENT); while (s1.player.bag.length < R.C.BAG_SLOTS - 1) s1.player.bag.push(junk(s1.player.bag.length));
+      const s1 = R.deserialize(base, CONTENT); while (s1.player.bag.length < R.C.BAG_SLOTS - 1) s1.player.bag.push(spare(s1, s1.player.bag.length));
       await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s1)); await idle(page);
       await page.evaluate(() => window.__ui.act({ type: 'UNEQUIP', slot: 'chest' })); await idle(page);
       const full = await page.evaluate(() => window.__ui.view().player.bag.every(Boolean));
       // blind Legacy v2 (2026-11-20): one sentence for full bags (ui-text.js BAGS_FULL, draft)
       const seen = await toastSeen(page, /^Your bags are full: equip, sell or discard something \(B\)\./); const logged = (await logLines(page)).includes(BAGS_FULL);
-      check('U-full', `the step that fills the last bag slot warns at once ("${BAGS_FULL}" as a toast and a log line)`, full && seen && logged, JSON.stringify({ full, logged, tt: await toasts(page) }));
-      // an item waiting in the loot window with the bags full: "Equip now" on its row; Leave asks first, then drops it
+      // demo blind round 2 R2-3: said once (a toast; no log line as well)
+      check('U-full', `the step that fills the last bag slot warns at once, once ("${BAGS_FULL}" as a toast, no log line)`, full && seen && !logged, JSON.stringify({ full, logged, tt: await toasts(page) }));
+      // an item waiting in the loot window with the bags full: "Equip now" on its row; demo blind round 2 R2-3 (was: Leave asks
+      // first): one button, Continue (Space), and one click leaves it
       const s2 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
       const worn = Object.values(s2.player.equipped).find(Boolean);
       s2.loot = [{ ...JSON.parse(JSON.stringify(worn)), uid: 'u-test-loot', name: `${worn.name} (spare)` }];
       await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s2)); await idle(page);
       const eq = await page.locator('.loot .lrow[data-uid="u-test-loot"] .eqnow').count();
-      const n0 = await nLog(page);
-      await page.locator('.loot .foot').getByRole('button', { name: 'Leave' }).click(); await idle(page);
-      const ask = await page.locator('.loot .foot .lleave').innerText().catch(() => null); const n1 = await nLog(page);
-      await page.locator('.loot .foot').getByRole('button', { name: 'Leave' }).click(); await idle(page);
+      const btns = await page.evaluate(() => [...document.querySelectorAll('.loot .foot .btn')].map((b) => b.textContent));
+      const n1 = await nLog(page);
+      await page.locator('.loot .foot .btn.primary').click(); await idle(page);
       const log = await page.evaluate(() => window.__ui.engineLog()); const gone = await page.evaluate(() => !window.__ui.view().loot);
       await shot(page, 'U3-leave');
-      check('U-full', 'an item waiting in the loot window (bags full): its row has "Equip now"; Leave asks ("Leave 1 item behind?") and sends nothing; a second Leave drops it', eq === 1 && /Leave 1 item behind\?/.test(ask || '') && n1 === n0 && log.slice(n1).some((a) => a.type === 'LOOT_DROP') && gone, JSON.stringify({ eq, ask, n0, n1, sent: log.slice(n1).map((a) => a.type), gone }));
+      check('U-full', 'an item waiting in the loot window (bags full): its row has "Equip now"; one button, Continue (Space), and one click drops it', eq === 1 && btns.length === 1 && /^Continue/.test(btns[0]) && log.slice(n1).some((a) => a.type === 'LOOT_DROP') && gone, JSON.stringify({ eq, btns, sent: log.slice(n1).map((a) => a.type), gone }));
     } catch (e) { await shot(page, 'U3-error'); check('U-3', 'part U3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('U-3', 'part U3: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -6672,7 +6677,7 @@ async function partY0(browser, W, H) {
       check('Y-4', 'Legacy points earned: the engine\'s lines ("2 hero levels gained" at 20 a level), the total, and no Echo word on the summary',
         sv.h3 === 'Legacy points earned' && (gained === 0 ? !lvLine : !!lvLine && lvLine[1] === `${gained} hero ${gained === 1 ? 'level' : 'levels'} gained +${gained * R.C.LEGACY_PER_LEVEL}`) && sv.total === `Total ${sm.legacy.total} Legacy points` && ews.length === 0 && sv.btns.some((b) => b.startsWith('Spend Legacy points')),
         `${JSON.stringify(sv)} ${JSON.stringify(ews)} total ${sm.legacy.total}`);
-      await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
+      await page.locator('.summary .sfoot [data-end="hero"]').click(); // R2-5: "Choose a hero" await idle(page);
       const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));
       check('Y-4', 'after the run hero select keeps the level the hero reached (the stored profile\'s hero, runs + 1)', after.card === yLevels(sm.hero.start.level, sm.hero.level) && after.v3.heroes.rogue.level === sm.hero.level && after.v3.heroes.rogue.runs === 1,
         `${after.card} ${JSON.stringify(after.v3.heroes.rogue && { level: after.v3.heroes.rogue.level, runs: after.v3.heroes.rogue.runs })}`);
@@ -6735,7 +6740,7 @@ async function partY0(browser, W, H) {
       check('Y-5', 'the second click ends the run as a death where the hero stands (ABANDON_RUN): the summary says the run was abandoned, no "Killed by", no Echo word',
         sv.phase === 'SUMMARY' && s.outcome === 'death' && s.death && s.death.killer.name === 'abandon' && !sv.settings && /left the run$/.test(sv.t2) && !!ended && ended[1] === 'Abandoned from the menu' && !sv.kv.some((x) => x[0] === 'Killed by') && ews.length === 0 && sm.hero.level === lvl0,
         `${JSON.stringify(sv)} ${JSON.stringify(ews)}`);
-      await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
+      await page.locator('.summary .sfoot [data-end="hero"]').click(); // R2-5: "Choose a hero" await idle(page);
       const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));
       check('Y-5', 'END_RUN pays the abandoned run\'s Legacy points (R.summary\'s total) and the hero keeps its level (runs + 1)',
         // Economy v2 (legacy.md 4.7 E1, LE1): kept camp points pay nothing, so an abandon soon after Set out may pay 0
@@ -6935,7 +6940,7 @@ async function partY6(browser, W, H) {
         sv.kept === econFill('run_kept', { level: sm.hero.level, was: sm.hero.start.level }) && sv.left === ECON.run_left && next && sv.bal === econFill('run_balance', { legacy: pAfter.legacy, next: next.name, cost: next.cost }) && !sv.reserve && !bad.test(sv.all) && sv.fits,
         `${JSON.stringify({ kept: sv.kept, left: sv.left, bal: sv.bal, fits: sv.fits })} want next ${JSON.stringify(next)} legacy ${pAfter.legacy}`);
       check('Y-6', 'the summary\'s hero line reads "Level A → B" with the hero\'s XP bar', sv.hero && sv.hero.startsWith(`${econFill('level_progress', { from: sm.hero.start.level, to: sm.hero.level })} · +`) && sv.xpbar, sv.hero);
-      await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
+      await page.locator('.summary .sfoot [data-end="hero"]').click(); // R2-5: "Choose a hero" await idle(page);
       const card = await page.evaluate(() => document.querySelector('#create .ccard[data-cls="rogue"] .chero .ch-l').innerText.trim());
       await shot(page, `${tag}-hero-select`);
       check('Y-6', 'hero select: the hero of the run just ended reads "Level A → B"', card === econFill('level_progress', { from: sm.hero.start.level, to: sm.hero.level }), card);
@@ -7062,7 +7067,8 @@ async function partZ(browser, W, H) {
   // ---- Z3: the loot window with full bags; Z4: a reward's Equip now
   {
     const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
-    const fill = (s) => { for (let k = 0; s.player.bag.length < withLegacy(() => R.bagCapacity(s)); k++) s.player.bag.push({ uid: `zj${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', rarity: 'poor', value: 1, count: 1, ilvl: 1 }); return s; };
+    // demo blind round 2 R2-3: junk is sold after every step, so the bags are filled with gear (copies of a worn piece)
+    const fill = (s) => { const g = Object.values(s.player.equipped).find(Boolean); for (let k = 0; s.player.bag.length < withLegacy(() => R.bagCapacity(s)); k++) s.player.bag.push({ ...JSON.parse(JSON.stringify(g)), uid: `zj${k}` }); return s; };
     const load = async (s) => { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page); };
     try {
       await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
@@ -7070,25 +7076,23 @@ async function partZ(browser, W, H) {
       await auto(page, () => { const v = window.__ui.view(); return v.phase === 'MAP' && !v.loot; }, 80);
       await load(fill(await nodeState(page)));
       await auto(page, () => { const v = window.__ui.view(); return v.phase === 'SUMMARY' || !!(v.loot && v.loot.kind === 'loot' && v.loot.items.some((it) => it.pending)); }, 300);
-      const leave = page.locator('.loot .foot').getByRole('button', { name: 'Leave' });
-      const b0 = await leave.boundingBox();
-      await leave.click(); await idle(page);
-      const b1 = await leave.boundingBox();
-      const ask = await page.locator('.loot .foot .lleave').innerText().catch(() => null);
-      const askShown = await placement(page.locator('.loot .foot .lleave'));
-      await shot(page, 'Z3-loot-leave-ask');
-      await page.mouse.click(b1.x + b1.width / 2, b1.y + b1.height / 2); await idle(page);
-      const gone = await page.evaluate(() => !document.querySelector('.loot .foot .lleave'));
-      check('Z-3', 'loot with full bags: Leave stays where it was between the first click (the ask) and the second, which leaves (s0152, s0154)',
-        !!b0 && !!b1 && Math.abs(b0.x - b1.x) < 0.5 && Math.abs(b0.y - b1.y) < 0.5 && Math.abs(b0.width - b1.width) < 0.5 && /^Leave \d+ items? behind\? Click Leave again\.$/.test(ask || '') && fullyShown(askShown) && gone,
-        JSON.stringify({ b0, b1, ask, ask2: placeText(askShown), gone }));
+      // demo blind round 2 R2-3 (was: Leave asks, then a second click leaves): one click moves on, the foot says why first
+      const go = page.locator('.loot .foot .btn.primary');
+      const label = await go.innerText();
+      const note = await placement(page.locator('.loot .foot .bfull'));
+      await shot(page, 'Z3-loot-full');
+      await go.click(); await idle(page);
+      const gone = await page.evaluate(() => { const v = window.__ui.view(); return !(v.loot && v.loot.kind === 'loot'); }); // a reward window may follow
+      check('Z-3', 'loot with full bags: the foot says the bags are full (in full view) and one click on Continue / Take what fits (Space) moves on',
+        /^(Continue|Take what fits)/.test(label) && fullyShown(note) && gone, JSON.stringify({ label, note: placeText(note), gone }));
     } catch (e) { await shot(page, 'Z3-error'); check('Z-3', 'part Z3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Z-3', 'part Z3: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   {
     const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
-    const fill = (s) => { for (let k = 0; s.player.bag.length < withLegacy(() => R.bagCapacity(s)); k++) s.player.bag.push({ uid: `zj${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', rarity: 'poor', value: 1, count: 1, ilvl: 1 }); return s; };
+    // demo blind round 2 R2-3: junk is sold after every step, so the bags are filled with gear (copies of a worn piece)
+    const fill = (s) => { const g = Object.values(s.player.equipped).find(Boolean); for (let k = 0; s.player.bag.length < withLegacy(() => R.bagCapacity(s)); k++) s.player.bag.push({ ...JSON.parse(JSON.stringify(g)), uid: `zj${k}` }); return s; };
     const load = async (s) => { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page); };
     try {
       await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
@@ -7267,7 +7271,8 @@ async function partAA0(browser, W, H) {
   const auto = async (page, until, n = 300) => { for (let i = 0; i < n && !(await page.evaluate(until)); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } };
   const nodeState = async (page) => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
   const load = async (page, s) => { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page); };
-  const fill = (s, free = 0) => { for (let k = 0; s.player.bag.length < R.bagCapacity(s) - free; k++) s.player.bag.push({ uid: `aj${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', rarity: 'poor', value: 1, qty: 1, level: 1 }); return s; };
+  // demo blind round 2 R2-3: junk is sold after every step, so the bags are filled with gear (copies of a worn piece)
+  const fill = (s, free = 0) => { const g = Object.values(s.player.equipped).find(Boolean); for (let k = 0; s.player.bag.length < R.bagCapacity(s) - free; k++) s.player.bag.push({ ...JSON.parse(JSON.stringify(g)), uid: `aj${k}` }); return s; };
   // ---- AA1: the hall's cards
   {
     const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=5', { [Y_KEY]: JSON.stringify(hunter(63)) });
@@ -7355,15 +7360,13 @@ async function partAA0(browser, W, H) {
       await load(page, s2);
       const take = await page.evaluate(async () => { const v = window.__ui.view(); const r = await window.__ui.act({ type: 'LOOT_TAKE', i: v.loot.items.findIndex((x) => x.uid === 'aa-loot') }); return r ? r.error : null; });
       const foot = await page.locator('.loot .foot .bfull').innerText().catch(() => null);
-      const leave = page.locator('.loot .foot').getByRole('button', { name: 'Leave' });
-      await leave.click(); await idle(page);
-      const ask = await page.evaluate(() => ({ ask: (document.querySelector('.loot .foot .lleave') || {}).innerText || null, rows: document.querySelectorAll('.loot .lrow').length, leaving: [...document.querySelectorAll('.loot .lrow.leaving')].map((r) => [r.dataset.uid, r.innerText.includes('left behind')]) }));
-      await shot(page, 'AA3-loot-leave-ask');
+      await shot(page, 'AA3-loot-full');
       check('AA-3', 'a Take the bags cannot hold answers the one full-bags sentence; the loot window\'s foot says it too', take === BAGS_FULL && foot === BAGS_FULL, JSON.stringify({ take, foot }));
-      check('AA-3', 'Leave asks for exactly the rows it marks "left behind" (s0478)', ask.ask === 'Leave 1 item behind? Click Leave again.' && ask.leaving.length === 1 && ask.leaving[0][0] === 'aa-loot' && ask.leaving[0][1], JSON.stringify(ask));
-      await leave.click(); await idle(page);
+      // demo blind round 2 R2-3 (was: Leave asks first): with nothing that fits, Continue (Space) is the one button and one click leaves it
+      const btns = await page.evaluate(() => [...document.querySelectorAll('.loot .foot .btn')].map((b) => b.textContent));
+      await page.locator('.loot .foot .btn.primary').click(); await idle(page);
       const after = await nodeState(page);
-      check('AA-3', 'and the second click leaves it', !(after.loot || []).length, JSON.stringify(after.loot));
+      check('AA-3', 'one button, Continue (Space); one click leaves it', btns.length === 1 && /^Continue/.test(btns[0]) && !(after.loot || []).length, JSON.stringify({ btns, loot: after.loot }));
     } catch (e) { await shot(page, 'AA3-error'); check('AA-3', 'part AA3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('AA-3', 'part AA3: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -7420,9 +7423,12 @@ async function partAA0(browser, W, H) {
       const rows = await page.evaluate(() => [...document.querySelectorAll('.loot .lrow')].map((r) => r.innerText.replace(/\s+/g, ' ').trim()));
       await shot(page, 'AA5-junk-stack');
       check('AA-5', 'two of the same junk in the loot window are one row with a count (s0426)', rows.length === 2 && rows.some((r) => /^Torn Pelt ×2\b/.test(r)) && rows.filter((r) => r.startsWith('Torn Pelt')).length === 1, JSON.stringify(rows));
+      const nd = await page.evaluate(() => window.__ui.engineLog().length);
       await page.locator('.loot .lrow', { hasText: 'Torn Pelt' }).getByRole('button', { name: 'Drop' }).click(); await idle(page);
       const left = (await nodeState(page)).loot.map((x) => x.name);
-      check('AA-5', 'Drop on the stack drops every piece of it', left.length === 1 && left[0] === 'Bent Buckle', JSON.stringify(left));
+      const sent = await page.evaluate((n) => window.__ui.engineLog().slice(n), nd);
+      // demo blind round 2 R2-3: after the step the rest of the junk (bags and loot window) is sold at once (CASH_JUNK)
+      check('AA-5', 'Drop on the stack drops every piece of it; then the rest of the junk is sold (CASH_JUNK)', JSON.stringify(sent.filter((a) => a.type === 'LOOT_DROP').map((a) => a.itemId)) === '["aa5-1","aa5-2"]' && sent.some((a) => a.type === 'CASH_JUNK') && left.length === 0, JSON.stringify({ left, sent }));
       await page.evaluate(() => window.__ui.act({ type: 'LOOT_CLOSE' })); await idle(page);
       // a vendor with junk in the bags: sold on opening, one log line
       await auto(page, () => window.__ui.view().phase === 'ZONE_HUB' || window.__ui.view().phase === 'SUMMARY', 400);
@@ -7446,9 +7452,10 @@ async function partAA0(browser, W, H) {
  * and -newcomer), real engine at Instant speed.
  *   AD1 the guided Rogue run (seed 8736, a new profile, hints on): in zone 1 no coach line covers the action bar, the control
  *       row or a nameplate (an enemy's intents) in any fight; none of H24, H29 and U02 shows while the guide runs.
- *   AD2 the speed button in the combat log's header: it follows Settings' Animation speed and cycles 1x, 2x, 4x, Instant.
+ *   AD2 the speed button (demo blind round 2 R2-5: beside Autoplay): it follows Settings' Animation speed and cycles 1x, 2x,
+ *       4x, Instant, Speedrun.
  *   AD3 a run to its end: "Same hero" goes from the summary to the start camp with the same class (END_RUN, START_RUN), and
- *       "Begin a new run" still goes to hero select; with hints off the summary has no glowing Spend Echoes or nudge line and
+ *       "Choose a hero" (R2-5; was "Begin a new run") still goes to hero select; with hints off the summary has no glowing Spend Echoes or nudge line and
  *       the Legacy hall shows no coach line and no marked card.
  *   AD4 the level-up banner: a toast that comes while it shows waits and follows it; a refusal shows at once.
  *   AE  R2-6 (blind demo round 2, smaller items; draft text): on a later run the start camp's Contracts heading says "up to four at a time"
@@ -7491,13 +7498,16 @@ async function partAD(browser, W, H) {
     try {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       for (let i = 0; i < 80 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } // the HUD shows from the first fight on
-      const btn = page.locator('#combatlog .speedbtn');
-      const read = async () => ({ text: (await btn.innerText()).replace(/\s+/g, ' '), speed: await page.evaluate(() => window.__ui.settings.get('speed')) });
+      // demo blind round 2 R2-5: the button sits beside Autoplay in the control row, and Speedrun mode is its last step
+      const btn = page.locator('#actionbar .ctrl .speedbtn');
+      const read = async () => ({ text: `Speed ${(await btn.locator('b').innerText()).trim()}`, speed: await page.evaluate(() => window.__ui.settings.get('speed')), run: await page.evaluate(() => !!window.__ui.settings.get('speedrun')) });
       const seq = [await read()];
-      for (let k = 0; k < 4; k++) { await btn.click(); seq.push(await read()); }
-      const want = [['Speed Instant', 0], ['Speed 1×', 1], ['Speed 2×', 2], ['Speed 4×', 4], ['Speed Instant', 0]];
-      check('AD-2', 'the speed button in the combat log header cycles Instant, 1×, 2×, 4×, Instant and sets Animation speed', seq.every((x, i) => x.text.toUpperCase() === want[i][0].toUpperCase() && x.speed === want[i][1]), JSON.stringify(seq));
-      await btn.click(); // 1x
+      for (let k = 0; k < 5; k++) { await btn.click(); seq.push(await read()); }
+      const want = [['Speed Instant', 0, false], ['Speed Speedrun', 0, true], ['Speed 1×', 1, false], ['Speed 2×', 2, false], ['Speed 4×', 4, false], ['Speed Instant', 0, false]];
+      check('AD-2', 'the speed button beside Autoplay cycles Instant, Speedrun, 1×, 2×, 4×, Instant and sets Animation speed and Speedrun mode', seq.every((x, i) => x.text.toUpperCase() === want[i][0].toUpperCase() && x.speed === want[i][1] && x.run === want[i][2]), JSON.stringify(seq));
+      const box = await page.evaluate(() => { const r = (q) => { const b = document.querySelector(q).getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; }; return { auto: r('#actionbar .ctrl .toggle'), speed: r('#actionbar .ctrl .speedbtn') }; });
+      check('AD-2', 'Speed is next to Autoplay (same row, to its right)', Math.abs(box.auto.t - box.speed.t) < 8 && box.speed.l >= box.auto.r && box.speed.l - box.auto.r < 20, JSON.stringify(box));
+      await btn.click(); await btn.click(); // Speedrun, then 1x
       await page.evaluate(() => window.__ui.openWin('settings')); await idle(page);
       const on = await page.evaluate(() => [...document.querySelectorAll('#win-settings .seg button.on')].map((b) => b.textContent));
       check('AD-2', 'Settings shows the same Animation speed as the button (1×)', on.includes('1×'), JSON.stringify(on));
@@ -7517,9 +7527,9 @@ async function partAD(browser, W, H) {
       for (let i = 0; i < 3000 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       await page.locator('.summary .sfoot').waitFor(); await page.waitForTimeout(3200); await idle(page);
       const foot = await page.evaluate(() => ({ same: !!document.querySelector('.summary .sfoot [data-same]'), glow: !!document.querySelector('.sfoot .btn.glow'), nudge: !!document.querySelector('.sfoot .nudgeline'), labels: [...document.querySelectorAll('.summary .sfoot .btn')].map((b) => b.textContent.replace(/\d+$/, '').trim()) }));
-      check('AD-3', 'the run end has "Same hero" beside "Begin a new run"; with hints off Spend Echoes does not glow and has no nudge line', foot.same && foot.labels.includes('Same hero') && foot.labels.includes('Begin a new run') && !foot.glow && !foot.nudge, JSON.stringify(foot));
+      check('AD-3', 'the run end has "Same hero" beside "Choose a hero"; with hints off Spend Echoes does not glow and has no nudge line', foot.same && foot.labels.includes('Same hero') && foot.labels.includes('Choose a hero') && !foot.glow && !foot.nudge, JSON.stringify(foot));
       // hints off: the hall shows no coach line and no marked card
-      await page.locator('.summary .sfoot .btn.primary').click(); await idle(page);
+      await page.locator('.summary .sfoot [data-end="hall"]').click(); await idle(page);
       const hall = await page.evaluate(() => ({ open: window.__ui.metaOpen(), coach: !!document.querySelector('#coach:not(.hidden)'), card: !!document.querySelector('#meta .mcard.nudge'), shown: window.__ui.coach().shown }));
       await shot(page, 'AD3-hall-hints-off');
       check('AD-3', 'hints off: the Legacy hall shows no coach line and no marked card (s0071)', hall.open && !hall.coach && !hall.card && !hall.shown, JSON.stringify(hall));
@@ -7558,6 +7568,156 @@ async function partAD(browser, W, H) {
         /\bon\b/.test(during.banner) && /level/.test(during.banner) && during.b1 === 'Level 2' && during.toasts.length === 0 && err.length === 1 && err[0] === 'Not enough mana' && after.toasts.includes('Contract complete: Cull reedfolk') && !/\bon\b/.test(after.banner), JSON.stringify({ during, err, after }));
     } catch (e) { await shot(page, 'AD4-error'); check('AD-4', 'part AD4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('AD-4', 'part AD4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
+/**
+ * Part AE - demo blind round 2, R2-3 to R2-5 (docs/handoffs/ui-2026-11-26d.md; feedback 2026-11-26-blind-demo-returning and
+ * -skipper-retest), real engine. States are made in Node (R.debug) and loaded (window.__ui.loadState).
+ *   AE1 the Bell rung in the Dimming with Autoplay on and Instant speed: the confirm names the fight's enemies and its threat
+ *       (the engine's own step, the same enemies the fight then has); in the fight autoplay is off and the speed held at 1x
+ *       (the setting kept); the hero (far below the enemies) dies: the fight's last moment stays on screen at least
+ *       1 s before the fallen screen.
+ *   AE2 the loot window with room for one of two items: "Take what fits" (Space) and "Leave 2 behind"; Leave is one click.
+ *   AE3 full bags: Space takes what fits, leaves the rest and moves on; the bags-full line is said once (the window's foot,
+ *       no toast, no log line).
+ *   AE4 the vendor: an upgrade in stock reads "Buy and equip"; one click buys it and puts it on.
+ *   AE5 a quest reward: the default pick's button (Space) takes it; Accept shows its key; Autoplay turned on by the player is
+ *       on again in the next run (Same hero).
+ */
+async function partAE(browser, W, H) {
+  const load = async (page, st) => { await idle(page); const ok = await page.evaluate((x) => window.__ui.loadState(x), R.serialize(st)); await idle(page); return ok; };
+  const fillGear = (st, free) => { const g = st.player.equipped.chest; let k = 0; while (st.player.bag.length < R.bagCapacity(st) - free) st.player.bag.push({ ...g, uid: `ae-fill-${k++}` }); return st; };
+  // ---- AE1
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=3&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let st = R.debug.build({ content: CONTENT, classId: 'rogue', zone: 2, level: 6, seed: 3 }).state;
+      st = R.step(st, { type: 'LEAVE_HUB' }).state;
+      const n = [...R.mapView(st).nodes].filter((x) => !x.hub).sort((a, b) => a.dimAt - b.dimAt)[0];
+      st.zone.pos = n.id; st.zone.start -= n.dimAt + 3; st.autoplay = true;
+      check('AE-1', 'a zone 2 state on a Dimmed node loads', await load(page, st), '');
+      const want = R.step(st, { type: 'RING_BELL' }).state.fight.enemies.map((e) => e.name);
+      await page.locator('#screens .expmap .mhead [data-leave="RING_BELL"]').click(); await idle(page);
+      const ask = await page.evaluate(() => { const f = document.querySelector('.leavewarn .lw-foes'); return f ? { text: f.innerText, threat: f.dataset.threat } : null; });
+      await shot(page, 'AE1-bell-confirm');
+      check('AE-1', 'the Bell\'s confirm names the fight in the Dimming, its enemies and its threat, and that autoplay and speed pause', !!ask && want.every((nm) => ask.text.includes(nm)) && /Threat: Deadly\./.test(ask.text) && ask.threat === 'deadly' && /Autoplay and fast speed pause for this fight\./.test(ask.text), JSON.stringify({ ask, want }));
+      const t0 = await page.evaluate(() => { window.__aeT = { sum: 0, dying: 0 }; const tick = () => { const now = performance.now(); if (!window.__aeT.dying && document.body.classList.contains('dying')) window.__aeT.dying = now; if (!window.__aeT.sum && window.__ui.view().phase === 'SUMMARY') window.__aeT.sum = now; if (!window.__aeT.dying) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return performance.now(); });
+      await page.locator('.leavewarn [data-go="RING_BELL"]').click();
+      await page.waitForFunction(() => { const v = window.__ui.view(); return v.combat && !v.combat.over && !v.autoplay; }, null, { timeout: 10000 });
+      await idle(page);
+      const inF = await page.evaluate(() => ({ auto: window.__ui.view().autoplay, held: window.__ui.settings.held, speed: window.__ui.settings.get('speed'), btn: document.querySelector('#actionbar .speedbtn b').textContent, names: window.__ui.view().combat.enemies.map((e) => e.name), log: [...document.querySelectorAll('#combatlog .lines > *')].map((x) => x.textContent).slice(-6) }));
+      await shot(page, 'AE1-bell-fight');
+      check('AE-1', 'in the Bell\'s fight autoplay is off, the speed held at 1× (Instant kept as the setting), one log line says so; the enemies are the confirm\'s', !inF.auto && inF.held && inF.speed === 0 && inF.btn === '1×' && inF.log.some((l) => /autoplay and fast speed pause for it/.test(l)) && JSON.stringify(inF.names) === JSON.stringify(want), JSON.stringify(inF));
+      // the player turns autoplay on again (Z): the hero, 18 levels below, dies
+      await page.keyboard.press('KeyZ');
+      await page.waitForFunction(() => window.__ui.view().phase === 'SUMMARY', null, { timeout: 120000 });
+      await page.waitForFunction(() => window.__aeT.dying > 0, null, { timeout: 15000 });
+      const tm = await page.evaluate(() => window.__aeT);
+      await idle(page);
+      const after = await page.evaluate(() => ({ held: window.__ui.settings.held }));
+      check('AE-1', `a death in it: the fight's last moment stays ${Math.round(tm.dying - tm.sum)} ms (at least 1 000) before the fallen screen; the hold ends with the fight`, tm.sum > t0 && tm.dying - tm.sum >= 1000 && !after.held, JSON.stringify({ tm, after }));
+    } catch (e) { await shot(page, 'AE1-error'); check('AE-1', 'part AE1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AE-1', 'part AE1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AE2, AE3
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=2&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const base = () => R.debug.build({ content: CONTENT, classId: 'rogue', zone: 1, level: 3, seed: 2 }).state;
+      const g = base().player.equipped.chest;
+      let st = fillGear(base(), 1);
+      st.loot.push({ ...g, uid: 'ae-w1', name: 'First Vest' }, { ...g, uid: 'ae-w2', name: 'Second Vest' });
+      await load(page, st);
+      const foot = await page.evaluate(() => ({ btns: [...document.querySelectorAll('.loot .foot .btn')].map((b) => b.textContent), note: (document.querySelector('.loot .foot .bfull') || {}).textContent || null }));
+      await shot(page, 'AE2-loot-fits');
+      check('AE-2', 'room for one of two: "Leave 2 behind" and "Take what fits" (Space); the foot says the bags are full', foot.btns.includes('Leave 2 behind') && foot.btns.some((b) => /^Take what fits/.test(b)) && !!foot.note, JSON.stringify(foot));
+      const n0 = await page.evaluate(() => window.__ui.engineLog().length);
+      await page.locator('.loot .foot [data-leave]').click(); await idle(page);
+      const left = await page.evaluate((n) => ({ loot: !!window.__ui.view().loot, log: window.__ui.engineLog().slice(n).map((a) => a.type) }), n0);
+      check('AE-2', 'Leave is one click: both items dropped, the window closed', !left.loot && left.log.filter((t) => t === 'LOOT_DROP').length === 2, JSON.stringify(left));
+      // AE3: full bags
+      st = fillGear(base(), 0);
+      st.loot.push({ ...g, uid: 'ae-w3', name: 'Third Vest' });
+      await load(page, st);
+      const lines0 = await page.evaluate(() => document.querySelectorAll('#combatlog .lines > *').length);
+      const f3 = await page.evaluate(() => ({ btns: [...document.querySelectorAll('.loot .foot .btn')].map((b) => b.textContent), notes: document.querySelectorAll('.loot .bfull').length, toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent) }));
+      await shot(page, 'AE3-loot-full');
+      await page.keyboard.press('Space'); await idle(page);
+      const a3 = await page.evaluate((k) => ({ loot: !!window.__ui.view().loot, lines: [...document.querySelectorAll('#combatlog .lines > *')].slice(k).map((x) => x.textContent), toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent) }), lines0);
+      check('AE-3', 'full bags: one button, Continue (Space), and one bags-full line in the foot, no toast', f3.btns.length === 1 && /^Continue/.test(f3.btns[0]) && f3.notes === 1 && !f3.toasts.some((t) => /bags are full/i.test(t)), JSON.stringify(f3));
+      check('AE-3', 'Space moves on: the window closes; the log names what stayed, and no bags-full line or toast is added', !a3.loot && a3.lines.some((l) => l === 'Left behind (bags full): Third Vest.') && !a3.lines.some((l) => /bags are full/i.test(l)) && !a3.toasts.some((t) => /bags are full/i.test(t)), JSON.stringify(a3));
+    } catch (e) { await shot(page, 'AE2-error'); check('AE-2', 'part AE2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AE-2', 'part AE2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AE4
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=4&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const st = R.debug.build({ content: CONTENT, classId: 'rogue', zone: 1, level: 3, seed: 4 }).state;
+      // the vendor's stock: open it in Node to see its gear, then empty those slots so each piece is an upgrade
+      const open1 = R.step(st, { type: 'SERVICE', service: 'vendor' }).state;
+      const gear = open1.service.stock.filter((x) => x.kind === 'gear');
+      for (const x of gear) st.player.equipped[x.item.slot] = null;
+      st.player.gold = 1e6;
+      await load(page, st);
+      await page.locator('.svc-card', { has: page.locator('.nm', { hasText: /^Vendor$/ }) }).click(); await idle(page);
+      const b = page.locator('.svc .vendor-cols > div:nth-child(1) .trow button', { hasText: 'Buy and equip' }).first();
+      const cnt = await page.locator('.svc .vendor-cols > div:nth-child(1) .trow button', { hasText: 'Buy and equip' }).count();
+      const i = Number(await b.evaluate((x) => x.closest('.trow').dataset.i));
+      await shot(page, 'AE4-vendor');
+      await b.click(); await idle(page);
+      const it = gear.find((x) => open1.service.stock.indexOf(x) === i) || open1.service.stock[i];
+      const worn = await page.evaluate((slot) => { const e = window.__ui.view().player.equip[slot]; return e ? e.uid : null; }, it.item.slot);
+      check('AE-4', `the vendor's upgrades read "Buy and equip" (${cnt}); one click buys and puts it on`, cnt === gear.length && cnt > 0 && worn === it.item.uid, JSON.stringify({ cnt, gear: gear.length, worn, want: it.item.uid }));
+    } catch (e) { await shot(page, 'AE4-error'); check('AE-4', 'part AE4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AE-4', 'part AE4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AE5
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let accept = null; let pick = null;
+      for (let i = 0; i < 400; i++) {
+        const v = await page.evaluate(() => { const v = window.__ui.view(); return { intro: !!(v.node && v.node.step === 'intro' && v.node.type === 'quest'), reward: !!(v.loot && v.loot.kind === 'reward'), phase: v.phase }; });
+        if (v.intro && !accept) accept = await page.evaluate(() => { const b = [...document.querySelectorAll('#screens .dialog .btn.primary')].find((x) => /^Accept/.test(x.textContent)); return b ? b.textContent : null; });
+        if (v.reward) {
+          pick = await page.evaluate(() => { const b = document.querySelector('#screens .dialog .btn.dpick'); return b ? { text: b.textContent, i: Number(b.dataset.pick), card: [...document.querySelectorAll('.choice-cards .icard')].findIndex((c) => c.classList.contains('dflt')) } : null; });
+          await shot(page, 'AE5-reward');
+          const n0 = await page.evaluate(() => window.__ui.engineLog().length);
+          await page.keyboard.press('Space'); await idle(page);
+          const sent = await page.evaluate((n) => window.__ui.engineLog().slice(n), n0);
+          check('AE-5', 'a quest reward has a default pick (marked card, its button with Space); Space takes it', !!pick && pick.i === pick.card && /Space$/.test(pick.text) && sent.some((a) => a.type === 'CHOOSE_REWARD' && a.index === pick.i), JSON.stringify({ pick, sent }));
+          break;
+        }
+        if (v.phase === 'SUMMARY') break;
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      check('AE-5', 'Accept shows its key (Space)', accept === 'AcceptSpace', String(accept));
+      // Autoplay on by the player (Z in a fight), kept into the next run
+      for (let i = 0; i < 200 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over && !v.loot); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      await page.keyboard.press('KeyZ'); await idle(page);
+      const stored = await page.evaluate(() => window.__ui.settings.get('autoplay'));
+      for (let i = 0; i < 3000 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      await page.locator('.summary .sfoot [data-same]').waitFor(); await page.waitForTimeout(3200); await idle(page);
+      const end = await page.evaluate(() => [...document.querySelectorAll('.summary .sfoot .btn')].map((b) => [b.dataset.end, b.textContent.replace(/\d+$/, '').trim(), b.classList.contains('primary')]));
+      check('AE-5', 'the run end: Spend Echoes, Choose a hero, Same hero (primary), in that order', JSON.stringify(end.map((x) => x[0])) === '["hall","hero","same"]' && end[2][2] && end[1][1] === 'Choose a hero', JSON.stringify(end));
+      await page.locator('.summary .sfoot [data-same]').hover(); await page.waitForTimeout(300);
+      const tipText = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText : ''; });
+      check('AE-5', '"Same hero" explains itself in its tooltip', /starts at once/.test(tipText) && /start camp/.test(tipText), tipText);
+      await page.locator('.summary .sfoot [data-same]').click(); await idle(page);
+      const nx = await page.evaluate(() => ({ phase: window.__ui.view().phase, auto: window.__ui.view().autoplay, own: window.__ui.ownActions().slice(-1)[0] }));
+      check('AE-5', 'Autoplay turned on by the player is on again in the next run', stored === true && nx.phase === 'PREP' && nx.auto === true && nx.own && nx.own.type === 'SET_AUTOPLAY' && nx.own.on === true, JSON.stringify({ stored, nx }));
+    } catch (e) { await shot(page, 'AE5-error'); check('AE-5', 'part AE5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AE-5', 'part AE5: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }

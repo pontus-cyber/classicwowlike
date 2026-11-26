@@ -171,7 +171,9 @@ async function oneRun(n, cls) {
   } else {
     check(await page.locator('.summary [data-same]').count() === 1, `run ${n}: no Same hero button on the summary`);
     check(!out.block, `run ${n}: a death shows the demo block`);
-    await page.getByRole('button', { name: 'Begin a new run' }).click();
+    // demo blind round 2 R2-5: the same buttons as the demo end ("Choose a hero" was "Begin a new run")
+    check(await page.locator('.summary [data-end="hero"]').count() === 1 && await page.locator('.summary [data-end="hall"]').count() === 1, `run ${n}: the death summary lacks the demo end's buttons`);
+    await page.locator('.summary [data-end="hero"]').click();
   }
   await idle();
   check((await page.evaluate(() => window.__ui.view().phase)) === 'CREATE', `run ${n}: not back at hero select`);
