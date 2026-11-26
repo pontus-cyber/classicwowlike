@@ -32,7 +32,7 @@ What an early leave pays [source: tester run 1, re-played by the UI test seed 21
 
 **The welcome:** not paid on an early leave; it stays due and the next run that is not left early pays it (a death pays it, as today). Reason: it is a gift for playing the first run, and paying it on a two-minute exit made that exit the best-paying run of the demo.
 
-Full game: sim/blindahash.mjs against 3d009eb, seeds 1000-1009: off 200/200 and Legacy 180/180 run hashes identical; demo runs 14/60 identical (meant to change: the win counter is part of a demo run's state).
+Full game: sim/blindahash.mjs against 3d009eb and b7a629d, seeds 1000-1009: off 200/200 and Legacy 180/180 run hashes identical; demo runs 14/60 identical (meant to change: the win counter is part of a demo run's state).
 
 ## 3. R2-2: set-up
 
