@@ -42,10 +42,10 @@ function inZone2(classId, seed, H = 3) {
 }
 
 describe('demo.md 2.1-2.2, 10 (A6): applyDemo and the constants', () => {
-  test('the switch is off by default; DEMO_GATES is every main default plus legacy, oruvathLegacy, economyV2 and demo', () => {
+  test('the switch is off by default; DEMO_GATES is every main default plus legacy, oruvathLegacy, economyV2, eliteSpread and demo', () => {
     assert.equal(C.GATES.demo, false);
     const main = { ...C.GATES };
-    const want = { ...main, legacy: true, oruvathLegacy: true, economyV2: true, demo: true };
+    const want = { ...main, legacy: true, oruvathLegacy: true, economyV2: true, eliteSpread: true, demo: true };
     assert.deepEqual({ ...C.DEMO_GATES }, want);
     assert.ok(Object.isFrozen(C.DEMO_GATES));
     for (const k of ['swiftRoad', 'campReroll']) assert.equal(C.DEMO_GATES[k], false, k);
